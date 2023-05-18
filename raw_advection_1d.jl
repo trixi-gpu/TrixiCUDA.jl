@@ -6,10 +6,10 @@ using Trixi, LinearAlgebra, OrdinaryDiffEq, Plots
 # Create 1D mesh by setting minimum coordinate and maximum coordinate(physical domain),
 # give the number of elements Q_{l} to split for physical domain and calculate 
 # the length of each element Q_{l}
-coordinates_min = -1.0 
-coordinates_max = 1.0  
-n_elements      = 16  
-dx = (coordinates_max - coordinates_min) / n_elements
+coordinates_min = -1.0
+coordinates_max = 1.0
+n_elements      = 16
+dx              = (coordinates_max - coordinates_min) / n_elements
 
 # Define the polynomial degree to approximate the solution in each Q_{l},
 # the Lagrange basis funtions are chosen as the polynomial basis
@@ -26,7 +26,7 @@ nodes = basis.nodes
 # Matrix D, M, and B are used for calculating du(t) = (du_{0}(t), ..., du_{N}(t))^{T}
 # for each Q_{l} and here du is a simple representation of ∂u(x, t)/∂t 
 D = basis.derivative_matrix
-M = diagm(basis.weights) 
+M = diagm(basis.weights)
 B = diagm([-1; zeros(polydeg - 1); 1])
 
 # Create a N+1 by n_elements matrix x, each element x_{ij} is the transformed 
@@ -35,11 +35,11 @@ B = diagm([-1; zeros(polydeg - 1); 1])
 # --------------------------------------------------------------------- Need Rewrite--------
 x = Matrix{Float64}(undef, length(nodes), n_elements)
 for element in 1:n_elements
-    x_l = -1 + (element - 1) * dx + dx/2
-    for i in eachindex(nodes)       # Change from length() to eachindex()
-        ξ = nodes[i]
-        x[i, element] = x_l + dx/2 * ξ
-    end
+	x_l = -1 + (element - 1) * dx + dx / 2
+	for i in eachindex(nodes)       # Change from length() to eachindex()
+		ξ = nodes[i]
+		x[i, element] = x_l + dx / 2 * ξ
+	end
 end
 # ------------------------------------------------------------------------------------------
 
@@ -58,64 +58,64 @@ surface_flux = flux_lax_friedrichs
 # the given vectors, u(t) = (u_{0}(t), ..., u_{N}(t))^{T} and u^{*}(t), for each Q_{l}
 # --------------------------------------------------------------------- Need Rewrite--------
 function rhs!(du, u, x, t)
-    # Reset du matrix to zero
-    du .= zero(eltype(du))      # du is set to zero in solve() before being taken 
-                                # into the algo if f(rhs!) is inplace, but comment 
-                                # this line will cause "retcode: Unstable"
+	# Reset du matrix to zero
+	du .= zero(eltype(du))      # du is set to zero in solve() before being taken 
+	# into the algo if f(rhs!) is inplace, but comment 
+	# this line will cause "retcode: Unstable"
 
-    # Set flux matrix to zero
-    flux_numerical = copy(du)
+	# Set flux matrix to zero
+	flux_numerical = copy(du)
 
-    # Calculate interface and boundary fluxes, given function f^{*}(u) = u^{*}(u_{L}, u_{R})
-    equations = LinearScalarAdvectionEquation1D(1.0)
+	# Calculate interface and boundary fluxes, given function f^{*}(u) = u^{*}(u_{L}, u_{R})
+	equations = LinearScalarAdvectionEquation1D(1.0)
 
-    for element in 2:n_elements-1       # In this for loop, values in flux_numerical
-                                        # are computed repeatedly, not both left interface
-                                        # and right interface are needed for each element
+	for element in 2:n_elements-1       # In this for loop, values in flux_numerical
+		# are computed repeatedly, not both left interface
+		# and right interface are needed for each element
 
-        # Get left interface of Q_{l} where l = element 
-        flux_numerical[1, element] = surface_flux(u[end, element-1], u[1, element], 1, equations)
-        flux_numerical[end, element-1] = flux_numerical[1, element]
+		# Get left interface of Q_{l} where l = element 
+		flux_numerical[1, element] = surface_flux(u[end, element-1], u[1, element], 1, equations)
+		flux_numerical[end, element-1] = flux_numerical[1, element]
 
-        # Get right interface of Q_{l} where l = element
-        flux_numerical[end, element] = surface_flux(u[end, element], u[1, element+1], 1, equations)
-        flux_numerical[1, element+1] = flux_numerical[end, element]
-    end
+		# Get right interface of Q_{l} where l = element
+		flux_numerical[end, element] = surface_flux(u[end, element], u[1, element+1], 1, equations)
+		flux_numerical[1, element+1] = flux_numerical[end, element]
+	end
 
-    # Calculate boundary flux, the last value of the last Q_{l} is used as u_{L} in the front 
-    # boundary interface and similarly the first value of the first Q_{l} is used as u_{R}
-    # in the end boundary interface
-    flux_numerical[1, 1] = surface_flux(u[end, end], u[1, 1], 1, equations)
-    flux_numerical[end, end] = flux_numerical[1, 1]
+	# Calculate boundary flux, the last value of the last Q_{l} is used as u_{L} in the front 
+	# boundary interface and similarly the first value of the first Q_{l} is used as u_{R}
+	# in the end boundary interface
+	flux_numerical[1, 1] = surface_flux(u[end, end], u[1, 1], 1, equations)
+	flux_numerical[end, end] = flux_numerical[1, 1]
 
-    # Calculate surface integrals, each element corresponds to each Q_{l}
-    for element in 1:n_elements
-        du[:, element] -= (M \ B) * flux_numerical[:, element]
-    end
+	# Calculate surface integrals, each element corresponds to each Q_{l}
+	for element in 1:n_elements
+		du[:, element] -= (M \ B) * flux_numerical[:, element]
+	end
 
-    # Calculate volume integrals, each element corresponds to each Q_{l}
-    for element in 1:n_elements
-        flux = u[:, element]
-        du[:, element] += (M \ transpose(D)) * M * flux
-    end
+	# Calculate volume integrals, each element corresponds to each Q_{l}
+	for element in 1:n_elements
+		flux = u[:, element]
+		du[:, element] += (M \ transpose(D)) * M * flux
+	end
 
-    # Apply Jacobian from mapping to reference element
-    for element in 1:n_elements
-        du[:, element] *= 2 / dx
-    end
+	# Apply Jacobian from mapping to reference element
+	for element in 1:n_elements
+		du[:, element] *= 2 / dx
+	end
 
-    return nothing
+	return nothing
 end
 # ------------------------------------------------------------------------------------------
 
 # Create ODE problem
 tspan = (0.0, 2.0)
 ode = ODEProblem(rhs!, u0, tspan)   # No need to take in x parameter, since x does not 
-                                    # act as the parameter outside u(x, t) and the rhs!() 
-                                    # function does not use x 
+# act as the parameter outside u(x, t) and the rhs!() 
+# function does not use x 
 
 # Solve ODE problem
-sol = solve(ode, RDPK3SpFSAL49(), abstol=1.0e-6, reltol=1.0e-6, save_everystep=false)
+sol = solve(ode, RDPK3SpFSAL49(), abstol = 1.0e-6, reltol = 1.0e-6, save_everystep = false)
 
 # @ODEProblem() SciMLBase.jl/src/problems/ode_problems.jl
 # @solve() ODE.jl/src/common.jl

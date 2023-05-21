@@ -144,16 +144,123 @@ numblocks = ceil(Int, N / 256)
 # 1) 3D block; 2) 3D grid; 3) 3D block, 1D grid; 4) 1D block, 3D grid; 5) 3D block, 2D grid;
 # 6) 2D block, 3D grid; 7) 3D block, 3D grid
 
-function gpu_add!(y, x)
-	i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-	j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-	k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+# 3D block
+function gpu_add7!(y, x)
+	index_i = threadIdx().x
+	index_j = threadIdx().y
+	index_k = threadIdx().z
 
-	y[i, j, k] += x[i, j, k]
+	stride_i = blockDim().x
+	stride_j = blockDim().y
+	stride_k = blockDim().z
+
+	for i ∈ index_i:stride_i:size(y, 1)
+		for j ∈ index_j:stride_j:size(y, 2)
+			for k ∈ index_k:stride_k:size(y, 3)
+				@inbounds y[i, j, k] += x[i, j, k]
+			end
+		end
+	end
 
 	return nothing
 end
-N = 32
+
+N = 2^8
 x = CUDA.ones(N, N, N)
 y = CUDA.zeros(N, N, N)
-@cuda threads = (16, 16, 16) blocks = (2, 2, 2) gpu_add!(y, x)
+@cuda threads = (8, 8, 8) gpu_add7!(y, x)
+@test all(Array(y) .== 1.0f0)
+
+# 3D block, 1D grid
+function gpu_add8!(y, x)
+	index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+	index_j = threadIdx().y
+	index_k = threadIdx().z
+
+	stride_i = gridDim().x * blockDim().x
+	stride_j = blockDim().y
+	stride_k = blockDim().z
+
+	for i ∈ index_i:stride_i:size(y, 1)
+		for j ∈ index_j:stride_j:size(y, 2)
+			for k ∈ index_k:stride_k:size(y, 3)
+				@inbounds y[i, j, k] += x[i, j, k]
+			end
+		end
+	end
+
+	return nothing
+end
+
+N = 2^8
+x = CUDA.ones(N, N, N)
+y = CUDA.zeros(N, N, N)
+@cuda threads = (8, 8, 8) blocks = 4 gpu_add8!(y, x)
+@test all(Array(y) .== 1.0f0)
+
+# 3D block, 2D grid
+function gpu_add9!(y, x)
+	index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+	index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+	index_k = threadIdx().z
+
+	stride_i = gridDim().x * blockDim().x
+	stride_j = gridDim().y * blockDim().y
+	stride_k = blockDim().z
+
+	for i ∈ index_i:stride_i:size(y, 1)
+		for j ∈ index_j:stride_j:size(y, 2)
+			for k ∈ index_k:stride_k:size(y, 3)
+				@inbounds y[i, j, k] += x[i, j, k]
+			end
+		end
+	end
+
+	return nothing
+end
+
+N = 2^8
+x = CUDA.ones(N, N, N)
+y = CUDA.zeros(N, N, N)
+@cuda threads = (8, 8, 8) blocks = (4, 4) gpu_add9!(y, x)
+@test all(Array(y) .== 1.0f0)
+
+# 3D block, 3D grid
+function gpu_add10!(y, x)
+	index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+	index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+	index_k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+	stride_i = gridDim().x * blockDim().x
+	stride_j = gridDim().y * blockDim().y
+	stride_k = gridDim().z * blockDim().z
+
+	for i ∈ index_i:stride_i:size(y, 1)
+		for j ∈ index_j:stride_j:size(y, 2)
+			for k ∈ index_k:stride_k:size(y, 3)
+				@inbounds y[i, j, k] += x[i, j, k]
+			end
+		end
+	end
+
+	return nothing
+end
+
+N = 2^8
+x = CUDA.ones(N, N, N)
+y = CUDA.zeros(N, N, N)
+@cuda threads = (8, 8, 8) blocks = (4, 4, 4) gpu_add10!(y, x)
+@test all(Array(y) .== 1.0f0)
+
+
+
+
+
+
+
+
+
+
+
+
+

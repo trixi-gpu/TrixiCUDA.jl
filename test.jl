@@ -60,5 +60,5 @@ u0 = Array(u0)
 tspan = (0.0, 2.0)
 ode = ODEProblem(rhs!, u0, tspan)
 sol = solve(ode, RDPK3SpFSAL49(), abstol = 1.0e-6, reltol = 1.0e-6, save_everystep = false)
-plot(vec(x), vec(sol.u[end]), label = "solution at t=$(tspan[2])", legend = :topleft, lw = 3)
+# plot(vec(x), vec(sol.u[end]), label = "solution at t=$(tspan[2])", legend = :topleft, lw = 3)
 

@@ -454,9 +454,9 @@ uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "3cce72ec679a5e8e6a84ff09dd03b721de420cfe"
+git-tree-sha1 = "fa10570aee20250d446c9951b459c63529b1107c"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "1.0.1"
+version = "1.0.2"
 
 [[deps.FiniteDiff]]
 deps = ["ArrayInterface", "LinearAlgebra", "Requires", "Setfield", "SparseArrays", "StaticArrays"]
@@ -616,9 +616,9 @@ version = "1.12.2+2"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "41f7dfb2b20e7e8bf64f6b6fae98f4d2df027b06"
+git-tree-sha1 = "ba9eca9f8bdb787c6f3cf52cb4a404c0e349a0d1"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.9.4"
+version = "1.9.5"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -1365,9 +1365,9 @@ version = "0.1.0"
 
 [[deps.SLEEFPirates]]
 deps = ["IfElse", "Static", "VectorizationBase"]
-git-tree-sha1 = "cda0aece8080e992f6370491b08ef3909d1c04e7"
+git-tree-sha1 = "4b8586aece42bee682399c4c4aee95446aa5cd19"
 uuid = "476501e8-09a2-5ece-8869-fb82de89a1fa"
-version = "0.6.38"
+version = "0.6.39"
 
 [[deps.SciMLBase]]
 deps = ["ADTypes", "ArrayInterface", "CommonSolve", "ConstructionBase", "Distributed", "DocStringExtensions", "EnumX", "FunctionWrappersWrappers", "IteratorInterfaceExtensions", "LinearAlgebra", "Logging", "Markdown", "PrecompileTools", "Preferences", "RecipesBase", "RecursiveArrayTools", "Reexport", "RuntimeGeneratedFunctions", "SciMLOperators", "StaticArraysCore", "Statistics", "SymbolicIndexingInterface", "Tables", "TruncatedStacktraces"]
@@ -1667,9 +1667,9 @@ version = "0.1.2"
 
 [[deps.Trixi]]
 deps = ["CodeTracking", "ConstructionBase", "DiffEqCallbacks", "EllipsisNotation", "FillArrays", "ForwardDiff", "HDF5", "IfElse", "LinearAlgebra", "LinearMaps", "LoopVectorization", "MPI", "MuladdMacro", "Octavian", "OffsetArrays", "P4est", "Polyester", "PrecompileTools", "Printf", "RecipesBase", "Reexport", "Requires", "SciMLBase", "Setfield", "SimpleUnPack", "SparseArrays", "StartUpDG", "Static", "StaticArrayInterface", "StaticArrays", "StrideArrays", "StructArrays", "SummationByPartsOperators", "TimerOutputs", "Triangulate", "TriplotBase", "TriplotRecipes"]
-git-tree-sha1 = "999db2b9b611d946d1c3de64fb3b6d37dd167657"
+git-tree-sha1 = "6c66ea405f7b56645bea3f0860d6737ffbb833a8"
 uuid = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
-version = "0.5.23"
+version = "0.5.24"
 
 [[deps.TruncatedStacktraces]]
 deps = ["InteractiveUtils", "MacroTools", "Preferences"]

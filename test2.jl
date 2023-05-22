@@ -1,5 +1,3 @@
-### This file is for testing aws nvidia gpu
-
 using Trixi, LinearAlgebra, OrdinaryDiffEq, CUDA, Test
 
 coordinates_min = -1.0
@@ -35,12 +33,22 @@ function apply_surface_flux!(γ, u1, u2)
 	return nothing
 end
 
-# check ode problem
-# may need a external call in rhs!
+u = CUDA.fill(1.0f0, (4, 16))
+u_0 = CuArray(transpose([1.0f0; CUDA.fill(0.0f0, polydeg)]) * u * CuArray(Matrix{Float32}(I, n_elements, n_elements)[:, [2:n_elements; 1]]))
+u_N = CuArray(transpose([CUDA.fill(0.0f0, polydeg); 1.0f0]) * u)
+γ = similar(u_N)
+
+@cuda threads = 8 apply_surface_flux!(γ, u_0, u_N)
 
 
 
-function rhs!(du, u, x, t)
+
+
+
+
+
+
+#= function rhs!(du, u, x, t)
 	u = CuArray(convert(Array{Float32}, u))
 	du = CuArray{Float32}(undef, (polydeg + 1, n_elements))
 
@@ -54,15 +62,14 @@ function rhs!(du, u, x, t)
 
 	du = (-(M \ B) * λ + (M \ transpose(D)) * M * u) .* (2 / dx)
 
-	u = Array(u)
 	du = Array(du)
 
 	return nothing
 end
 
-
 u0 = Array(u0)
 
-tspan = (0.0, 2.0)
+tspan = (0.0f0, 2.0f0)
 ode = ODEProblem(rhs!, u0, tspan)
 sol = solve(ode, RDPK3SpFSAL49(), abstol = 1.0e-6, reltol = 1.0e-6, save_everystep = false)
+ =#

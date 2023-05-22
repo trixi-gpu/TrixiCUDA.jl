@@ -1,4 +1,4 @@
-### This is a test file for running CUDA sample kernels, which use different combinations 
+### This is a test file for running CUDA simple kernels, which use different combinations 
 ### of 1, 2, and 3 dimensions for both blocks and grids to conduct computing on 1D, 2D, and 
 ### 3D arrays.
 ### Note that not all the combinations are implemented here due to the similarity.
@@ -251,16 +251,3 @@ x = CUDA.ones(N, N, N)
 y = CUDA.zeros(N, N, N)
 @cuda threads = (8, 8, 8) blocks = (4, 4, 4) gpu_add10!(y, x)
 @test all(Array(y) .== 1.0f0)
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,5 +1,5 @@
-### This rewriting of discretization of 1D advection equation are based on
-### the rewrite_demo.pdf and CUDA.jl is not yet introduced
+### This rewriting of discretization of 1D advection equation are based on the rewrite demo
+### and CUDA.jl is not yet introduced.
 
 using Trixi, LinearAlgebra, OrdinaryDiffEq
 

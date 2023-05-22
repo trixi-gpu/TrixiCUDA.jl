@@ -1,5 +1,5 @@
-### Implementation of discretization of 1D advection equation and then solve
-### the transformed ODE problem
+### Implementation of discretization of 1D advection equation and then solve the 
+### transformed ODE problem.
 
 using Trixi, LinearAlgebra, OrdinaryDiffEq, Plots
 
@@ -59,9 +59,9 @@ surface_flux = flux_lax_friedrichs
 # --------------------------------------------------------------------- Need Rewrite--------
 function rhs!(du, u, x, t)
 	# Reset du matrix to zero
-	du .= zero(eltype(du))      # du is set to zero in solve() before being taken 
-	# into the algo if f(rhs!) is inplace, but comment 
-	# this line will cause "retcode: Unstable"
+	# du is set to zero in solve() before being taken into the algo if f(rhs!) is inplace, 
+	# but comment this line will cause "retcode: Unstable"
+	du .= zero(eltype(du))
 
 	# Set flux matrix to zero
 	flux_numerical = copy(du)
@@ -69,9 +69,9 @@ function rhs!(du, u, x, t)
 	# Calculate interface and boundary fluxes, given function f^{*}(u) = u^{*}(u_{L}, u_{R})
 	equations = LinearScalarAdvectionEquation1D(1.0)
 
-	for element in 2:n_elements-1       # In this for loop, values in flux_numerical
-		# are computed repeatedly, not both left interface
-		# and right interface are needed for each element
+	# In this for loop, values in flux_numerical are computed repeatedly, not both left 
+	# interface and right interface are needed for each element
+	for element in 2:n_elements-1
 
 		# Get left interface of Q_{l} where l = element 
 		flux_numerical[1, element] = surface_flux(u[end, element-1], u[1, element], 1, equations)
@@ -110,9 +110,9 @@ end
 
 # Create ODE problem
 tspan = (0.0, 2.0)
-ode = ODEProblem(rhs!, u0, tspan)   # No need to take in x parameter, since x does not 
-# act as the parameter outside u(x, t) and the rhs!() 
-# function does not use x 
+# No need to take in x parameter, since x does not act as the parameter outside u(x, t) 
+# and the rhs!() function does not use x
+ode = ODEProblem(rhs!, u0, tspan)
 
 # Solve ODE problem
 sol = solve(ode, RDPK3SpFSAL49(), abstol = 1.0e-6, reltol = 1.0e-6, save_everystep = false)

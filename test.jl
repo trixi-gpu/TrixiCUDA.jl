@@ -1,6 +1,6 @@
-### This file is for testing aws nvidia gpu
+### This file is for testing aws nvidia gpu code.
 
-using Trixi, LinearAlgebra, OrdinaryDiffEq, CUDA, Test
+using Trixi, LinearAlgebra, OrdinaryDiffEq, CUDA, Plots
 
 coordinates_min = -1.0
 coordinates_max = 1.0
@@ -35,11 +35,6 @@ function apply_surface_flux!(γ, u1, u2)
 	return nothing
 end
 
-# check ode problem
-# may need a external call in rhs!
-
-
-
 function rhs!(du, u, x, t)
 	u = CuArray(convert(Array{Float32}, u))
 	du = CuArray{Float32}(undef, (polydeg + 1, n_elements))
@@ -60,9 +55,10 @@ function rhs!(du, u, x, t)
 	return nothing
 end
 
-
 u0 = Array(u0)
 
 tspan = (0.0, 2.0)
 ode = ODEProblem(rhs!, u0, tspan)
 sol = solve(ode, RDPK3SpFSAL49(), abstol = 1.0e-6, reltol = 1.0e-6, save_everystep = false)
+plot(vec(x), vec(sol.u[end]), label = "solution at t=$(tspan[2])", legend = :topleft, lw = 3)
+

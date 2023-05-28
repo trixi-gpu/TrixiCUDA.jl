@@ -198,6 +198,6 @@ $ scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i ~/.ssh/<you
 
 Then you can directly `git clone` and `git push` (or other operations) in your EC2 instance(s).
 
-## End
+## In The End
 
 After going through the previous steps, you can use CUDA.jl on your cloud GPU through AWS. Please remember to terminate your instance(s) when you no longer need them, as they will continue to incur charges.

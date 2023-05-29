@@ -136,16 +136,16 @@ Then you should save and exit the `.bashrc` file. After opening a new terminal, 
 
 In this step, we are going to add CUDA package to Julia. Again, this is based on the fact that you have already connected to your insrance(s).
 
-Enter into Julia:
+Enter into Julia REPL:
 
 ```
 $ julia
 ```
 
-Add CUDA to Julia:
+Enter Jualia package mode and add CUDA to Julia:
 
 ```
-] add CUDA
+pkg> add CUDA
 ```
 
 Then you can simply test CUDA in Julia by creating a `test.jl` file like below:
@@ -158,7 +158,7 @@ CUDA.versioninfo()
 
 If the test result displays the version of CUDA without any errors, you have successfully added CUDA to Julia.
 
-## Enable SSH with Git Repository (optional)
+## Enable SSH with Git Repository (Optional)
 
 This step is optional but recommended for those who are going to operate their git repository on EC2 instance(s).
 

@@ -1,4 +1,4 @@
-# Tutorial - Setting Up Cloud GPU for Running CUDA.jl
+# Tutorial - Setting Up Cloud GPUs for Running CUDA.jl
 
 Welcome to this tutorial! If you're looking to use GPUs in the cloud for running Julia programs with CUDA.jl, you're in the right place. This tutorial aims to help you set up cloud GPU on Amazon Web Service (AWS) to run CUDA.jl.
 

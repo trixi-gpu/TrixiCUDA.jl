@@ -1,62 +1,55 @@
-### This file is for testing aws nvidia gpu code.
+mesh = TreeMesh(coordinates_min, coordinates_max,
+	initial_refinement_level = 2,
+	n_cells_max = 30_000)
 
-using Trixi, LinearAlgebra, OrdinaryDiffEq, CUDA, Plots
+transpose([0.0; -0.5; -0.75; -0.25; 0.5; 0.25; 0.75;;])
 
-coordinates_min = -1.0
-coordinates_max = 1.0
-n_elements      = 16
-polydeg         = 3
-dx              = (coordinates_max - coordinates_min) / n_elements
+# Rewrite `rhs!()` from `trixi/src/solvers/dgsem_tree/dg_1d.jl`
+#################################################################################
+function rhs!(du, u, t,
+	mesh::TreeMesh{1}, equations,
+	initial_condition, boundary_conditions, source_terms::Source,
+	dg::DG, cache) where {Source}
+	# Reset du
+	@trixi_timeit timer() "reset ∂u/∂t" reset_du!(du, dg, cache)
 
-basis = LobattoLegendreBasis(polydeg)
+	# Calculate volume integral
+	@trixi_timeit timer() "volume integral" calc_volume_integral!(
+		du, u, mesh,
+		have_nonconservative_terms(equations), equations,
+		dg.volume_integral, dg, cache)
 
-nodes = CuArray{Float32}(basis.nodes)
-D = CuArray(convert(Array{Float32}, basis.derivative_matrix))
-M = CuArray(convert(Array{Float32}, diagm(basis.weights)))
-B = CuArray(convert(Array{Float32}, diagm([-1; zeros(polydeg - 1); 1])))
+	# Prolong solution to interfaces
+	@trixi_timeit timer() "prolong2interfaces" prolong2interfaces!(
+		cache, u, mesh, equations, dg.surface_integral, dg)
 
-x_l = CuArray{Float32}(collect(0:n_elements-1)) .* Float32(dx) + CuArray{Float32}(fill(dx / 2 - 1, n_elements))
+	# Calculate interface fluxes
+	@trixi_timeit timer() "interface flux" calc_interface_flux!(
+		cache.elements.surface_flux_values, mesh,
+		have_nonconservative_terms(equations), equations,
+		dg.surface_integral, dg, cache)
 
-x = CuArray{Float32}(fill(1.0, polydeg + 1)) * transpose(x_l) + nodes * transpose(CuArray{Float32}(fill(1, n_elements))) .* (Float32(dx) / 2)
+	# Prolong solution to boundaries
+	@trixi_timeit timer() "prolong2boundaries" prolong2boundaries!(
+		cache, u, mesh, equations, dg.surface_integral, dg)
 
-u0 = map(x -> Float32(0.5) * sin(pi * x) + 1, x)
+	# Calculate boundary fluxes
+	@trixi_timeit timer() "boundary flux" calc_boundary_flux!(
+		cache, t, boundary_conditions, mesh,
+		equations, dg.surface_integral, dg)
 
-function apply_surface_flux!(γ, u1, u2)
-	index = threadIdx().x
-	stride = blockDim().x
+	# Calculate surface integrals
+	@trixi_timeit timer() "surface integral" calc_surface_integral!(
+		du, u, mesh, equations, dg.surface_integral, dg, cache)
 
-	surface_flux = flux_lax_friedrichs
-	equations = LinearScalarAdvectionEquation1D(1.0)
+	# Apply Jacobian from mapping to reference element
+	@trixi_timeit timer() "Jacobian" apply_jacobian!(
+		du, mesh, equations, dg, cache)
 
-	for i ∈ index:stride:length(u1)
-		@inbounds γ[i] = surface_flux(u1[i], u2[i], 1, equations)
-	end
-
-	return nothing
-end
-
-function rhs!(du, u, x, t)
-	u = CuArray(convert(Array{Float32}, u))
-	du = CuArray{Float32}(undef, (polydeg + 1, n_elements))
-
-	u_0 = transpose([1.0f0; CUDA.fill(0.0f0, polydeg)]) * u * CuArray(Matrix{Float32}(I, n_elements, n_elements)[:, [2:n_elements; 1]])
-	u_N = transpose([CUDA.fill(0.0f0, polydeg); 1.0f0]) * u
-
-	γ = similar(u_0)
-	@cuda threads = 8 apply_surface_flux!(γ, u_0, u_N)
-
-	λ = [γ * CuArray(Matrix{Float32}(I, n_elements, n_elements)[:, [n_elements; 1:n_elements-1]]); CUDA.zeros(polydeg - 1, n_elements); γ]
-
-	du = (-(M \ B) * λ + (M \ transpose(D)) * M * u) .* (2 / dx)
-
-	u = Array(u)
-	du = Array(du)
+	# Calculate source terms
+	@trixi_timeit timer() "source terms" calc_sources!(
+		du, u, t, source_terms, equations, dg, cache)
 
 	return nothing
 end
-
-u0 = Array(u0)
-
-tspan = (0.0, 2.0)
-ode = ODEProblem(rhs!, u0, tspan)
-sol = solve(ode, RDPK3SpFSAL49(), abstol = 1.0e-6, reltol = 1.0e-6, save_everystep = false)
+############################################################

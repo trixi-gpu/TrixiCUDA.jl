@@ -1,7 +1,9 @@
 # linear_advection_cuda
 
-- `raw_advection_1d.jl`, `trixi_advection_1d.jl` and `rewrite_advection_1d.jl` can run successfully
-- `simple_kernels.jl` pass all the tests for 1D, 2D, and 3D arrays
-- `gpu_advection_1d.jl` has been completed and tested successfully
-- `test.jl` and `test2.jl` are used for debugging code snippets from other files
-- `docs` folder contains related tutorials about this project and `profile` folder contains profile report for some kernels
+- The folder `trixi` stores folders from `Trixi.jl`, specifically `trixi/src`, `trixi/examples`, and `trixi/test`.
+- The file `header.jl` can be used as test environment initializer for running tests in other files like `linear_advection_1d.jl`.
+- The file `linear_advection_1d.jl` runs tests for prototyping 1D GPU code.
+- The file `simple_kernels.jl` creates sample kernels for running 1D, 2D, and 3D GPU code.
+- The folder `docs` contains useful resources for this project.
+- The folder `profile` contains contents about how to profile GPU kernels.
+- The folder `linear_adveciton` contains prework of prototyping GPU code for solving linear advection equations (currently 1D code).

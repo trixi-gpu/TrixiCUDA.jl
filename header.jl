@@ -1,5 +1,5 @@
 # Import and using packages
-using Trixi
+# using Trixi
 using CUDA
 
 using LinearAlgebra: LinearAlgebra, Diagonal, diag, dot, mul!, norm, cross, normalize, I, UniformScaling, det

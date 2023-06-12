@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "1e565deffe06a65620eb972ab496a8cd1406f65f"
+project_hash = "7f208f3c9a8f4be30af1a63691d6a278968c4779"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "dcfdf328328f2645531c4ddebf841228aef74130"
@@ -1483,9 +1483,9 @@ weakdeps = ["ChainRulesCore"]
 
 [[deps.StartUpDG]]
 deps = ["ConstructionBase", "FillArrays", "HDF5", "Kronecker", "LinearAlgebra", "NodesAndModes", "PathIntersections", "Printf", "RecipesBase", "RecursiveArrayTools", "Reexport", "Requires", "Setfield", "SimpleUnPack", "SparseArrays", "StaticArrays", "Triangulate", "WriteVTK"]
-git-tree-sha1 = "89264caa69e3bdb2db560b3f1934550692249031"
+git-tree-sha1 = "fc4d7c57bb5d07d6c5afbcd7fdfa42991adc53ac"
 uuid = "472ebc20-7c99-4d4b-9470-8fde4e9faa0f"
-version = "0.17.0"
+version = "0.16.5"
 
 [[deps.Static]]
 deps = ["IfElse"]
@@ -1666,6 +1666,18 @@ deps = ["RecipesBase", "TriplotBase"]
 git-tree-sha1 = "fceb3b0f37ff6ccf3c70b9c5198d2eefec46ada0"
 uuid = "808ab39a-a642-4abf-81ff-4cb34ebbffa3"
 version = "0.1.2"
+
+[[deps.Trixi]]
+deps = ["CodeTracking", "ConstructionBase", "DiffEqCallbacks", "EllipsisNotation", "FillArrays", "ForwardDiff", "HDF5", "IfElse", "LinearAlgebra", "LinearMaps", "LoopVectorization", "MPI", "MuladdMacro", "Octavian", "OffsetArrays", "P4est", "Polyester", "PrecompileTools", "Printf", "RecipesBase", "Reexport", "Requires", "SciMLBase", "Setfield", "SimpleUnPack", "SparseArrays", "StartUpDG", "Static", "StaticArrayInterface", "StaticArrays", "StrideArrays", "StructArrays", "SummationByPartsOperators", "TimerOutputs", "Triangulate", "TriplotBase", "TriplotRecipes"]
+git-tree-sha1 = "8421b03025acc2dd36c273664663acf2e6c13a6b"
+uuid = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
+version = "0.5.27"
+
+    [deps.Trixi.extensions]
+    TrixiMakieExt = "Makie"
+
+    [deps.Trixi.weakdeps]
+    Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [[deps.TruncatedStacktraces]]
 deps = ["InteractiveUtils", "MacroTools", "Preferences"]

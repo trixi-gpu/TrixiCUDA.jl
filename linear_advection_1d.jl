@@ -1,6 +1,6 @@
-include("header.jl") # Remove it after first run to avoid recompilation
+#include("header.jl") # Remove it after first run to avoid recompilation
 
-# The header part of tests
+# The header part of test
 advection_velocity = 1.0
 equations = LinearScalarAdvectionEquation1D(advection_velocity)
 
@@ -25,86 +25,44 @@ du = wrap_array(du_ode, mesh, equations, solver, cache)
 # Rewrite `rhs!()` from `trixi/src/solvers/dgsem_tree/dg_1d.jl`
 #################################################################################
 
-#= function reset_du!(du, dg, cache)
-	@threaded for element in eachelement(dg, cache)
-		du[.., element] .= zero(eltype(du))
-	end
+# Configure block and grid for kernel
+function configurator(kernel::CUDA.HostKernel, length::Integer)  # for 1d
+	config = launch_configuration(kernel.fun)
+	threads = min(length, config.threads)
+	blocks = cld(length, threads) # min(attribute(device(),CUDA.DEVICE_ATTRIBUTE_MAX_GRID_DIM_X), cld(length, threads))
+	return (threads = threads, blocks = blocks)
+end
 
-	return du
-end =#
+# Copy `du` and `u` to GPU
+function copy_to_gpu!(du::PtrArray, length::Integer)
+	i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
 
-# Rewrite reset_du!()
-function copy_to_gpu!(du, u, dg, cache)
-	index = threadIdx().x
-	stride = blockDim().x
-
-	for i in index:stride:nelements(dg, cache) # nelements() from `trixi/src/solvers/dgsem_tree/containers_1d.jl`
+	if i <= length # nelements() from `trixi/src/solvers/dgsem_tree/containers_1d.jl`
 		@inbounds du[.., i] = CuArray(du[.., i])
-		@inbounds u[.., i] = CuArray(u[.., i])
+		#= @inbounds u[.., i] = CuArray(u[.., i]) =#
 	end
+
+	return nothing
 end
 
-# Rewrite calc_volume_integral!()
+u_ode
+# Copy `du` and `u` to CPU
 
-
-function rhs!(du, u, t,
-	mesh::TreeMesh{1}, equations,
-	initial_condition, boundary_conditions, source_terms::Source,
-	dg::DG, cache) where {Source}
-
-	# Rewrite reset_du!()
-	threads = nelements(dg, cache)
-	@cuda threads = threads copy_to_gpu!(du, u, dg, cache)
-
-	# Rewrite calc_volume_integral!()
-	# ...
-end
+#= len = nelements(solver, cache)
+kernel = @cuda name = "copy to" launch = false copy_to_gpu!(du, len)
+kernel(du, u, solver, cache; configurator(kernel, nelements(dg, cache))...) =#
 
 
 #= function rhs!(du, u, t,
 	mesh::TreeMesh{1}, equations,
 	initial_condition, boundary_conditions, source_terms::Source,
 	dg::DG, cache) where {Source}
-	# Reset du
-	@trixi_timeit timer() "reset ∂u/∂t" reset_du!(du, dg, cache)
 
-	# Calculate volume integral
-	@trixi_timeit timer() "volume integral" calc_volume_integral!(
-		du, u, mesh,
-		have_nonconservative_terms(equations), equations,
-		dg.volume_integral, dg, cache)
+	# Copy data to GPU
+	threads = nelements(dg, cache)
+	@cuda threads = threads copy_to_gpu!(du, u, dg, cache)
 
-	# Prolong solution to interfaces
-	@trixi_timeit timer() "prolong2interfaces" prolong2interfaces!(
-		cache, u, mesh, equations, dg.surface_integral, dg)
-
-	# Calculate interface fluxes
-	@trixi_timeit timer() "interface flux" calc_interface_flux!(
-		cache.elements.surface_flux_values, mesh,
-		have_nonconservative_terms(equations), equations,
-		dg.surface_integral, dg, cache)
-
-	# Prolong solution to boundaries
-	@trixi_timeit timer() "prolong2boundaries" prolong2boundaries!(
-		cache, u, mesh, equations, dg.surface_integral, dg)
-
-	# Calculate boundary fluxes
-	@trixi_timeit timer() "boundary flux" calc_boundary_flux!(
-		cache, t, boundary_conditions, mesh,
-		equations, dg.surface_integral, dg)
-
-	# Calculate surface integrals
-	@trixi_timeit timer() "surface integral" calc_surface_integral!(
-		du, u, mesh, equations, dg.surface_integral, dg, cache)
-
-	# Apply Jacobian from mapping to reference element
-	@trixi_timeit timer() "Jacobian" apply_jacobian!(
-		du, mesh, equations, dg, cache)
-
-	# Calculate source terms
-	@trixi_timeit timer() "source terms" calc_sources!(
-		du, u, t, source_terms, equations, dg, cache)
-
-	return nothing
+	# Rewrite calc_volume_integral!()
+	# ...
 end =#
-############################################################
+

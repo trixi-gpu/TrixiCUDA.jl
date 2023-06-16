@@ -62,7 +62,7 @@ import SummationByPartsOperators: integrate, semidiscretize,
 @reexport using StartUpDG: StartUpDG, Polynomial, Gauss, SBP, Line, Tri, Quad, Hex, Tet
 using StartUpDG: RefElemData, MeshData, AbstractElemShape
 
-# Include code files
+# Include trixi files
 include("trixi/src/basic_types.jl")
 
 include("trixi/src/auxiliary/auxiliary.jl")

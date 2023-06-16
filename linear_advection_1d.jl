@@ -33,20 +33,50 @@ function configurator(kernel::CUDA.HostKernel, length::Integer)  # for 1d
 	return (threads = threads, blocks = blocks)
 end
 
-# Copy `du` and `u` to GPU
-function copy_to_gpu!(du::PtrArray, length::Integer)
-	i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+# Copy `du` and `u` to GPU (run as Float32)
+function copy_to_gpu!(du, u)
+	du = CuArray(convert(Array{Float32}, du))
+	u = CuArray(convert(Array{Float32}, u))
 
-	if i <= length # nelements() from `trixi/src/solvers/dgsem_tree/containers_1d.jl`
-		@inbounds du[.., i] = CuArray(du[.., i])
-		#= @inbounds u[.., i] = CuArray(u[.., i]) =#
+	return (du, u)
+end
+
+# Copy `du` and `u` to CPU (back to Float64)
+function copy_to_cpu!(du, u)
+	du = Array{Float64}(du)
+	u = Array{Float64}(u)
+
+	return (du, u)
+end
+
+# Inside `rhs!()` raw implementation
+du, u = copy_to_gpu!(du, u)
+
+flux_arr = similar(u)
+
+function apply_flux!(flux_arr, u, equations::AbstractEquations)
+	i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+	j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+	k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+	if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
+		@inbounds flux_arr[i, j, k] = flux(u[i, j, k], 1, equations)
 	end
 
 	return nothing
 end
 
-u_ode
-# Copy `du` and `u` to CPU
+threads = (2, 2, 4)
+blocks = (cld(size(u, 1), 4), cld(size(u, 2), 4), cld(size(u, 3), 4))
+
+@cuda threads = threads blocks = blocks apply_flux!(flux_arr, u, equations)
+
+
+
+
+
+
+
 
 #= len = nelements(solver, cache)
 kernel = @cuda name = "copy to" launch = false copy_to_gpu!(du, len)
@@ -58,11 +88,8 @@ kernel(du, u, solver, cache; configurator(kernel, nelements(dg, cache))...) =#
 	initial_condition, boundary_conditions, source_terms::Source,
 	dg::DG, cache) where {Source}
 
-	# Copy data to GPU
-	threads = nelements(dg, cache)
-	@cuda threads = threads copy_to_gpu!(du, u, dg, cache)
-
 	# Rewrite calc_volume_integral!()
 	# ...
 end =#
 
+#################################################################################

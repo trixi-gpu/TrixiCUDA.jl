@@ -1,16 +1,19 @@
 using CUDA
 
-a = CUDA.rand(4, 4)
-b = CUDA.rand(4, 4)
-c = CUDA.zeros(4)
+A = rand(4, 4, 3)
+B = rand(4, 4)
+C = similar(A)
 
-function foo!(a, b, c)
+function matmul_slices_kernel!(C, A)
 	i = threadIdx().x
+	j = threadIdx().y
 
-	@inbounds c[i] = transpose(a[i, :]) * b[:, i]
-	return nothing
+	@inbounds C[i, j] = A[i, j]
+	return
 end
 
-#= @cuda threads = 4 foo!(a, b, c) =#
+A_d = CuArray(A)  # Copy A to device
+B_d = CuArray(B)  # Copy B to device
+C_d = CUDA.zeros(size(A))  # Initialize C on device
 
-CUDA.dot(a[2, :], b[:, 2])
+C_d = mapslices(x -> x * B_d, A_d, dims = [1, 2])

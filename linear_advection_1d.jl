@@ -35,8 +35,8 @@ end
 
 # Copy `du` and `u` to GPU (run as Float32)
 function copy_to_gpu!(du, u)
-	du = CuArray(convert(Array{Float32}, du))
-	u = CuArray(convert(Array{Float32}, u))
+	du = CuArray{Float32}(du)
+	u = CuArray{Float32}(u)
 
 	return (du, u)
 end
@@ -66,15 +66,28 @@ function apply_flux!(flux_arr, u, equations::AbstractEquations)
 	return nothing
 end
 
-threads = (2, 2, 4)
-blocks = (cld(size(u, 1), 4), cld(size(u, 2), 4), cld(size(u, 3), 4))
+threads = (2, 2, 4) # need configure
+blocks = (cld(size(u, 1), 4), cld(size(u, 2), 4), cld(size(u, 3), 4)) # need configure
 
 @cuda threads = threads blocks = blocks apply_flux!(flux_arr, u, equations)
 
+@unpack derivative_dhat = solver.basis
+derivative_dhat = CuArray{Float32}(derivative_dhat)
 
+function get_weak_form!(du, flux_arr::CuDeviceArray, derivative_dhat::CuDeviceArray)
+	i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+	j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+	k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
+	if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+		@inbounds du[i, j, k] += transpose(derivative_dhat[j, :]) * flux_arr[i, :, k]
+	end
 
+	return nothing
+end
+@cuda threads = threads blocks = blocks get_weak_form!(du, flux_arr, derivative_dhat)
 
+#= CUBLAS.dot(4, derivative_dhat[1, :], flux_arr[1, :, 1]) =#
 
 
 

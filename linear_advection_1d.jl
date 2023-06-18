@@ -1,4 +1,4 @@
-include("header.jl") # Remove it after first run to avoid recompilation
+#include("header.jl") # Remove it after first run to avoid recompilation
 
 # Set random seed
 Random.seed!(1234)
@@ -60,6 +60,7 @@ function cuda_flux!(flux_arr, u, equations::AbstractEquations)
     return nothing
 end
 
+# Calculate volume integral
 function cuda_volume_integral!(du, u,
     mesh::TreeMesh{1},                                  # StructuredMesh{1}? How to set arguments?
     nonconservative_terms, equations,
@@ -72,12 +73,29 @@ function cuda_volume_integral!(du, u,
     flux_arr = similar(u)
     @cuda threads = (1, 2, 4) blocks = (1, 2, 4) cuda_flux!(flux_arr, u, equations) # flux.(u, 1, equations)
 
-    du = reshape(permutedims(flux_arr, [1, 3, 2]), size(u, 1) * size(u, 3), :) * transpose(derivative_dhat)
-    du = permutedims(reshape(du, size(u, 1), size(u, 3), :), [1, 3, 2])
+    du_temp = reshape(permutedims(flux_arr, [1, 3, 2]), size(u, 1) * size(u, 3), :) * transpose(derivative_dhat)
+    du = permutedims(reshape(du_temp, size(u, 1), size(u, 3), :), [1, 3, 2])
 
     return (du, u)
 end
 
+# Prolong two boundary interfaces
+function cuda_prolong2interfaces!(cache, u,
+    mesh::TreeMesh{1}, equations, surface_integral, dg::DG)
+
+    @unpack interfaces = cache
+
+    u_temp = Array(reshape(permutedims(u, [1, 3, 2]), size(u, 1) * size(u, 3), :))
+    u1 = u_temp[:, end]
+    u2 = vcat(u_temp[:, 1][size(u, 1)+1:end], u_temp[:, 1][1:size(u, 1)])
+
+    interfaces_u = permutedims(reshape(hcat(u1, u2), size(u, 1), size(u, 3), :), [1, 3, 2])
+    interfaces.u = permutedims(interfaces_u, [2, 1, 3])
+
+    return nothing
+end
+
+#
 
 # Inside `rhs!()` raw implementation
 #################################################################################
@@ -88,17 +106,22 @@ du, u = cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver, cache)
 
-
+cuda_prolong2interfaces!(
+    cache, u, mesh, equations, solver.surface_integral, solver)
 
 
 
 
 # For tests
 #= reset_du!(du, solver, cache)
+
 calc_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver, cache) =#
+    solver.volume_integral, solver, cache)
+
+prolong2interfaces!(
+    cache, u, mesh, equations, solver.surface_integral, solver) =#
 
 #################################################################################
 

@@ -100,7 +100,6 @@ calc_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver, cache) =#
 
-
 #################################################################################
 
 #= len = nelements(solver, cache)

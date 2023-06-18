@@ -1,4 +1,4 @@
-#include("header.jl") # Remove it after first run to avoid recompilation
+include("header.jl") # Remove it after first run to avoid recompilation
 
 # Set random seed
 Random.seed!(1234)
@@ -70,10 +70,10 @@ function cuda_volume_integral!(du, u,
     derivative_dhat = CuArray{Float32}(derivative_dhat)
 
     flux_arr = similar(u)
-    @cuda threads = (1, 2, 4) blocks = (1, 2, 4) cuda_flux!(flux_arr, u, equations)
+    @cuda threads = (1, 2, 4) blocks = (1, 2, 4) cuda_flux!(flux_arr, u, equations) # flux.(u, 1, equations)
 
-    du = reshape(permutedims(flux_arr, [3, 1, 2]), size(u, 3), :) * transpose(derivative_dhat)
-    du = reshape(permutedims(du, [2, 1]), size(u, 1), size(u, 2), :)
+    du = reshape(permutedims(flux_arr, [1, 3, 2]), size(u, 1) * size(u, 3), :) * transpose(derivative_dhat)
+    du = permutedims(reshape(du, size(u, 1), size(u, 3), :), [1, 3, 2])
 
     return (du, u)
 end
@@ -98,9 +98,9 @@ du, u = cuda_volume_integral!(
 calc_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver, cache)
+    solver.volume_integral, solver, cache) =#
 
- =#
+
 #################################################################################
 
 #= len = nelements(solver, cache)

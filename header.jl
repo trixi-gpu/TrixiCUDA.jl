@@ -1,6 +1,7 @@
 # Import and using packages
 using Trixi
 using CUDA
+using Random
 
 using LinearAlgebra: LinearAlgebra, Diagonal, diag, dot, mul!, norm, cross, normalize, I, UniformScaling, det
 using Printf: @printf, @sprintf, println

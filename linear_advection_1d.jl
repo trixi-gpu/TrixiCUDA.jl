@@ -1,13 +1,16 @@
 #include("header.jl") # Remove it after first run to avoid recompilation
 
+# Set random seed
+Random.seed!(1234)
+
 # The header part of test
 advection_velocity = 1.0
 equations = LinearScalarAdvectionEquation1D(advection_velocity)
 
 coordinates_min = -1.0
 coordinates_max = 1.0
-mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 4, n_cells_max = 30_000)
-solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
+mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level=4, n_cells_max=30_000)
+solver = DGSEM(polydeg=3, surface_flux=flux_lax_friedrichs)
 
 initial_condition_sine_wave(x, t, equations) = SVector(1.0 + 0.5 * sin(pi * sum(x - equations.advection_velocity * t)))
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_sine_wave, solver)
@@ -17,83 +20,97 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_sine_wave
 
 # Create pesudo `u` and `du` for test
 l = nvariables(equations) * nnodes(solver)^ndims(mesh) * nelements(solver, cache)
-u_ode = Array{Float64}(undef, l)
-du_ode = Array{Float64}(undef, l)
+u_ode = rand(Float64, l)
+du_ode = rand(Float64, l)
 u = wrap_array(u_ode, mesh, equations, solver, cache)
 du = wrap_array(du_ode, mesh, equations, solver, cache)
 
 # Rewrite `rhs!()` from `trixi/src/solvers/dgsem_tree/dg_1d.jl`
 #################################################################################
 
-# Configure block and grid for kernel
-function configurator(kernel::CUDA.HostKernel, length::Integer)  # for 1d
-	config = launch_configuration(kernel.fun)
-	threads = min(length, config.threads)
-	blocks = cld(length, threads) # min(attribute(device(),CUDA.DEVICE_ATTRIBUTE_MAX_GRID_DIM_X), cld(length, threads))
-	return (threads = threads, blocks = blocks)
-end
-
 # Copy `du` and `u` to GPU (run as Float32)
 function copy_to_gpu!(du, u)
-	du = CuArray{Float32}(du)
-	u = CuArray{Float32}(u)
+    du = CuArray{Float32}(du)
+    u = CuArray{Float32}(u)
 
-	return (du, u)
+    #= @unpack derivative_dhat = dg.basis
+    derivative_dhat = CuArray{Float32}(derivative_dhat) =#
+
+    return (du, u)
 end
 
 # Copy `du` and `u` to CPU (back to Float64)
 function copy_to_cpu!(du, u)
-	du = Array{Float64}(du)
-	u = Array{Float64}(u)
+    du = Array{Float64}(du)
+    u = Array{Float64}(u)
 
-	return (du, u)
+    return (du, u)
 end
+
+# Calculate flux array based on `u`
+function cuda_flux!(flux_arr, u, equations::AbstractEquations)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
+        @inbounds flux_arr[i, j, k] = flux(u[i, j, k], 1, equations)
+    end
+
+    return nothing
+end
+
+function cuda_volume_integral!(du, u,
+    mesh::TreeMesh{1},                                  # StructuredMesh{1}? How to set arguments?
+    nonconservative_terms, equations,
+    volume_integral::VolumeIntegralWeakForm,
+    dg::DGSEM, cache)
+
+    @unpack derivative_dhat = solver.basis
+    derivative_dhat = CuArray{Float32}(derivative_dhat)
+
+    flux_arr = similar(u)
+    @cuda threads = (1, 2, 4) blocks = (1, 2, 4) cuda_flux!(flux_arr, u, equations)
+
+    du = reshape(permutedims(flux_arr, [3, 1, 2]), size(u, 3), :) * transpose(derivative_dhat)
+    du = reshape(permutedims(du, [2, 1]), size(u, 1), size(u, 2), :)
+
+    return (du, u)
+end
+
 
 # Inside `rhs!()` raw implementation
+#################################################################################
 du, u = copy_to_gpu!(du, u)
 
-flux_arr = similar(u)
-
-function apply_flux!(flux_arr, u, equations::AbstractEquations)
-	i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-	j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-	k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-	if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
-		@inbounds flux_arr[i, j, k] = flux(u[i, j, k], 1, equations)
-	end
-
-	return nothing
-end
-
-threads = (2, 2, 4) # need configure
-blocks = (cld(size(u, 1), 4), cld(size(u, 2), 4), cld(size(u, 3), 4)) # need configure
-
-@cuda threads = threads blocks = blocks apply_flux!(flux_arr, u, equations)
-
-@unpack derivative_dhat = solver.basis
-derivative_dhat = CuArray{Float32}(derivative_dhat)
-
-a = CUDA.rand(3, 3)
-c = similar(a)
-c = flux.(a, 1, equations)
-
-#= CUBLAS.dot(4, derivative_dhat[1, :], flux_arr[1, :, 1]) =#
+du, u = cuda_volume_integral!(
+    du, u, mesh,
+    have_nonconservative_terms(equations), equations,
+    solver.volume_integral, solver, cache)
 
 
+
+
+
+
+# For tests
+#= reset_du!(du, solver, cache)
+calc_volume_integral!(
+    du, u, mesh,
+    have_nonconservative_terms(equations), equations,
+    solver.volume_integral, solver, cache)
+
+ =#
+#################################################################################
 
 #= len = nelements(solver, cache)
 kernel = @cuda name = "copy to" launch = false copy_to_gpu!(du, len)
 kernel(du, u, solver, cache; configurator(kernel, nelements(dg, cache))...) =#
 
-
-#= function rhs!(du, u, t,
-	mesh::TreeMesh{1}, equations,
-	initial_condition, boundary_conditions, source_terms::Source,
-	dg::DG, cache) where {Source}
-
-	# Rewrite calc_volume_integral!()
-	# ...
+#= # Configure block and grid for kernel
+function configurator(kernel::CUDA.HostKernel, length::Integer)  # for 1d
+	config = launch_configuration(kernel.fun)
+	threads = min(length, config.threads)
+	blocks = cld(length, threads) # min(attribute(device(),CUDA.DEVICE_ATTRIBUTE_MAX_GRID_DIM_X), cld(length, threads))
+	return (threads = threads, blocks = blocks)
 end =#
-
-#################################################################################

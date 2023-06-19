@@ -1,4 +1,4 @@
-include("header.jl") # Remove it after first run to avoid recompilation
+#include("header.jl") # Remove it after first run to avoid recompilation
 
 # Set random seed
 Random.seed!(1234)
@@ -130,8 +130,33 @@ end
 # Calculate boundary fluxes
 
 # # Calculate surface integrals
-function cuda_surface_integral!(du, u, mesh::TreeMesh{1},
+function cuda_surface_integral!(du, u, mesh::TreeMesh{1},           # StructuredMesh{1}? 
     equations, surface_integral, dg::DGSEM, cache)
+
+    @unpack boundary_interpolation = dg.basis
+    @unpack surface_flux_values = cache.elements
+
+    factor1 = boundary_interpolation[1, 1]
+    factor2 = boundary_interpolation[size(u, 2), 2]
+
+    surface_flux_values = CuArray{Float32}(surface_flux_values)
+    du_temp = reshape(permutedims(du, [1, 3, 2]), size(u, 1) * size(u, 3), :)
+
+    surface_flux_temp = reshape(permutedims(surface_flux_values, [1, 3, 2]), size(u, 1) * size(u, 3), :)
+    surface_integral1 = factor1 .* surface_flux_temp[:, 1]
+    surface_integral2 = factor2 .* surface_flux_temp[:, 2]
+
+    du_temp[:, 1] -= surface_integral1
+    du_temp[:, end] += surface_integral2
+
+    du = permutedims(reshape(du_temp, size(u, 1), size(u, 3), :), [1, 3, 2])
+
+    return (du, u)
+end
+
+# Apply Jacobian from mapping to reference element
+function cuda_jacobian!(du, mesh::TreeMesh{1},                 # StructuredMesh{1}?
+    equations, dg::DG, cache)
 
 end
 
@@ -153,6 +178,10 @@ cuda_interface_flux!(
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver)
 
+du, u = cuda_surface_integral!(
+    du, u, mesh, equations, solver.surface_integral, solver, cache)
+
+
 
 
 
@@ -171,7 +200,10 @@ prolong2interfaces!(
 calc_interface_flux!(
     cache.elements.surface_flux_values, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.surface_integral, solver, cache) =#
+    solver.surface_integral, solver, cache)
+
+calc_surface_integral!(
+    du, u, mesh, equations, solver.surface_integral, solver, cache) =#
 
 #################################################################################
 

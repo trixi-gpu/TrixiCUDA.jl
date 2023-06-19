@@ -161,7 +161,7 @@ function cuda_jacobian!(du, mesh::TreeMesh{1},                 # StructuredMesh{
 end
 
 # Calculate source terms              Overhead?
-function cuda_sources!(du, u, t, source_terms::Nothing, # skip `source_terms` has something
+function cuda_sources!(du, u, t, source_terms::Nothing, # Skip `source_terms` has something
     equations::AbstractEquations{1}, dg::DG, cache)
     return nothing
 end

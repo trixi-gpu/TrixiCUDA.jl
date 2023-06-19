@@ -1,4 +1,4 @@
-#include("header.jl") # Remove it after first run to avoid recompilation
+include("header.jl") # Remove it after first run to avoid recompilation
 
 # Set random seed
 Random.seed!(1234)
@@ -115,7 +115,7 @@ function cuda_interface_flux!(cache,
 
     u = CuArray{Float32}(u)
     surface_flux_arr = CuArray{Float32}(undef, (1, size(u, 2), size(u, 3)))
-    @cuda threads = (1, 4) blocks = (1, 4) cuda_surface_flux!(surface_flux_arr, u, equations, surface_flux)
+    @cuda threads = (1, 4) blocks = (1, 4) cuda_surface_flux!(surface_flux_arr, u, equations, surface_flux) # Configurator
 
     surface_flux_temp = reshape(permutedims(permutedims(surface_flux_arr, [2, 1, 3]), [1, 3, 2]), :, 1)
     surface_flux1 = surface_flux_temp
@@ -127,6 +127,13 @@ function cuda_interface_flux!(cache,
 end
 
 # Prolong solution to boundaries
+# Calculate boundary fluxes
+
+# # Calculate surface integrals
+function cuda_surface_integral!(du, u, mesh::TreeMesh{1},
+    equations, surface_integral, dg::DGSEM, cache)
+
+end
 
 
 # Inside `rhs!()` raw implementation

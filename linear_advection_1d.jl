@@ -199,7 +199,7 @@ du = cuda_jacobian!(
 #= cuda_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
 
-
+du, u = copy_to_cpu!(du, u)
 
 
 

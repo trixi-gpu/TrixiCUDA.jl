@@ -1,7 +1,7 @@
 #include("header.jl") # Remove it after first run to avoid recompilation
 
 # Set random seed
-Random.seed!(1234)
+Random.seed!(12345)
 
 # The header part of test
 advection_velocity = 1.0
@@ -30,7 +30,7 @@ du = wrap_array(du_ode, mesh, equations, solver, cache)
 
 # Copy `du` and `u` to GPU (run as Float32)
 function copy_to_gpu!(du, u)
-    du = CuArray{Float32}(du)
+    du = CUDA.zeros(size(du))
     u = CuArray{Float32}(u)
 
     return (du, u)
@@ -45,13 +45,28 @@ function copy_to_cpu!(du, u)
 end
 
 # Calculate flux based on `u`
-function cuda_flux!(flux_arr, u, equations::AbstractEquations, flux::Function)
+function flux_kernel!(flux_arr, u, equations::AbstractEquations, flux::Function)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
         @inbounds flux_arr[i, j, k] = flux(u[i, j, k], 1, equations)
+    end
+
+    return nothing
+end
+
+# Calculate weak form based on `flux_arr`
+function weak_form_kernel!(du, derivative_dhat, flux_arr)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        for ii in 1:size(du, 2)
+            du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
+        end
     end
 
     return nothing
@@ -64,16 +79,16 @@ function cuda_volume_integral!(du, u,
     volume_integral::VolumeIntegralWeakForm,
     dg::DGSEM, cache)
 
-    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
+    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)  # Move to outer function later
 
     flux_arr = similar(u)
-    @cuda threads = (1, 2, 4) blocks = (1, 2, 4) cuda_flux!(flux_arr, u, equations, flux) # Configurator
+    @cuda threads = (1, 2, 4) blocks = (1, 2, 4) flux_kernel!(flux_arr, u, equations, flux) # Configurator
+    @cuda threads = (1, 2, 4) blocks = (1, 2, 4) weak_form_kernel!(du, derivative_dhat, flux_arr) # Configurator
 
-    du_temp = reshape(permutedims(flux_arr, [1, 3, 2]), size(u, 1) * size(u, 3), :) * transpose(derivative_dhat)
-    du = permutedims(reshape(du_temp, size(u, 1), size(u, 3), :), [1, 3, 2])
-
-    return du
+    return nothing
 end
+
+
 
 # Prolong solution to interfaces
 function cuda_prolong2interfaces!(cache, u,
@@ -89,7 +104,7 @@ function cuda_prolong2interfaces!(cache, u,
     return nothing
 end
 
-# Calculate surface flux based on `cache.interfaces.u`
+#= # Calculate surface flux based on `cache.interfaces.u`
 function cuda_surface_flux!(surface_flux_arr, u, equations::AbstractEquations, surface_flux::FluxLaxFriedrichs) # Other fluxes?
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -164,13 +179,13 @@ end
 function cuda_sources!(du, u, t, source_terms::Nothing, # Skip `source_terms` has something
     equations::AbstractEquations{1}, dg::DG, cache)
     return nothing
-end
+end =#
 
 # Inside `rhs!()` raw implementation
 #################################################################################
 du, u = copy_to_gpu!(du, u)
 
-du = cuda_volume_integral!(
+cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver, cache)
@@ -178,7 +193,7 @@ du = cuda_volume_integral!(
 cuda_prolong2interfaces!(
     cache, u, mesh, equations, solver.surface_integral, solver)
 
-cuda_interface_flux!(
+#= cuda_interface_flux!(
     cache, mesh,
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver)
@@ -199,7 +214,7 @@ du = cuda_jacobian!(
 #= cuda_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
 
-du, u = copy_to_cpu!(du, u)
+du, u = copy_to_cpu!(du, u) =#
 
 
 

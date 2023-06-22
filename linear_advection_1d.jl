@@ -44,7 +44,7 @@ function copy_to_cpu!(du, u)
     return (du, u)
 end
 
-# Calculate flux based on `u`
+# CUDA kernel for calculating flux value
 function flux_kernel!(flux_arr, u, equations::AbstractEquations, flux::Function)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -57,7 +57,7 @@ function flux_kernel!(flux_arr, u, equations::AbstractEquations, flux::Function)
     return nothing
 end
 
-# Calculate weak form based on `flux_arr`
+# UDA kernel for calculating weak form
 function weak_form_kernel!(du, derivative_dhat, flux_arr)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -79,7 +79,7 @@ function cuda_volume_integral!(du, u,
     volume_integral::VolumeIntegralWeakForm,
     dg::DGSEM, cache)
 
-    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)  # Move to outer function later
+    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat) # Move to outer function later
 
     flux_arr = similar(u)
     @cuda threads = (1, 2, 4) blocks = (1, 2, 4) flux_kernel!(flux_arr, u, equations, flux) # Configurator
@@ -88,18 +88,27 @@ function cuda_volume_integral!(du, u,
     return nothing
 end
 
+# CUDA kernel for prolonging two interfaces
+function prolong_interfaces_kernel!(interfaces_u, u)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
+    if (i <= 2 && j <= size(u, 1) && k <= size(u, 3))
+        @inbounds interfaces_u[i, j, k] = u[j, (2-i)*size(u, 2)+(i-1)*1, (2-i)*k+(i-1)*(k%size(u, 3)+1)]
+    end
+
+    return nothing
+end
 
 # Prolong solution to interfaces
 function cuda_prolong2interfaces!(cache, u,
     mesh::TreeMesh{1}, equations, surface_integral, dg::DG)
 
-    u_temp = reshape(permutedims(u, [1, 3, 2]), size(u, 1) * size(u, 3), :)
-    u1 = u_temp[:, end]
-    u2 = vcat(u_temp[:, 1][size(u, 1)+1:end], u_temp[:, 1][1:size(u, 1)])
+    interfaces_u = CuArray{Float32}(cache.interfaces.u) # Move to outer function later
+    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) prolong_interfaces_kernel!(interfaces_u, u) # Configurator
 
-    interfaces_u = permutedims(reshape(hcat(u1, u2), size(u, 1), size(u, 3), :), [1, 3, 2])
-    cache.interfaces.u = permutedims(interfaces_u, [2, 1, 3])  # Automatically copy back to CPU
+    cache.interfaces.u = interfaces_u  # Automatically copy back to CPU
 
     return nothing
 end
@@ -231,9 +240,9 @@ calc_volume_integral!(
     solver.volume_integral, solver, cache)
 
 prolong2interfaces!(
-    cache, u, mesh, equations, solver.surface_integral, solver)
+    cache, u, mesh, equations, solver.surface_integral, solver) =#
 
-calc_interface_flux!(
+#= calc_interface_flux!(
     cache.elements.surface_flux_values, mesh,
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver, cache)
@@ -242,7 +251,7 @@ calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(
-    du, mesh, equations, solver, cache) =#
+    du, mesh, equations, solver, cache)=#
 
 #################################################################################
 

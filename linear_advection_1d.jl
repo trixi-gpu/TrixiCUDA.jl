@@ -79,7 +79,7 @@ function cuda_volume_integral!(du, u,
     volume_integral::VolumeIntegralWeakForm,
     dg::DGSEM, cache)
 
-    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat) # Move to outer function later
+    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
     flux_arr = similar(u)
 
     @cuda threads = (2, 2, 4) blocks = (2, 2, 4) flux_kernel!(flux_arr, u, equations, flux) # Configurator
@@ -105,7 +105,7 @@ end
 function cuda_prolong2interfaces!(cache, u,
     mesh::TreeMesh{1}, equations, surface_integral, dg::DG)
 
-    interfaces_u = CuArray{Float32}(cache.interfaces.u) # Move to outer function later
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
 
     @cuda threads = (2, 2, 4) blocks = (2, 2, 4) prolong_interfaces_kernel!(interfaces_u, u) # Configurator
 
@@ -160,29 +160,34 @@ end
 # Prolong solution to boundaries
 # Calculate boundary fluxes
 
-#= # # Calculate surface integrals
+# CUDA kernel for calculating surface integral
+function surface_integral_kernel!(du, factor_arr, surface_flux_values)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && (j == 1 || j == size(du, 2)) && k <= size(du, 3))
+        @inbounds du[i, j, k] = du[i, j, k] + (-1)^isone(j) *
+                                              factor_arr[isone(j)*1+(1-isone(j))*2] *
+                                              surface_flux_values[i, isone(j)*1+(1-isone(j))*2, k]
+    end
+
+    return nothing
+end
+
+# Calculate surface integrals
 function cuda_surface_integral!(du, u, mesh::TreeMesh{1},           # StructuredMesh{1}? 
     equations, surface_integral, dg::DGSEM, cache)
 
-    factor1 = dg.basis.boundary_interpolation[1, 1]
-    factor2 = dg.basis.boundary_interpolation[size(u, 2), 2]
-
+    factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(u, 2) 
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
-    du_temp = reshape(permutedims(du, [1, 3, 2]), size(u, 1) * size(u, 3), :)
 
-    surface_flux_temp = reshape(permutedims(surface_flux_values, [1, 3, 2]), size(u, 1) * size(u, 3), :)
-    surface_integral1 = factor1 .* surface_flux_temp[:, 1]
-    surface_integral2 = factor2 .* surface_flux_temp[:, 2]
+    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) surface_integral_kernel!(du, factor_arr, surface_flux_values)
 
-    du_temp[:, 1] -= surface_integral1
-    du_temp[:, end] += surface_integral2
-
-    du = permutedims(reshape(du_temp, size(u, 1), size(u, 3), :), [1, 3, 2])
-
-    return du
+    return nothing
 end
 
-# Apply Jacobian from mapping to reference element
+#= # Apply Jacobian from mapping to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{1},                 # StructuredMesh{1}?
     equations, dg::DG, cache)
 
@@ -199,7 +204,7 @@ end
 function cuda_sources!(du, u, t, source_terms::Nothing, # Skip `source_terms` has something
     equations::AbstractEquations{1}, dg::DG, cache)
     return nothing
-end =#
+end  =#
 
 # Inside `rhs!()` raw implementation
 #################################################################################
@@ -217,17 +222,17 @@ cuda_interface_flux!(
     cache, mesh,
     have_nonconservative_terms(equations), equations, solver)
 
-#= #= cuda_prolong2boundaries!(
+#= cuda_prolong2boundaries!(
     cache, u, mesh, equations, solver.surface_integral, solver) =#
 
 #= cuda_boundary_flux!(
     cache, t, boundary_conditions, mesh,
     equations, solver.surface_integral, solver) =#
 
-du = cuda_surface_integral!(
+cuda_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
-du = cuda_jacobian!(
+#= du = cuda_jacobian!(
     du, mesh, equations, solver, cache)
 
 #= cuda_sources!(du, u, t,
@@ -258,9 +263,9 @@ calc_interface_flux!(
     solver.surface_integral, solver, cache)
 
 calc_surface_integral!(
-    du, u, mesh, equations, solver.surface_integral, solver, cache) =#
+    du, u, mesh, equations, solver.surface_integral, solver, cache)
 
-#=apply_jacobian!(
+apply_jacobian!(
     du, mesh, equations, solver, cache) =#
 
 #################################################################################

@@ -60,21 +60,23 @@ function configurator(kernel::CUDA.HostKernel, length::Integer)  # for 1d
     return (threads=threads, blocks=blocks)
 end
 
-N = 1000000
-x6 = CUDA.ones(10, N)
-y6 = CUDA.zeros(10, N)
-
-kernel6 = @cuda launch = false gpu_add6!(y6, x6)
-kernel6(y6, x6; configurator(kernel6, N)...)
-
-#= @benchmark @cuda threads = 100 blocks = 2 gpu_add6!(y, x) =#
+N = 10000
 
 x1 = CUDA.ones(N)
 y1 = CUDA.zeros(N)
 kernel1 = @cuda launch = false gpu_add6!(y1, x1)
 kernel1(y1, x1; configurator(kernel1, N)...)
 
-x10 = CUDA.ones(10, 10, N)
+
+x6 = CUDA.ones(N, N)
+y6 = CUDA.zeros(N, N)
+kernel6 = @cuda launch = false gpu_add6!(y6, x6)
+kernel6(y6, x6; configurator(kernel6, N)...)
+
+@benchmark @cuda threads = (30, 30) blocks = (334, 334) gpu_add6!(y6, x6)
+
+
+#= x10 = CUDA.ones(10, 10, N)
 y10 = CUDA.zeros(10, 10, N)
 kernel10 = @cuda launch = false gpu_add6!(y10, x10)
-kernel10(y10, x10; configurator(kernel10, N)...)
+kernel10(y10, x10; configurator(kernel10, N)...) =#

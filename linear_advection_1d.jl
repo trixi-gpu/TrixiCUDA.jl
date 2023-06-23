@@ -187,20 +187,31 @@ function cuda_surface_integral!(du, u, mesh::TreeMesh{1},           # Structured
     return nothing
 end
 
-#= # Apply Jacobian from mapping to reference element
+# CUDA kernel for applying inverse Jacobian 
+function jacobian_kernel!(du, inverse_jacobian)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds du[i, j, k] *= -inverse_jacobian[k]
+    end
+
+    return nothing
+end
+
+# Apply Jacobian from mapping to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{1},                 # StructuredMesh{1}?
     equations, dg::DG, cache)
 
-    inverse_jacobian = -CuArray{Float32}(cache.elements.inverse_jacobian)
-    factor_arr = similar(du)
-    factor_arr .= reshape(inverse_jacobian, 1, 1, :)
+    inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
 
-    du .*= factor_arr
+    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) jacobian_kernel!(du, inverse_jacobian)
 
-    return du
+    return nothing
 end
 
-# Calculate source terms              Overhead?
+#= # Calculate source terms              Overhead?
 function cuda_sources!(du, u, t, source_terms::Nothing, # Skip `source_terms` has something
     equations::AbstractEquations{1}, dg::DG, cache)
     return nothing
@@ -232,13 +243,13 @@ cuda_interface_flux!(
 cuda_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
-#= du = cuda_jacobian!(
+cuda_jacobian!(
     du, mesh, equations, solver, cache)
 
 #= cuda_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
 
-du, u = copy_to_cpu!(du, u) =#
+du, u = copy_to_cpu!(du, u)
 
 
 

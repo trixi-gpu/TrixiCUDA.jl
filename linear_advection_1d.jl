@@ -115,7 +115,7 @@ function cuda_prolong2interfaces!(cache, u,
 end
 
 # CUDA kernel for calculating surface flux value
-function surface_flux_kernel!(surface_flux_arr, u, equations::AbstractEquations, surface_flux::FluxLaxFriedrichs) # Other fluxes?
+function surface_flux_kernel!(surface_flux_arr, u, equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # Other fluxes?
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 

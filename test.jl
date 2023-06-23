@@ -1,20 +1,80 @@
-using CUDA
+using CUDA, Test, BenchmarkTools
 
-function foo!(arr, arr2, arr3, equations::AbstractEquations, surface_flux::Function)
-    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+function gpu_add1!(y, x)
+    index = threadIdx().x
+    stride = blockDim().x
 
-    if (j <= size(arr, 2) && k <= size(arr, 3))
-        @inbounds arr[1, j, k] = surface_flux(arr2[1, j, k], arr3[1, j, k], 1, equations)
+    for i ∈ index:stride:length(y)
+        @inbounds y[i] += x[i]
     end
+
     return nothing
 end
 
-advection_velocity = 1.0
-equations = LinearScalarAdvectionEquation1D(advection_velocity)
+function gpu_add6!(y, x)
+    index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
-arr2 = CUDA.rand(1, 4, 4)
-arr3 = CUDA.rand(1, 4, 4)
-arr = similar(arr2)
+    stride_i = gridDim().x * blockDim().x
+    stride_j = gridDim().y * blockDim().y
 
-@cuda threads = (2, 2) blocks = (2, 2) foo!(arr, arr2, arr3, equations, surface_flux)
+    for i ∈ index_i:stride_i:size(y, 1)
+        for j ∈ index_j:stride_j:size(y, 2)
+            @inbounds y[i, j] += x[i, j]
+        end
+    end
+
+    return nothing
+end
+
+function gpu_add10!(y, x)
+    index_i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    index_j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    index_k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    stride_i = gridDim().x * blockDim().x
+    stride_j = gridDim().y * blockDim().y
+    stride_k = gridDim().z * blockDim().z
+
+    for i ∈ index_i:stride_i:size(y, 1)
+        for j ∈ index_j:stride_j:size(y, 2)
+            for k ∈ index_k:stride_k:size(y, 3)
+                @inbounds y[i, j, k] += x[i, j, k]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# min(attribute(device(),CUDA.DEVICE_ATTRIBUTE_MAX_GRID_DIM_X), cld(length, threads))
+
+const MAX_GRID_DIM_X = attribute(device(), CUDA.DEVICE_ATTRIBUTE_MAX_GRID_DIM_X) # may not be used ???
+
+function configurator(kernel::CUDA.HostKernel, length::Integer)  # for 1d
+    config = launch_configuration(kernel.fun)
+    threads = min(length, config.threads)
+    println(config.blocks)
+    blocks = cld(length, threads)
+    println((threads, blocks))
+    return (threads=threads, blocks=blocks)
+end
+
+N = 1000000
+x6 = CUDA.ones(10, N)
+y6 = CUDA.zeros(10, N)
+
+kernel6 = @cuda launch = false gpu_add6!(y6, x6)
+kernel6(y6, x6; configurator(kernel6, N)...)
+
+#= @benchmark @cuda threads = 100 blocks = 2 gpu_add6!(y, x) =#
+
+x1 = CUDA.ones(N)
+y1 = CUDA.zeros(N)
+kernel1 = @cuda launch = false gpu_add6!(y1, x1)
+kernel1(y1, x1; configurator(kernel1, N)...)
+
+x10 = CUDA.ones(10, 10, N)
+y10 = CUDA.zeros(10, 10, N)
+kernel10 = @cuda launch = false gpu_add6!(y10, x10)
+kernel10(y10, x10; configurator(kernel10, N)...)

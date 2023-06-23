@@ -80,10 +80,10 @@ function cuda_volume_integral!(du, u,
     dg::DGSEM, cache)
 
     derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat) # Move to outer function later
-
     flux_arr = similar(u)
-    @cuda threads = (1, 2, 4) blocks = (1, 2, 4) flux_kernel!(flux_arr, u, equations, flux) # Configurator
-    @cuda threads = (1, 2, 4) blocks = (1, 2, 4) weak_form_kernel!(du, derivative_dhat, flux_arr) # Configurator
+
+    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) flux_kernel!(flux_arr, u, equations, flux) # Configurator
+    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) weak_form_kernel!(du, derivative_dhat, flux_arr) # Configurator
 
     return nothing
 end
@@ -106,6 +106,7 @@ function cuda_prolong2interfaces!(cache, u,
     mesh::TreeMesh{1}, equations, surface_integral, dg::DG)
 
     interfaces_u = CuArray{Float32}(cache.interfaces.u) # Move to outer function later
+
     @cuda threads = (2, 2, 4) blocks = (2, 2, 4) prolong_interfaces_kernel!(interfaces_u, u) # Configurator
 
     cache.interfaces.u = interfaces_u  # Automatically copy back to CPU
@@ -113,8 +114,8 @@ function cuda_prolong2interfaces!(cache, u,
     return nothing
 end
 
-#= # Calculate surface flux based on `cache.interfaces.u`
-function cuda_surface_flux!(surface_flux_arr, u, equations::AbstractEquations, surface_flux::FluxLaxFriedrichs) # Other fluxes?
+# CUDA kernel for calculating surface flux value
+function surface_flux_kernel!(surface_flux_arr, u, equations::AbstractEquations, surface_flux::FluxLaxFriedrichs) # Other fluxes?
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -125,23 +126,33 @@ function cuda_surface_flux!(surface_flux_arr, u, equations::AbstractEquations, s
     return nothing
 end
 
+# CUDA kernel for setting interface flux
+function interface_flux_kernel!(surface_flux_values, surface_flux_arr)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(surface_flux_values, 1) && j <= 2 && k <= size(surface_flux_values, 3))
+        @inbounds surface_flux_values[i, j, k] = surface_flux_arr[1, i,
+            (j-1)*k+(2-j)*((k-1)%size(surface_flux_values, 3)+iszero(k - 1)*size(surface_flux_values, 3))]
+    end
+
+    return nothing
+end
+
 # Calculate interface fluxes
-function cuda_interface_flux!(cache,
-    mesh::TreeMesh{1},
-    nonconservative_terms::False, equations, # Skip `nonconservative_terms::True`
-    surface_integral, dg::DG)
+function cuda_interface_flux!(cache, mesh::TreeMesh{1},
+    nonconservative_terms::False, equations, dg::DG)    # Skip `nonconservative_terms::True`
 
-    surface_flux = surface_integral.surface_flux
-    u = CuArray{Float32}(cache.interfaces.u)
-
+    surface_flux = dg.surface_integral.surface_flux
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
+    surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
     surface_flux_arr = CuArray{Float32}(undef, (1, size(u, 2), size(u, 3)))
-    @cuda threads = (1, 4) blocks = (1, 4) cuda_surface_flux!(surface_flux_arr, u, equations, surface_flux) # Configurator
 
-    surface_flux_temp = reshape(permutedims(permutedims(surface_flux_arr, [2, 1, 3]), [1, 3, 2]), :, 1)
-    surface_flux1 = surface_flux_temp
-    surface_flux2 = vcat(surface_flux_temp[end-size(u, 2)+1:end], surface_flux_temp[1:end-size(u, 2)])
+    @cuda threads = (2, 4) blocks = (2, 4) surface_flux_kernel!(surface_flux_arr, interfaces_u, equations, surface_flux) # Configurator
+    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) interface_flux_kernel!(surface_flux_values, surface_flux_arr) # Configurator
 
-    cache.elements.surface_flux_values = permutedims(reshape(hcat(surface_flux2, surface_flux1), size(u, 2), size(u, 3), :), [1, 3, 2])
+    cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU
 
     return nothing
 end
@@ -149,7 +160,7 @@ end
 # Prolong solution to boundaries
 # Calculate boundary fluxes
 
-# # Calculate surface integrals
+#= # # Calculate surface integrals
 function cuda_surface_integral!(du, u, mesh::TreeMesh{1},           # StructuredMesh{1}? 
     equations, surface_integral, dg::DGSEM, cache)
 
@@ -202,12 +213,11 @@ cuda_volume_integral!(
 cuda_prolong2interfaces!(
     cache, u, mesh, equations, solver.surface_integral, solver)
 
-#= cuda_interface_flux!(
+cuda_interface_flux!(
     cache, mesh,
-    have_nonconservative_terms(equations), equations,
-    solver.surface_integral, solver)
+    have_nonconservative_terms(equations), equations, solver)
 
-#= cuda_prolong2boundaries!(
+#= #= cuda_prolong2boundaries!(
     cache, u, mesh, equations, solver.surface_integral, solver) =#
 
 #= cuda_boundary_flux!(
@@ -240,18 +250,18 @@ calc_volume_integral!(
     solver.volume_integral, solver, cache)
 
 prolong2interfaces!(
-    cache, u, mesh, equations, solver.surface_integral, solver) =#
+    cache, u, mesh, equations, solver.surface_integral, solver)
 
-#= calc_interface_flux!(
+calc_interface_flux!(
     cache.elements.surface_flux_values, mesh,
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver, cache)
 
 calc_surface_integral!(
-    du, u, mesh, equations, solver.surface_integral, solver, cache)
+    du, u, mesh, equations, solver.surface_integral, solver, cache) =#
 
-apply_jacobian!(
-    du, mesh, equations, solver, cache)=#
+#=apply_jacobian!(
+    du, mesh, equations, solver, cache) =#
 
 #################################################################################
 

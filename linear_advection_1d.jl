@@ -182,7 +182,7 @@ function cuda_surface_integral!(du, u, mesh::TreeMesh{1},           # Structured
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(u, 2) 
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 
-    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) surface_integral_kernel!(du, factor_arr, surface_flux_values)
+    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) surface_integral_kernel!(du, factor_arr, surface_flux_values) # Configurator
 
     return nothing
 end
@@ -206,7 +206,7 @@ function cuda_jacobian!(du, mesh::TreeMesh{1},                 # StructuredMesh{
 
     inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
 
-    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) jacobian_kernel!(du, inverse_jacobian)
+    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) jacobian_kernel!(du, inverse_jacobian) # Configurator
 
     return nothing
 end

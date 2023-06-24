@@ -1,7 +1,7 @@
 # Import and using packages
 using Trixi
 using CUDA
-using Random
+using Random, BenchmarkTools
 
 using LinearAlgebra: LinearAlgebra, Diagonal, diag, dot, mul!, norm, cross, normalize, I, UniformScaling, det
 using Printf: @printf, @sprintf, println
@@ -12,12 +12,12 @@ using Reexport: @reexport
 using MPI: MPI
 
 using SciMLBase: CallbackSet, DiscreteCallback,
-	ODEProblem, ODESolution, ODEFunction,
-	SplitODEProblem
+    ODEProblem, ODESolution, ODEFunction,
+    SplitODEProblem
 import SciMLBase: get_du, get_tmp_cache, u_modified!,
-	AbstractODEIntegrator, init, step!, check_error,
-	get_proposed_dt, set_proposed_dt!,
-	terminate!, remake
+    AbstractODEIntegrator, init, step!, check_error,
+    get_proposed_dt, set_proposed_dt!,
+    terminate!, remake
 using CodeTracking: CodeTracking
 using ConstructionBase: ConstructionBase
 using DiffEqCallbacks: PeriodicCallback, PeriodicCallbackAffect
@@ -51,14 +51,14 @@ using TriplotRecipes: DGTriPseudocolor
 using SimpleUnPack: @pack!
 
 using SummationByPartsOperators: AbstractDerivativeOperator,
-	AbstractNonperiodicDerivativeOperator, DerivativeOperator,
-	AbstractPeriodicDerivativeOperator, PeriodicDerivativeOperator, grid
+    AbstractNonperiodicDerivativeOperator, DerivativeOperator,
+    AbstractPeriodicDerivativeOperator, PeriodicDerivativeOperator, grid
 import SummationByPartsOperators: integrate, semidiscretize,
-	compute_coefficients, compute_coefficients!,
-	left_boundary_weight, right_boundary_weight
+    compute_coefficients, compute_coefficients!,
+    left_boundary_weight, right_boundary_weight
 @reexport using SummationByPartsOperators:
-	SummationByPartsOperators, derivative_operator, periodic_derivative_operator,
-	upwind_operators
+    SummationByPartsOperators, derivative_operator, periodic_derivative_operator,
+    upwind_operators
 
 @reexport using StartUpDG: StartUpDG, Polynomial, Gauss, SBP, Line, Tri, Quad, Hex, Tet
 using StartUpDG: RefElemData, MeshData, AbstractElemShape

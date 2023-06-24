@@ -25,6 +25,39 @@ du_ode = rand(Float64, l)
 u = wrap_array(u_ode, mesh, equations, solver, cache)
 du = wrap_array(du_ode, mesh, equations, solver, cache)
 
+# CUDA kernel configurators for 1D, 2D, and 3D arrays
+#################################################################################
+
+# CUDA kernel configurator for 1D array computing
+function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32})
+    config = launch_configuration(kernel.fun)
+
+    threads = min(length(array), config.threads)
+    blocks = cld(length(array), threads)
+
+    return (threads=threads, blocks=blocks)
+end
+
+# CUDA kernel configurator for 2D array computing
+function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32})
+    config = launch_configuration(kernel.fun)
+
+    threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 2))), 2))
+    blocks = map(cld, size(array), threads)
+
+    return (threads=threads, blocks=blocks)
+end
+
+# CUDA kernel configurator for 3D array computing
+function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{Float32})
+    config = launch_configuration(kernel.fun)
+
+    threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 3))), 3))
+    blocks = map(cld, size(array), threads)
+
+    return (threads=threads, blocks=blocks)
+end
+
 # Rewrite `rhs!()` from `trixi/src/solvers/dgsem_tree/dg_1d.jl`
 #################################################################################
 
@@ -82,8 +115,11 @@ function cuda_volume_integral!(du, u,
     derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
     flux_arr = similar(u)
 
-    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) flux_kernel!(flux_arr, u, equations, flux) # Configurator
-    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) weak_form_kernel!(du, derivative_dhat, flux_arr) # Configurator
+    flux_kernel = @cuda launch = false flux_kernel!(flux_arr, u, equations, flux)
+    flux_kernel(flux_arr, u, equations, flux; configurator_3d(flux_kernel, flux_arr)...)
+
+    weak_form_kernel = @cuda launch = false weak_form_kernel!(du, derivative_dhat, flux_arr)
+    weak_form_kernel(du, derivative_dhat, flux_arr; configurator_3d(weak_form_kernel, du)...)
 
     return nothing
 end
@@ -107,7 +143,8 @@ function cuda_prolong2interfaces!(cache, u,
 
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
 
-    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) prolong_interfaces_kernel!(interfaces_u, u) # Configurator
+    prolong_interfaces_kernel = @cuda launch = false prolong_interfaces_kernel!(interfaces_u, u)
+    prolong_interfaces_kernel(interfaces_u, u; configurator_3d(prolong_interfaces_kernel, interfaces_u)...)
 
     cache.interfaces.u = interfaces_u  # Automatically copy back to CPU
 
@@ -115,12 +152,13 @@ function cuda_prolong2interfaces!(cache, u,
 end
 
 # CUDA kernel for calculating surface flux value
-function surface_flux_kernel!(surface_flux_arr, u, equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # Other fluxes?
-    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # Other fluxes?
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (j <= size(u, 2) && k <= size(u, 3))
-        @inbounds surface_flux_arr[1, j, k] = surface_flux(u[1, j, k], u[2, j, k], 1, equations)
+    if (i == 1 && j <= size(interfaces_u, 2) && k <= size(interfaces_u, 3))
+        @inbounds surface_flux_arr[i, j, k] = surface_flux(interfaces_u[1, j, k], interfaces_u[2, j, k], 1, equations)
     end
 
     return nothing
@@ -147,10 +185,13 @@ function cuda_interface_flux!(cache, mesh::TreeMesh{1},
     surface_flux = dg.surface_integral.surface_flux
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
-    surface_flux_arr = CuArray{Float32}(undef, (1, size(u, 2), size(u, 3)))
+    surface_flux_arr = CuArray{Float32}(undef, (1, size(interfaces_u, 2), size(interfaces_u, 3)))
 
-    @cuda threads = (2, 4) blocks = (2, 4) surface_flux_kernel!(surface_flux_arr, interfaces_u, equations, surface_flux) # Configurator
-    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) interface_flux_kernel!(surface_flux_values, surface_flux_arr) # Configurator
+    surface_flux_kernel = @cuda launch = false surface_flux_kernel!(surface_flux_arr, interfaces_u, equations, surface_flux)
+    surface_flux_kernel(surface_flux_arr, interfaces_u, equations, surface_flux; configurator_3d(surface_flux_kernel, surface_flux_arr)...)
+
+    interface_flux_kernel = @cuda launch = false interface_flux_kernel!(surface_flux_values, surface_flux_arr)
+    interface_flux_kernel(surface_flux_values, surface_flux_arr; configurator_3d(interface_flux_kernel, surface_flux_values)...)
 
     cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU
 
@@ -182,7 +223,8 @@ function cuda_surface_integral!(du, u, mesh::TreeMesh{1},           # Structured
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(u, 2) 
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 
-    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) surface_integral_kernel!(du, factor_arr, surface_flux_values) # Configurator
+    surface_integral_kernel = @cuda launch = false surface_integral_kernel!(du, factor_arr, surface_flux_values)
+    surface_integral_kernel(du, factor_arr, surface_flux_values; configurator_3d(surface_integral_kernel, du)...)
 
     return nothing
 end
@@ -206,7 +248,8 @@ function cuda_jacobian!(du, mesh::TreeMesh{1},                 # StructuredMesh{
 
     inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
 
-    @cuda threads = (2, 2, 4) blocks = (2, 2, 4) jacobian_kernel!(du, inverse_jacobian) # Configurator
+    jacobian_kernel = @cuda launch = false jacobian_kernel!(du, inverse_jacobian)
+    jacobian_kernel(du, inverse_jacobian; configurator_3d(jacobian_kernel, du)...)
 
     return nothing
 end
@@ -255,8 +298,6 @@ du, u = copy_to_cpu!(du, u)
 
 
 
-
-
 # For tests
 #= reset_du!(du, solver, cache)
 
@@ -281,14 +322,6 @@ apply_jacobian!(
 
 #################################################################################
 
-#= len = nelements(solver, cache)
-kernel = @cuda name = "copy to" launch = false copy_to_gpu!(du, len)
-kernel(du, u, solver, cache; configurator(kernel, nelements(dg, cache))...) =#
+#= min(attribute(device(),CUDA.DEVICE_ATTRIBUTE_MAX_GRID_DIM_X), cld(length, threads))
 
-#= # Configure block and grid for kernel
-function configurator(kernel::CUDA.HostKernel, length::Integer)  # for 1d
-	config = launch_configuration(kernel.fun)
-	threads = min(length, config.threads)
-	blocks = cld(length, threads) # min(attribute(device(),CUDA.DEVICE_ATTRIBUTE_MAX_GRID_DIM_X), cld(length, threads))
-	return (threads = threads, blocks = blocks)
-end =#
+const MAX_GRID_DIM_X = attribute(device(), CUDA.DEVICE_ATTRIBUTE_MAX_GRID_DIM_X) # may not be used ??? =#

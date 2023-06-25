@@ -93,5 +93,20 @@ y10 = CUDA.zeros(10, 10, 1000)
 kernel10 = @cuda launch = false gpu_add10!(y10, x10)
 kernel10(y10, x10; configurator_3d(kernel10, y10)...)
 
-
 #= @cuda threads = (4, 4, 4) blocks = (10, 10, 200) gpu_add10!(y10, x10) =#
+
+A = CUDA.rand(2, 2)
+B = CUDA.rand(2, 2)
+
+function foo!(A, B)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    a = A[i, :]
+    for ii in 1:2
+        B[i, j] = a[ii]
+    end
+    return nothing
+end
+
+@cuda threads = (2, 2) blocks = (1, 1) foo!(A, B)

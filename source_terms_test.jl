@@ -4,21 +4,25 @@
 Random.seed!(12345)
 
 # The header part of test
-advection_velocity = 1.0
-equations = LinearScalarAdvectionEquation1D(advection_velocity)
+equations = CompressibleEulerEquations1D(1.4)
 
-coordinates_min = -1.0
-coordinates_max = 1.0
-mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level=4, n_cells_max=30_000)
-solver = DGSEM(polydeg=3, surface_flux=flux_lax_friedrichs)
+initial_condition = initial_condition_convergence_test
 
-initial_condition_sine_wave(x, t, equations) = SVector(1.0 + 0.5 * sin(pi * sum(x - equations.advection_velocity * t)))
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_sine_wave, solver)
+# Note that the expected EOC of 5 is not reached with this flux.
+# Using flux_hll instead yields the expected EOC.
+solver = DGSEM(polydeg=4, surface_flux=flux_lax_friedrichs)
 
-# Unpack to get key elements
+coordinates_min = 0.0
+coordinates_max = 2.0
+mesh = TreeMesh(coordinates_min, coordinates_max,
+    initial_refinement_level=4,
+    n_cells_max=10_000)
+
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+    source_terms=source_terms_convergence_test)
+
 @unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
 
-# Create pesudo `u` and `du` for test
 l = nvariables(equations) * nnodes(solver)^ndims(mesh) * nelements(solver, cache)
 u_ode = rand(Float64, l)
 du_ode = rand(Float64, l)
@@ -295,8 +299,24 @@ cuda_jacobian!(
 du, u = copy_to_cpu!(du, u) =#
 
 
+node_coordinates = CuArray{Float32}(cache.elements.node_coordinates)
+source_terms_arr = similar(du)
 
+function source_terms_kernel!(source_terms_arr, u, node_coordinates, t, equations::AbstractEquations{1}, source_terms::Source)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
+    if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
+        for ii in size(u, 1)
+            u_local = xxx
+        end
+
+        @inbounds source_terms_arr[i, j, k] = source_terms(u_local, node_coordinates[1, j, k], t, equations)
+    end
+
+    return nothing
+end
 
 
 

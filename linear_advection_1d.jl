@@ -18,7 +18,8 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_sine_wave
 # Unpack to get key elements
 @unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
 
-# Create pesudo `u` and `du` for test
+# Create pesudo `u` and `du` and `t` for test
+t = 0.0
 l = nvariables(equations) * nnodes(solver)^ndims(mesh) * nelements(solver, cache)
 u_ode = rand(Float64, l)
 du_ode = rand(Float64, l)
@@ -254,15 +255,41 @@ function cuda_jacobian!(du, mesh::TreeMesh{1},                 # StructuredMesh{
     return nothing
 end
 
-#= # Calculate source terms              Overhead?
-function cuda_sources!(du, u, t, source_terms::Nothing, # Skip `source_terms` has something
-    equations::AbstractEquations{1}, dg::DG, cache)
+# CUDA kernel for calculating source terms
+function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{1}, source_terms::Function)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds du[i, j, k] += source_terms(u[i, j, k], node_coordinates[1, j, k], t, equations)[i]
+    end
+
     return nothing
-end  =#
+end
+
+# Calculate source terms               
+function cuda_sources!(du, u, t, source_terms::Nothing,
+    equations::AbstractEquations{1}, dg::DG, cache)
+
+    return nothing
+end
+
+# Calculate source terms 
+function cuda_source_terms!(du, u, t, source_terms,
+    equations::AbstractEquations{1}, dg::DG, cache)
+
+    node_coordinates = CuArray{Float32}(cache.elements.node_coordinates)
+
+    source_terms_kernel = @cuda launch = false source_terms_kernel!(du, u, node_coordinates, t, equations, source_terms)
+    source_terms_kernel(du, u, node_coordinates, t, equations, source_terms; configurator_3d(source_terms_kernel, du)...)
+
+    return nothing
+end
 
 # Inside `rhs!()` raw implementation
 #################################################################################
-#= du, u = copy_to_gpu!(du, u)
+du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -289,10 +316,10 @@ cuda_surface_integral!(
 cuda_jacobian!(
     du, mesh, equations, solver, cache)
 
-#= cuda_sources!(du, u, t,
-    source_terms, equations, solver, cache) =#
+cuda_sources!(du, u, t,
+    source_terms, equations, solver, cache)
 
-du, u = copy_to_cpu!(du, u) =#
+du, u = copy_to_cpu!(du, u)
 
 
 

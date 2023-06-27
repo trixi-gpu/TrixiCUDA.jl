@@ -30,7 +30,7 @@ du = wrap_array(du_ode, mesh, equations, solver, cache)
 #################################################################################
 
 # CUDA kernel configurator for 1D array computing
-function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32})
+function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32, 1})
     config = launch_configuration(kernel.fun)
 
     threads = min(length(array), config.threads)
@@ -40,7 +40,7 @@ function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32})
 end
 
 # CUDA kernel configurator for 2D array computing
-function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32})
+function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32, 2})
     config = launch_configuration(kernel.fun)
 
     threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 2))), 2))
@@ -50,7 +50,7 @@ function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32})
 end
 
 # CUDA kernel configurator for 3D array computing
-function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{Float32})
+function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{Float32, 3})
     config = launch_configuration(kernel.fun)
 
     threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 3))), 3))

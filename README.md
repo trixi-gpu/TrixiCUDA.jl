@@ -7,3 +7,8 @@
 - The folder `docs` contains useful resources for this project.
 - The folder `profile` contains contents about how to profile GPU kernels.
 - The folder `linear_adveciton` contains prework of prototyping GPU code for solving linear advection equations (currently 1D code).
+
+TODO List:
+- Simplify kernel arguments in 1D, 2D, and 3D linaer advection GPU code
+- Complete basic kernels for `rhs!()` from `dg_1d.jl`, `dg_2d.jl`, and `dg_3d.jl`
+- Add more features to 1D, 2D, and 3D linaer advection kernel functions

@@ -18,7 +18,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_sine_wave
 # Unpack to get key elements
 @unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
 
-# Create pesudo `u` and `du` and `t` for test
+# Create pesudo `u`, `du` and `t` for tests
 t = 0.0
 l = nvariables(equations) * nnodes(solver)^ndims(mesh) * nelements(solver, cache)
 u_ode = rand(Float64, l)
@@ -79,7 +79,7 @@ function copy_to_cpu!(du, u)
 end
 
 # CUDA kernel for calculating flux value
-function flux_kernel!(flux_arr, u, equations::AbstractEquations, flux::Function)
+function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Function)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z

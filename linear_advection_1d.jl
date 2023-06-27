@@ -109,7 +109,7 @@ end
 # Calculate volume integral
 function cuda_volume_integral!(du, u,
     mesh::TreeMesh{1},                                  
-    nonconservative_terms, equations,                     # Need `nonconservative_terms`?
+    nonconservative_terms, equations,                         # Need ...?
     volume_integral::VolumeIntegralWeakForm,
     dg::DGSEM, cache)
 
@@ -140,7 +140,7 @@ end
 
 # Prolong solution to interfaces
 function cuda_prolong2interfaces!(cache, u,
-    mesh::TreeMesh{1}, equations, surface_integral, dg::DG)
+    mesh::TreeMesh{1}, equations, surface_integral, dg::DG)                # Need ...?
 
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
 
@@ -181,7 +181,7 @@ end
 
 # Calculate interface fluxes
 function cuda_interface_flux!(cache, mesh::TreeMesh{1},
-    nonconservative_terms::False, equations, dg::DG)    # `nonconservative_terms::True`
+    nonconservative_terms::False, equations, dg::DG)                # Need ...? `nonconservative_terms::True`
 
     surface_flux = dg.surface_integral.surface_flux
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
@@ -219,7 +219,7 @@ end
 
 # Calculate surface integrals
 function cuda_surface_integral!(du, u, mesh::TreeMesh{1},            
-    equations, surface_integral, dg::DGSEM, cache)                    # Need `surface_integral`?
+    equations, surface_integral, dg::DGSEM, cache)                        # Need ...?
 
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(u, 2) 
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)

@@ -108,8 +108,8 @@ end
 
 # Calculate volume integral
 function cuda_volume_integral!(du, u,
-    mesh::TreeMesh{1},                                  # StructuredMesh{1}? 
-    nonconservative_terms, equations,
+    mesh::TreeMesh{1},                                  
+    nonconservative_terms, equations,                     # Need `nonconservative_terms`?
     volume_integral::VolumeIntegralWeakForm,
     dg::DGSEM, cache)
 
@@ -181,7 +181,7 @@ end
 
 # Calculate interface fluxes
 function cuda_interface_flux!(cache, mesh::TreeMesh{1},
-    nonconservative_terms::False, equations, dg::DG)    # Skip `nonconservative_terms::True`
+    nonconservative_terms::False, equations, dg::DG)    # `nonconservative_terms::True`
 
     surface_flux = dg.surface_integral.surface_flux
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
@@ -218,8 +218,8 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values)
 end
 
 # Calculate surface integrals
-function cuda_surface_integral!(du, u, mesh::TreeMesh{1},           # StructuredMesh{1}? 
-    equations, surface_integral, dg::DGSEM, cache)
+function cuda_surface_integral!(du, u, mesh::TreeMesh{1},            
+    equations, surface_integral, dg::DGSEM, cache)                    # Need `surface_integral`?
 
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(u, 2) 
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
@@ -244,7 +244,7 @@ function jacobian_kernel!(du, inverse_jacobian)
 end
 
 # Apply Jacobian from mapping to reference element
-function cuda_jacobian!(du, mesh::TreeMesh{1},                 # StructuredMesh{1}?
+function cuda_jacobian!(du, mesh::TreeMesh{1},                 # Need ...?
     equations, dg::DG, cache)
 
     inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
@@ -269,14 +269,14 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
 end
 
 # Calculate source terms               
-function cuda_sources!(du, u, t, source_terms::Nothing,
+function cuda_sources!(du, u, t, source_terms::Nothing,         # Need ...?
     equations::AbstractEquations{1}, dg::DG, cache)
 
     return nothing
 end
 
 # Calculate source terms 
-function cuda_source_terms!(du, u, t, source_terms,
+function cuda_source_terms!(du, u, t, source_terms,            # Need ...?
     equations::AbstractEquations{1}, dg::DG, cache)
 
     node_coordinates = CuArray{Float32}(cache.elements.node_coordinates)

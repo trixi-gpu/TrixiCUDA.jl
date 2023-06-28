@@ -78,7 +78,7 @@ function copy_to_cpu!(du, u)
     return (du, u)
 end
 
-# CUDA kernel for calculating flux value
+# CUDA kernel for calculating fluxes 
 function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Function)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -152,7 +152,7 @@ function cuda_prolong2interfaces!(cache, u,
     return nothing
 end
 
-# CUDA kernel for calculating surface flux value
+# CUDA kernel for calculating surface fluxes 
 function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # Other fluxes?
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -165,7 +165,7 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::Abstrac
     return nothing
 end
 
-# CUDA kernel for setting interface flux
+# CUDA kernel for setting interface fluxes
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -202,7 +202,7 @@ end
 # Prolong solution to boundaries
 # Calculate boundary fluxes
 
-# CUDA kernel for calculating surface integral
+# CUDA kernel for calculating surface integrals
 function surface_integral_kernel!(du, factor_arr, surface_flux_values)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y

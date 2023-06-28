@@ -30,7 +30,7 @@ du = wrap_array(du_ode, mesh, equations, solver, cache)
 #################################################################################
 
 # CUDA kernel configurator for 1D array computing
-function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32, 1})
+function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32,1})
     config = launch_configuration(kernel.fun)
 
     threads = min(length(array), config.threads)
@@ -40,7 +40,7 @@ function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32, 1})
 end
 
 # CUDA kernel configurator for 2D array computing
-function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32, 2})
+function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32,2})
     config = launch_configuration(kernel.fun)
 
     threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 2))), 2))
@@ -50,7 +50,7 @@ function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32, 2})
 end
 
 # CUDA kernel configurator for 3D array computing
-function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{Float32, 3})
+function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{Float32,3})
     config = launch_configuration(kernel.fun)
 
     threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 3))), 3))
@@ -78,7 +78,7 @@ function copy_to_cpu!(du, u)
     return (du, u)
 end
 
-# CUDA kernel for calculating fluxes 
+# CUDA kernel for calculating fluxes along normal direction 1 
 function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Function)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -108,7 +108,7 @@ end
 
 # Calculate volume integral
 function cuda_volume_integral!(du, u,
-    mesh::TreeMesh{1},                                  
+    mesh::TreeMesh{1},
     nonconservative_terms, equations,                         # Need ...?
     volume_integral::VolumeIntegralWeakForm,
     dg::DGSEM, cache)
@@ -218,7 +218,7 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values)
 end
 
 # Calculate surface integrals
-function cuda_surface_integral!(du, u, mesh::TreeMesh{1},            
+function cuda_surface_integral!(du, u, mesh::TreeMesh{1},
     equations, surface_integral, dg::DGSEM, cache)                        # Need ...?
 
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(u, 2) 

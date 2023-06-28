@@ -91,7 +91,7 @@ function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Functi
     return nothing
 end
 
-# UDA kernel for calculating weak form
+# CUDA kernel for calculating weak form
 function weak_form_kernel!(du, derivative_dhat, flux_arr)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y

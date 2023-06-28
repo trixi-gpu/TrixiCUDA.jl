@@ -95,10 +95,20 @@ kernel10(y10, x10; configurator_3d(kernel10, y10)...) =#
 
 #= @cuda threads = (4, 4, 4) blocks = (10, 10, 200) gpu_add10!(y10, x10) =#
 
-A = rand(4, 4)
-B = CuArray{Float32}(undef)
+function foo!(A, B)
+    i = threadIdx().x
 
+    @inbounds begin
+        a = zeros(4)
+        for ii in 1:4
+            a[ii] = B[ii, i]
+        end
+        A[i] = sum(a)
+    end
 
-for ii in eachindex(size(A, 1))
-    println(ii)
+    return nothing
 end
+
+A = CUDA.rand(4)
+B = CUDA.rand(4, 4)
+@cuda threads = 4 foo!(A, B)

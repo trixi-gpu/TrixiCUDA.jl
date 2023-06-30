@@ -65,7 +65,7 @@ end
 # Rewrite `rhs!()` from `trixi/src/solvers/dgsem_tree/dg_1d.jl`
 #################################################################################
 
-# Copy `du` and `u` to GPU (run as Float32)
+# Copy data to GPU (run as Float32)
 function copy_to_gpu!(du, u)
     du = CUDA.zeros(size(du))
     u = CuArray{Float32}(u)
@@ -73,7 +73,7 @@ function copy_to_gpu!(du, u)
     return (du, u)
 end
 
-# Copy `du` and `u` to CPU (back to Float64)
+# Copy data to CPU (back to Float64)
 function copy_to_cpu!(du, u)
     du = Array{Float64}(du)
     u = Array{Float64}(u)

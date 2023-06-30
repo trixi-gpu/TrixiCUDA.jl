@@ -56,10 +56,7 @@ function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Functi
 
     if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
 
-        u_node = zeros(size(u, 1))
-        for ii in axes(u, 1)
-            u_node[ii] = u[ii, j, k]
-        end
+
 
         @inbounds flux_arr[i, j, k] = flux(u_node, 1, equations)[i]
     end

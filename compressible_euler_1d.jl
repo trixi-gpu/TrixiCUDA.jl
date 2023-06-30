@@ -29,39 +29,6 @@ du_ode = rand(Float64, l)
 u = wrap_array(u_ode, mesh, equations, solver, cache)
 du = wrap_array(du_ode, mesh, equations, solver, cache)
 
-# CUDA kernel configurators for 1D, 2D, and 3D arrays
-#################################################################################
-
-# CUDA kernel configurator for 1D array computing
-function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32,1})
-    config = launch_configuration(kernel.fun)
-
-    threads = min(length(array), config.threads)
-    blocks = cld(length(array), threads)
-
-    return (threads=threads, blocks=blocks)
-end
-
-# CUDA kernel configurator for 2D array computing
-function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32,2})
-    config = launch_configuration(kernel.fun)
-
-    threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 2))), 2))
-    blocks = map(cld, size(array), threads)
-
-    return (threads=threads, blocks=blocks)
-end
-
-# CUDA kernel configurator for 3D array computing
-function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{Float32,3})
-    config = launch_configuration(kernel.fun)
-
-    threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 3))), 3))
-    blocks = map(cld, size(array), threads)
-
-    return (threads=threads, blocks=blocks)
-end
-
 # Rewrite `rhs!()` from `trixi/src/solvers/dgsem_tree/dg_1d.jl`
 #################################################################################
 
@@ -89,15 +56,10 @@ function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Functi
 
     if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
 
-        # Cause unsupported call errors
         u_node = zeros(size(u, 1))
         for ii in axes(u, 1)
             u_node[ii] = u[ii, j, k]
         end
-        u_node = SVector{size(u, 1),Float64}(u_node)
-
-        # Works for constant variable
-        #= u_node = SVector(1.0, 2.0, 3.0) =#
 
         @inbounds flux_arr[i, j, k] = flux(u_node, 1, equations)[i]
     end

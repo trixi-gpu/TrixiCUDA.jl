@@ -1,5 +1,5 @@
 # Remove it after first run to avoid recompilation
-#include("header.jl") 
+#include("header.jl")
 
 # Use the target test header file
 include("test/linear_scalar_advection_2d.jl")
@@ -72,8 +72,8 @@ function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, 
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(u, 1) && j <= size(u, 2)^2 && k <= size(u, 4))
-        j1 = div(j, size(u, 2)) + 1
-        j2 = rem(j, size(u, 2)) + 1
+        j1 = div(j - 1, size(u, 2)) + 1
+        j2 = rem(j - 1, size(u, 2)) + 1
 
         u_node = get_nodes_vars(u, equations, j1, j2, k)
 
@@ -93,8 +93,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
-        j1 = div(j, size(du, 2)) + 1
-        j2 = rem(j, size(du, 2)) + 1
+        j1 = div(j - 1, size(du, 2)) + 1
+        j2 = rem(j - 1, size(du, 2)) + 1
 
         @inbounds begin
             for ii in axes(du, 2)
@@ -131,21 +131,12 @@ end
 #################################################################################
 du, u = copy_to_gpu!(du, u)
 
-#= cuda_volume_integral!(
+cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver) =#
+    solver.volume_integral, solver)
 
 
-derivative_dhat = CuArray{Float32}(solver.basis.derivative_dhat)
-flux_arr1 = similar(u)
-flux_arr2 = similar(u)
-size_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2)^2, size(u, 4))
-
-flux_kernel = @cuda launch = false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
-flux_kernel(flux_arr1, flux_arr2, u, equations; configurator_3d(flux_kernel, size_arr)...)
-
-dot(derivative_dhat[1, :], flux_arr1[1, 1, :, 1]) + dot(derivative_dhat[1, :], flux_arr2[1, :, 1, 1])
 
 # For tests
 #################################################################################

@@ -1,31 +1,10 @@
-#include("header.jl") # Remove it after first run to avoid recompilation
+# Remove it after first run to avoid recompilation
+#include("header.jl") 
 
-# Set random seed
-Random.seed!(12345)
+# Use the target test header file
+include("test/linear_scalar_advection_2d.jl")
 
-# The header part of test
-advection_velocity = (0.2, -0.7)
-equations = LinearScalarAdvectionEquation2D(advection_velocity)
-
-coordinates_min = (-1.0, -1.0)
-coordinates_max = (1.0, 1.0)
-mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level=4, n_cells_max=30_000)
-solver = DGSEM(polydeg=3, surface_flux=flux_lax_friedrichs)
-
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_convergence_test, solver)
-
-# Unpack to get key elements
-@unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
-
-# Create pesudo `u`, `du` and `t` for test
-t = 0.0
-l = nvariables(equations) * nnodes(solver)^ndims(mesh) * nelements(solver, cache)
-u_ode = rand(Float64, l)
-du_ode = rand(Float64, l)
-u = wrap_array(u_ode, mesh, equations, solver, cache)
-du = wrap_array(du_ode, mesh, equations, solver, cache)
-
-# CUDA kernel configurators for 1D, 2D, and 3D arrays
+# Kernel configurators 
 #################################################################################
 
 # CUDA kernel configurator for 1D array computing
@@ -58,7 +37,16 @@ function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{Float32,3})
     return (threads=threads, blocks=blocks)
 end
 
-# Rewrite `rhs!()` from `trixi/src/solvers/dgsem_tree/dg_2d.jl`
+# Helper functions
+#################################################################################
+
+# Rewrite `get_node_vars()` as a helper function
+@inline function get_nodes_vars(u, equations, indices...)
+
+    SVector(ntuple(@inline(v -> u[v, indices...]), Val(nvariables(equations))))
+end
+
+# CUDA kernels 
 #################################################################################
 
 # Copy data to GPU (run as Float32)
@@ -86,23 +74,56 @@ function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, 
     if (i <= size(u, 1) && j <= size(u, 2)^2 && k <= size(u, 4))
         j1 = div(j, size(u, 2)) + 1
         j2 = rem(j, size(u, 2)) + 1
-        @inbounds flux_arr1[i, j1, j2, k] = flux(u[i, j1, j2, k], 1, equations)
-        @inbounds flux_arr2[i, j1, j2, k] = flux(u[i, j1, j2, k], 2, equations)
+
+        u_node = get_nodes_vars(u, equations, j1, j2, k)
+
+        @inbounds begin
+            flux_arr1[i, j1, j2, k] = flux(u_node, 1, equations)[i]
+            flux_arr2[i, j1, j2, k] = flux(u_node, 2, equations)[i]
+        end
+    end
+
+    return nothing
+end
+
+# CUDA kernel for calculating weak form
+function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
+        j1 = div(j, size(du, 2)) + 1
+        j2 = rem(j, size(du, 2)) + 1
+
+        @inbounds begin
+            for ii in axes(du, 2)
+                du[i, j1, j2, k] += derivative_dhat[j1, ii] * flux_arr1[i, ii, j2, k]
+                du[i, j1, j2, k] += derivative_dhat[j2, ii] * flux_arr2[i, j1, ii, k]
+            end
+        end
     end
 
     return nothing
 end
 
 # Calculate volume integral
-function cuda_volume_integral!(du, u,
-    mesh::TreeMesh{2},
+function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
     nonconservative_terms, equations,
-    volume_integral::VolumeIntegralWeakForm,
-    dg::DGSEM, cache)
+    volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
 
     derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
-    flux_arr = similar(u)
+    flux_arr1 = similar(u)
+    flux_arr2 = similar(u)
+    size_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2)^2, size(u, 4))
 
+    flux_kernel = @cuda launch = false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
+    flux_kernel(flux_arr1, flux_arr2, u, equations; configurator_3d(flux_kernel, size_arr)...)
+
+    weak_form_kernel = @cuda launch = false weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
+    weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2; configurator_3d(weak_form_kernel, size_arr)...)
+
+    return nothing
 end
 
 
@@ -110,22 +131,30 @@ end
 #################################################################################
 du, u = copy_to_gpu!(du, u)
 
+#= cuda_volume_integral!(
+    du, u, mesh,
+    have_nonconservative_terms(equations), equations,
+    solver.volume_integral, solver) =#
+
+
+derivative_dhat = CuArray{Float32}(solver.basis.derivative_dhat)
 flux_arr1 = similar(u)
 flux_arr2 = similar(u)
 size_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2)^2, size(u, 4))
 
-#= @benchmark begin
-    flux1_kernel = @cuda launch = false flux1_kernel!(flux_arr1, u, equations, flux)
-    flux1_kernel(flux_arr1, u, equations, flux; configurator_3d(flux1_kernel, size_arr)...)
-    flux2_kernel = @cuda launch = false flux2_kernel!(flux_arr2, u, equations, flux)
-    flux2_kernel(flux_arr2, u, equations, flux; configurator_3d(flux2_kernel, size_arr)...)
-end =#
+flux_kernel = @cuda launch = false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
+flux_kernel(flux_arr1, flux_arr2, u, equations; configurator_3d(flux_kernel, size_arr)...)
 
+dot(derivative_dhat[1, :], flux_arr1[1, 1, :, 1]) + dot(derivative_dhat[1, :], flux_arr2[1, :, 1, 1])
 
-@benchmark begin
-    flux_kernel = @cuda launch = false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
-    flux_kernel(flux_arr1, flux_arr2, u, equations, flux; configurator_3d(flux_kernel, size_arr)...)
-end
+# For tests
+#################################################################################
+#= reset_du!(du, solver, cache)
+
+calc_volume_integral!(
+    du, u, mesh,
+    have_nonconservative_terms(equations), equations,
+    solver.volume_integral, solver, cache) =#
 
 
 #################################################################################

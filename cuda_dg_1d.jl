@@ -103,7 +103,7 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr)
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         @inbounds begin
-            for ii in 1:size(du, 2)
+            for ii in axes(du, 2)
                 du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
             end
         end

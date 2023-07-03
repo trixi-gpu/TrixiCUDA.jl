@@ -1,4 +1,6 @@
 # The header part of test
+Random.seed!(12345)
+
 advection_velocity = 1.0
 equations = LinearScalarAdvectionEquation1D(advection_velocity)
 
@@ -14,7 +16,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_sine_wave
 
 t = 0.0
 l = nvariables(equations) * nnodes(solver)^ndims(mesh) * nelements(solver, cache)
-du_ode = ones(Float64, l)
-u_ode = convert.(Float64, collect(1:l))
+du_ode = rand(Float64, l)
+u_ode = rand(Float64, l)
 du = wrap_array(du_ode, mesh, equations, solver, cache)
 u = wrap_array(u_ode, mesh, equations, solver, cache)

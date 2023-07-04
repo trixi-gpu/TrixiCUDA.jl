@@ -185,7 +185,7 @@ end
 
 # Calculate interface fluxes
 function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False,
-    equations, dg::DG, cache)
+    equations, dg::DGSEM, cache)
 
     surface_flux = dg.surface_integral.surface_flux
     interfaces_u = CuArray{Float32}(cache.interfaces.u)

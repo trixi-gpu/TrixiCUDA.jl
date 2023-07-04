@@ -156,7 +156,7 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, cache)
 end
 
 # CUDA kernel for calculating surface fluxes 
-function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # ::Any?
+function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # ::Any
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -224,7 +224,7 @@ end
 # Calculate surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{1}, dg::DGSEM, cache)
 
-    factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]])
+    factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(...)
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 
     surface_integral_kernel = @cuda launch = false surface_integral_kernel!(du, factor_arr, surface_flux_values)

@@ -1,5 +1,5 @@
 # Remove it after first run to avoid recompilation
-#include("header.jl") 
+#include("header.jl")
 
 # Use the target test header file
 #= include("test/linear_scalar_advection_1d.jl") =#
@@ -95,6 +95,24 @@ function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Functi
     return nothing
 end
 
+# new
+function flux_kernel_new!(flux_arr, u, equations::AbstractEquations{1}, flux::Function)
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (j <= size(u, 2) && k <= size(u, 3))
+        u_node = get_nodes_vars(u, equations, j, k)
+        f = flux(u_node, 1, equations)
+        @inbounds begin
+            for ii in axes(u, 1)
+                flux_arr[ii, j, k] = f[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # CUDA kernel for calculating weak form
 function weak_form_kernel!(du, derivative_dhat, flux_arr)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -164,6 +182,19 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::Abstrac
     if (i == 1 && j <= size(interfaces_u, 2) && k <= size(interfaces_u, 3))
         u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, k)
         @inbounds surface_flux_arr[i, j, k] = surface_flux(u_ll, u_rr, 1, equations)[j]
+    end
+
+    return nothing
+end
+
+# new
+function surface_flux_kernel_new!(surface_flux_arr, interfaces_u, equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # ::Any?
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (j <= size(interfaces_u, 2) && k <= size(interfaces_u, 3))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, k)
+        @inbounds surface_flux_arr[1, j, k] = surface_flux(u_ll, u_rr, 1, equations)[j]
     end
 
     return nothing
@@ -295,7 +326,7 @@ end
 #################################################################################
 du, u = copy_to_gpu!(du, u)
 
-cuda_volume_integral!(
+#= cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
@@ -313,7 +344,38 @@ cuda_jacobian!(du, mesh, cache)
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u)
+du, u = copy_to_cpu!(du, u) =#
+
+derivative_dhat = CuArray{Float32}(solver.basis.derivative_dhat)
+flux_arr = similar(u)
+
+@benchmark begin
+    flux_kernel = @cuda launch = false flux_kernel!(flux_arr, u, equations, flux)
+    flux_kernel(flux_arr, u, equations, flux; configurator_3d(flux_kernel, flux_arr)...)
+end
+
+size_arr = CuArray{Float32}(undef, (size(flux_arr, 2), size(flux_arr, 3)))
+@benchmark begin
+    flux_kernel_new = @cuda launch = false flux_kernel_new!(flux_arr, u, equations, flux)
+    flux_kernel_new(flux_arr, u, equations, flux; configurator_2d(flux_kernel_new, size_arr)...)
+end
+
+surface_flux = solver.surface_integral.surface_flux
+interfaces_u = CuArray{Float32}(cache.interfaces.u)
+surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
+surface_flux_arr = CuArray{Float32}(undef, (1, size(interfaces_u, 2), size(interfaces_u, 3)))
+
+@benchmark begin
+    surface_flux_kernel = @cuda launch = false surface_flux_kernel!(surface_flux_arr, interfaces_u, equations, surface_flux)
+    surface_flux_kernel(surface_flux_arr, interfaces_u, equations, surface_flux; configurator_3d(surface_flux_kernel, surface_flux_arr)...)
+end
+
+size_arr = CuArray{Float32}(undef, (size(interfaces_u, 2), size(interfaces_u, 3)))
+@benchmark begin
+    surface_flux_kernel_new = @cuda launch = false surface_flux_kernel_new!(surface_flux_arr, interfaces_u, equations, surface_flux)
+    surface_flux_kernel_new(surface_flux_arr, interfaces_u, equations, surface_flux; configurator_2d(surface_flux_kernel_new, size_arr)...)
+end
+
 
 # For tests
 #################################################################################

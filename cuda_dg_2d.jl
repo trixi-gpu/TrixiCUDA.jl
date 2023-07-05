@@ -126,6 +126,59 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
     return nothing
 end
 
+###### Need tests
+# CUDA kernel for calculating surface integrals along x axis
+function surface_integral_kernel1!(du, factor_arr, surface_flux_values)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    j1 = div(j - 1, size(u, 2)) + 1
+    j2 = rem(j - 1, size(u, 2)) + 1
+
+    if (i <= size(du, 1) && (j1 == 1 || j1 == size(du, 2)) && k <= size(du, 4))
+        @inbounds du[i, j1, j2, k] = du[i, j1, j2, k] + (-1)^isone(j1) *
+                                                        factor_arr[isone(j1)*1+(1-isone(j1))*2] *
+                                                        surface_flux_values[i, j2, isone(j1)*1+(1-isone(j1))*2, k]
+    end
+
+    return nothing
+end
+
+# CUDA kernel for calculating surface integrals along y axis
+function surface_integral_kernel2!(du, factor_arr, surface_flux_values)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    j1 = div(j - 1, size(u, 2)) + 1
+    j2 = rem(j - 1, size(u, 2)) + 1
+
+    if (i <= size(du, 1) && (j2 == 1 || j2 == size(du, 2)) && k <= size(du, 4))
+        @inbounds du[i, j1, j2, k] = du[i, j1, j2, k] + (-1)^isone(j2) *
+                                                        factor_arr[isone(j2)*1+(1-isone(j2))*2] *
+                                                        surface_flux_values[i, j1, isone(j2)*3+(1-isone(j2))*4, k]
+    end
+
+    return nothing
+end
+
+# Calculate surface integrals
+function cuda_surface_integral!(du, mesh::TreeMesh{2}, dg::DGSEM, cache)
+
+    factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(...)
+    surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
+    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2)^2, size(du, 4))
+
+    surface_integral_kernel1 = @cuda launch = false surface_integral_kernel1!(du, factor_arr, surface_flux_values)
+    surface_integral_kernel1(du, factor_arr, surface_flux_values; configurator_3d(surface_integral_kernel1, size_arr)...)
+
+    surface_integral_kernel2 = @cuda launch = false surface_integral_kernel2!(du, factor_arr, surface_flux_values)
+    surface_integral_kernel2(du, factor_arr, surface_flux_values; configurator_3d(surface_integral_kernel2, size_arr)...)
+
+    return nothing
+end
+
 
 # Inside `rhs!()` raw implementation
 #################################################################################

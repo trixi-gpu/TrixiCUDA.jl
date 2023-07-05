@@ -164,7 +164,7 @@ function surface_integral_kernel2!(du, factor_arr, surface_flux_values)
 end
 
 # Calculate surface integrals
-function cuda_surface_integral!(du, mesh::TreeMesh{2}, dg::DGSEM, cache)
+function cuda_surface_integral!(du, mesh::TreeMesh{2}, dg::DGSEM, cache) # surface_integral
 
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(...)
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)

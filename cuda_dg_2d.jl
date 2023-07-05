@@ -179,6 +179,33 @@ function cuda_surface_integral!(du, mesh::TreeMesh{2}, dg::DGSEM, cache) # surfa
     return nothing
 end
 
+# CUDA kernel for applying inverse Jacobian 
+function jacobian_kernel!(du, inverse_jacobian)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 3))
+        j1 = div(j - 1, size(du, 2)) + 1
+        j2 = rem(j - 1, size(du, 2)) + 1
+
+        @inbounds du[i, j1, j2, k] *= -inverse_jacobian[k]
+    end
+
+    return nothing
+end
+
+# Apply Jacobian from mapping to reference element
+function cuda_jacobian!(du, mesh::TreeMesh{2}, cache)
+
+    inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
+    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2)^2, size(du, 4))
+
+    jacobian_kernel = @cuda launch = false jacobian_kernel!(du, inverse_jacobian)
+    jacobian_kernel(du, inverse_jacobian; configurator_3d(jacobian_kernel, size_arr)...)
+
+    return nothing
+end
 
 # Inside `rhs!()` raw implementation
 #################################################################################

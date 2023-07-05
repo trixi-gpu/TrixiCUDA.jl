@@ -46,6 +46,21 @@ end
     SVector(ntuple(@inline(v -> u[v, indices...]), Val(nvariables(equations))))
 end
 
+# Rewrite `get_surface_node_vars()` as a helper function
+@inline function get_surface_node_vars(u, equations, indices...)
+
+    u_ll = SVector(ntuple(@inline(v -> u[1, v, indices...]), Val(nvariables(equations))))
+    u_rr = SVector(ntuple(@inline(v -> u[2, v, indices...]), Val(nvariables(equations))))
+
+    return u_ll, u_rr
+end
+
+# Rewrite `get_node_coords()` as a helper function
+@inline function get_node_coords(x, equations, indices...)
+
+    SVector(ntuple(@inline(idx -> x[idx, indices...]), Val(ndims(equations))))
+end
+
 # CUDA kernels 
 #################################################################################
 

@@ -222,6 +222,45 @@ function cuda_jacobian!(du, mesh::TreeMesh{2}, cache)
     return nothing
 end
 
+# CUDA kernel for calculating source terms
+function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{2}, source_terms::Function)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
+        j1 = div(j - 1, size(du, 2)) + 1
+        j2 = rem(j - 1, size(du, 2)) + 1
+
+        u_local = get_nodes_vars(u, equations, j1, j2, k)
+        x_local = get_node_coords(node_coordinates, equations, j1, j2, k)
+
+        @inbounds du[i, j1, j2, k] += source_terms(u_local, x_local, t, equations)[i]
+    end
+
+    return nothing
+end
+
+# Calculate source terms               
+function cuda_sources!(du, u, t, source_terms::Nothing,
+    equations::AbstractEquations{2}, cache)
+
+    return nothing
+end
+
+# Calculate source terms 
+function cuda_sources!(du, u, t, source_terms,
+    equations::AbstractEquations{2}, cache)
+
+    node_coordinates = CuArray{Float32}(cache.elements.node_coordinates)
+    size_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2)^2, size(u, 4))
+
+    source_terms_kernel = @cuda launch = false source_terms_kernel!(du, u, node_coordinates, t, equations, source_terms)
+    source_terms_kernel(du, u, node_coordinates, t, equations, source_terms; configurator_3d(source_terms_kernel, size_arr)...)
+
+    return nothing
+end
+
 # Inside `rhs!()` raw implementation
 #################################################################################
 du, u = copy_to_gpu!(du, u)

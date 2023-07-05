@@ -89,6 +89,7 @@ function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Functi
 
     if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
         u_node = get_nodes_vars(u, equations, j, k)
+        
         @inbounds flux_arr[i, j, k] = flux(u_node, 1, equations)[i]
     end
 
@@ -163,6 +164,7 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::Abstrac
 
     if (i == 1 && j <= size(interfaces_u, 2) && k <= size(interfaces_u, 3))
         u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, k)
+        
         @inbounds surface_flux_arr[i, j, k] = surface_flux(u_ll, u_rr, 1, equations)[j]
     end
 
@@ -266,6 +268,7 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         u_local = get_nodes_vars(u, equations, j, k)
         x_local = get_node_coords(node_coordinates, equations, j, k)
+        
         @inbounds du[i, j, k] += source_terms(u_local, x_local, t, equations)[i]
     end
 

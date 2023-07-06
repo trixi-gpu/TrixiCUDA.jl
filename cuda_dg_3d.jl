@@ -1,5 +1,5 @@
 # Remove it after first run to avoid recompilation
-#include("header.jl")
+#= include("header.jl") =#
 
 # Use the target test header file
 #= include("test/linear_scalar_advection_3d.jl") =#

@@ -1,8 +1,9 @@
 # Remove it after first run to avoid recompilation
-#include("header.jl")
+#= include("header.jl") =#
 
 # Use the target test header file
 include("test/linear_scalar_advection_2d.jl")
+#= include("test/compressible_euler_2d.jl") =#
 
 # Kernel configurators 
 #################################################################################
@@ -130,6 +131,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
     derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
     flux_arr1 = similar(u)
     flux_arr2 = similar(u)
+
     size_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2)^2, size(u, 4))
 
     flux_kernel = @cuda launch = false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
@@ -140,6 +142,47 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
 
     return nothing
 end
+
+# CUDA kernel for prolonging two interfaces in x and y directions
+function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= 2 && j <= size(interfaces_u, 2) * size(interfaces_u, 3) && k <= size(interfaces_u, 4))
+        j1 = isequal(size(interfaces_u, 2), size(interfaces_u, 3)) * (div(j - 1, size(interfaces_u, 2)) + 1) +
+             (1 - isequal(size(interfaces_u, 2), size(interfaces_u, 3))) * (rem(j - 1, size(interfaces_u, 2)) + 1)
+        j2 = rem(j - 1, size(interfaces_u, 3)) + 1
+
+        orientation = orientations[k]
+        element = neighbor_ids[i, k]
+
+        @inbounds interfaces_u[i, j1, j2, k] = u[j1,
+            (orientation-1)*j2+(2-orientation)*((i-1)*1+(2-i)*size(u, 2)),
+            (2-orientation)*j2+(orientation-1)*((i-1)*1+(2-i)*size(u, 2)),
+            element]
+    end
+
+    return nothing
+end
+
+# Prolong solution to interfaces
+function cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, cache)
+
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
+    neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
+    orientations = CuArray{Int32}(cache.interfaces.orientations)
+
+    size_arr = CuArray{Float32}(undef, 2, size(interfaces_u, 2) * size(interfaces_u, 3), size(interfaces_u, 4))
+
+    prolong_interfaces_kernel = @cuda launch = false prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
+    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations; configurator_3d(prolong_interfaces_kernel, size_arr)...)
+
+    cache.interfaces.u = interfaces_u  # Automatically copy back to CPU
+
+    return nothing
+end
+
 
 ###### Need tests
 # CUDA kernel for calculating surface integrals along x axis
@@ -263,24 +306,27 @@ end
 
 # Inside `rhs!()` raw implementation
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
+cuda_prolong2interfaces!(u, mesh, cache) =#
 
 
 # For tests
 #################################################################################
-#= reset_du!(du, solver, cache)
+reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver, cache) =#
+    solver.volume_integral, solver, cache)
 
+prolong2interfaces!(
+    cache, u, mesh, equations, solver.surface_integral, solver)
 
 #################################################################################
 

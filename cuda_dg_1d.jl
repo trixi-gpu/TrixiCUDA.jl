@@ -212,9 +212,9 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False,
 
     surface_flux = dg.surface_integral.surface_flux
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
+    neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
     surface_flux_arr = CuArray{Float32}(undef, (1, size(interfaces_u, 2), size(interfaces_u, 3)))
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
-    neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
 
     size_arr = CuArray{Float32}(undef, size(interfaces_u, 3))
 

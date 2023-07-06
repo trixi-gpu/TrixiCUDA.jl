@@ -130,14 +130,16 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
     return nothing
 end
 
-# CUDA kernel for prolonging two interfaces
-function prolong_interfaces_kernel!(interfaces_u, u)
+# CUDA kernel for prolonging two interfaces in x direction
+function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= 2 && j <= size(u, 1) && k <= size(u, 3))
-        @inbounds interfaces_u[i, j, k] = u[j, (2-i)*size(u, 2)+(i-1)*1, (2-i)*k+(i-1)*(k%size(u, 3)+1)]
+    if (i <= 2 && j <= size(interfaces_u, 2) && k <= size(interfaces_u, 3))
+        element = neighbor_ids[i, k]
+
+        @inbounds interfaces_u[i, j, k] = u[j, (i-1)*1+(2-i)*size(u, 2), element]
     end
 
     return nothing
@@ -147,9 +149,10 @@ end
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, cache)
 
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
+    neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
 
-    prolong_interfaces_kernel = @cuda launch = false prolong_interfaces_kernel!(interfaces_u, u)
-    prolong_interfaces_kernel(interfaces_u, u; configurator_3d(prolong_interfaces_kernel, interfaces_u)...)
+    prolong_interfaces_kernel = @cuda launch = false prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids)
+    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids; configurator_3d(prolong_interfaces_kernel, interfaces_u)...)
 
     cache.interfaces.u = interfaces_u  # Automatically copy back to CPU
 
@@ -296,16 +299,16 @@ end
 
 # Inside `rhs!()` raw implementation
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-cuda_prolong2interfaces!(u, mesh, cache)
+cuda_prolong2interfaces!(u, mesh, cache) =#
 
-cuda_interface_flux!(
+#= cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
     equations, solver, cache,)
 
@@ -316,11 +319,11 @@ cuda_jacobian!(du, mesh, cache)
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u)
+du, u = copy_to_cpu!(du, u) =#
 
 # For tests
 #################################################################################
-#= reset_du!(du, solver, cache)
+reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -330,7 +333,7 @@ calc_volume_integral!(
 prolong2interfaces!(
     cache, u, mesh, equations, solver.surface_integral, solver)
 
-calc_interface_flux!(
+#= calc_interface_flux!(
     cache.elements.surface_flux_values, mesh,
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver, cache)

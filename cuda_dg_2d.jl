@@ -150,8 +150,7 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= 2 && j <= size(interfaces_u, 2) * size(interfaces_u, 3) && k <= size(interfaces_u, 4))
-        j1 = isequal(size(interfaces_u, 2), size(interfaces_u, 3)) * (div(j - 1, size(interfaces_u, 2)) + 1) +
-             (1 - isequal(size(interfaces_u, 2), size(interfaces_u, 3))) * (rem(j - 1, size(interfaces_u, 2)) + 1)
+        j1 = div(j - 1, size(interfaces_u, 3)) + 1
         j2 = rem(j - 1, size(interfaces_u, 3)) + 1
 
         orientation = orientations[k]
@@ -306,19 +305,19 @@ end
 
 # Inside `rhs!()` raw implementation
 #################################################################################
-#= du, u = copy_to_gpu!(du, u)
+du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-cuda_prolong2interfaces!(u, mesh, cache) =#
+cuda_prolong2interfaces!(u, mesh, cache)
 
 
 # For tests
 #################################################################################
-reset_du!(du, solver, cache)
+#= reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -326,7 +325,7 @@ calc_volume_integral!(
     solver.volume_integral, solver, cache)
 
 prolong2interfaces!(
-    cache, u, mesh, equations, solver.surface_integral, solver)
+    cache, u, mesh, equations, solver.surface_integral, solver) =#
 
 #################################################################################
 

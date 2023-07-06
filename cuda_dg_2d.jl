@@ -145,21 +145,23 @@ end
 
 # CUDA kernel for prolonging two interfaces in x and y directions
 function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
-    if (i <= 2 && j <= size(interfaces_u, 2) * size(interfaces_u, 3) && k <= size(interfaces_u, 4))
+    if (j <= size(interfaces_u, 2) * size(interfaces_u, 3) && k <= size(interfaces_u, 4))
         j1 = div(j - 1, size(interfaces_u, 3)) + 1
         j2 = rem(j - 1, size(interfaces_u, 3)) + 1
 
         orientation = orientations[k]
-        element = neighbor_ids[i, k]
+        left_element = neighbor_ids[1, k]
+        right_element = neighbor_ids[2, k]
 
-        @inbounds interfaces_u[i, j1, j2, k] = u[j1,
-            (orientation-1)*j2+(2-orientation)*((i-1)*1+(2-i)*size(u, 2)),
-            (2-orientation)*j2+(orientation-1)*((i-1)*1+(2-i)*size(u, 2)),
-            element]
+        @inbounds begin
+            interfaces_u[1, j1, j2, k] = u[j1, (orientation-1)*j2+(2-orientation)*size(u, 2),
+                (2-orientation)*j2+(orientation-1)*size(u, 2), left_element]
+            interfaces_u[2, j1, j2, k] = u[j1, (orientation-1)*j2+(2-orientation)*1,
+                (2-orientation)*j2+(orientation-1)*1, right_element]
+        end
     end
 
     return nothing
@@ -172,10 +174,10 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, cache)
     neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
     orientations = CuArray{Int32}(cache.interfaces.orientations)
 
-    size_arr = CuArray{Float32}(undef, 2, size(interfaces_u, 2) * size(interfaces_u, 3), size(interfaces_u, 4))
+    size_arr = CuArray{Float32}(undef, size(interfaces_u, 2) * size(interfaces_u, 3), size(interfaces_u, 4))
 
     prolong_interfaces_kernel = @cuda launch = false prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
-    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations; configurator_3d(prolong_interfaces_kernel, size_arr)...)
+    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations; configurator_2d(prolong_interfaces_kernel, size_arr)...)
 
     cache.interfaces.u = interfaces_u  # Automatically copy back to CPU
 

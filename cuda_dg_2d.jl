@@ -148,7 +148,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
     return nothing
 end
 
-# CUDA kernel for prolonging two interfaces in x and y directions
+# CUDA kernel for prolonging two interfaces in direction x and y
 function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y

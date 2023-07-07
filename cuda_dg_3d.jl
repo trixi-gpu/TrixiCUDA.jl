@@ -154,6 +154,54 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3},
     return nothing
 end
 
+# CUDA kernel for prolonging two interfaces in direction x, y, and z
+function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(interfaces_u, 2) * size(interfaces_u, 3)^2 && k <= size(interfaces_u, 5))
+        j1 = div(j - 1, size(interfaces_u, 3)^2) + 1
+        j2 = div(rem(j - 1, size(interfaces_u, 3)^2), size(interfaces_u, 3)) + 1
+        j3 = rem(rem(j - 1, size(interfaces_u, 3)^2), size(interfaces_u, 3)) + 1
+
+        orientation = orientations[k]
+        left_element = neighbor_ids[1, k]
+        right_element = neighbor_ids[2, k]
+
+        @inbounds begin
+            interfaces_u[1, j1, j2, j3, k] = u[j1,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j2+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j3+isequal(orientation, 2)*j3+isequal(orientation, 3)*size(u, 2),
+                left_element]
+            interfaces_u[2, j1, j2, j3, k] = u[j1,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j2+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*1+isequal(orientation, 3)*j3,
+                isequal(orientation, 1)*j3+isequal(orientation, 2)*j3+isequal(orientation, 3)*1,
+                right_element]
+        end
+    end
+
+    return nothing
+end
+
+# Prolong solution to interfaces
+function cuda_prolong2interfaces!(u, mesh::TreeMesh{3}, cache)
+
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
+    neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
+    orientations = CuArray{Int32}(cache.interfaces.orientations)
+
+    size_arr = CuArray{Float32}(undef, size(interfaces_u, 2) * size(interfaces_u, 3)^2, size(interfaces_u, 5))
+
+    prolong_interfaces_kernel = @cuda launch = false prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
+    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations; configurator_2d(prolong_interfaces_kernel, size_arr)...)
+
+    cache.interfaces.u = interfaces_u  # Automatically copy back to CPU
+
+    return nothing
+end
+
 # Inside `rhs!()` raw implementation
 #################################################################################
 du, u = copy_to_gpu!(du, u)
@@ -163,6 +211,8 @@ cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
+cuda_prolong2interfaces!(u, mesh, cache)
+
 # For tests
 #################################################################################
 #= reset_du!(du, solver, cache)
@@ -170,4 +220,7 @@ cuda_volume_integral!(
 calc_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver, cache) =#
+    solver.volume_integral, solver, cache)
+
+prolong2interfaces!(
+    cache, u, mesh, equations, solver.surface_integral, solver) =#

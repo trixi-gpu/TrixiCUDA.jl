@@ -162,10 +162,14 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
         right_element = neighbor_ids[2, k]
 
         @inbounds begin
-            interfaces_u[1, j1, j2, k] = u[j1, (orientation-1)*j2+(2-orientation)*size(u, 2),
-                (2-orientation)*j2+(orientation-1)*size(u, 2), left_element]
-            interfaces_u[2, j1, j2, k] = u[j1, (orientation-1)*j2+(2-orientation)*1,
-                (2-orientation)*j2+(orientation-1)*1, right_element]
+            interfaces_u[1, j1, j2, k] = u[j1,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*size(u, 2),
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j2,
+                left_element]
+            interfaces_u[2, j1, j2, k] = u[j1,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*1,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j2,
+                right_element]
         end
     end
 

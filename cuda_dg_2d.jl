@@ -2,8 +2,8 @@
 #= include("header.jl") =#
 
 # Use the target test header file
-include("test/linear_scalar_advection_2d.jl")
-#= include("test/compressible_euler_2d.jl") =#
+#= include("test/linear_scalar_advection_2d.jl") =#
+include("test/compressible_euler_2d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -253,41 +253,19 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False,
     return nothing
 end
 
-
-
-
-###### Need tests
-# CUDA kernel for calculating surface integrals along x axis
-function surface_integral_kernel1!(du, factor_arr, surface_flux_values)
+# CUDA kernel for calculating surface integrals along axis x and y
+function surface_integral_kernel!(du, factor_arr, surface_flux_values)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    j1 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    j1 = div(j - 1, size(u, 2)) + 1
-    j2 = rem(j - 1, size(u, 2)) + 1
-
-    if (i <= size(du, 1) && (j1 == 1 || j1 == size(du, 2)) && k <= size(du, 4))
-        @inbounds du[i, j1, j2, k] = du[i, j1, j2, k] + (-1)^isone(j1) *
-                                                        factor_arr[isone(j1)*1+(1-isone(j1))*2] *
-                                                        surface_flux_values[i, j2, isone(j1)*1+(1-isone(j1))*2, k]
-    end
-
-    return nothing
-end
-
-# CUDA kernel for calculating surface integrals along y axis
-function surface_integral_kernel2!(du, factor_arr, surface_flux_values)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    j1 = div(j - 1, size(u, 2)) + 1
-    j2 = rem(j - 1, size(u, 2)) + 1
-
-    if (i <= size(du, 1) && (j2 == 1 || j2 == size(du, 2)) && k <= size(du, 4))
-        @inbounds du[i, j1, j2, k] = du[i, j1, j2, k] + (-1)^isone(j2) *
-                                                        factor_arr[isone(j2)*1+(1-isone(j2))*2] *
-                                                        surface_flux_values[i, j1, isone(j2)*3+(1-isone(j2))*4, k]
+    if (i <= size(du, 1) && j1 <= size(du, 2) && k <= size(du, 4))
+        @inbounds begin
+            du[i, 1, j1, k] -= surface_flux_values[i, j1, 1, k] * factor_arr[1]
+            du[i, size(du, 2), j1, k] += surface_flux_values[i, j1, 2, k] * factor_arr[2]
+            du[i, j1, 1, k] -= surface_flux_values[i, j1, 3, k] * factor_arr[1]
+            du[i, j1, size(du, 2), k] += surface_flux_values[i, j1, 4, k] * factor_arr[2]
+        end
     end
 
     return nothing
@@ -296,15 +274,13 @@ end
 # Calculate surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{2}, dg::DGSEM, cache) # surface_integral
 
-    factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[end, 2]]) # size(...)
+    factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[size(du, 2), 2]])
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
-    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2)^2, size(du, 4))
 
-    surface_integral_kernel1 = @cuda launch = false surface_integral_kernel1!(du, factor_arr, surface_flux_values)
-    surface_integral_kernel1(du, factor_arr, surface_flux_values; configurator_3d(surface_integral_kernel1, size_arr)...)
+    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2), size(du, 4))
 
-    surface_integral_kernel2 = @cuda launch = false surface_integral_kernel2!(du, factor_arr, surface_flux_values)
-    surface_integral_kernel2(du, factor_arr, surface_flux_values; configurator_3d(surface_integral_kernel2, size_arr)...)
+    surface_integral_kernel = @cuda launch = false surface_integral_kernel!(du, factor_arr, surface_flux_values)
+    surface_integral_kernel(du, factor_arr, surface_flux_values; configurator_3d(surface_integral_kernel, size_arr)...)
 
     return nothing
 end
@@ -315,7 +291,7 @@ function jacobian_kernel!(du, inverse_jacobian)
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 3))
+    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
 
@@ -329,6 +305,7 @@ end
 function cuda_jacobian!(du, mesh::TreeMesh{2}, cache)
 
     inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
+
     size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2)^2, size(du, 4))
 
     jacobian_kernel = @cuda launch = false jacobian_kernel!(du, inverse_jacobian)
@@ -339,18 +316,22 @@ end
 
 # CUDA kernel for calculating source terms
 function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{2}, source_terms::Function)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
-    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
+    if (j <= size(du, 2)^2 && k <= size(du, 4))
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
 
         u_local = get_nodes_vars(u, equations, j1, j2, k)
         x_local = get_node_coords(node_coordinates, equations, j1, j2, k)
+        source_terms_node = source_terms(u_local, x_local, t, equations)
 
-        @inbounds du[i, j1, j2, k] += source_terms(u_local, x_local, t, equations)[i]
+        @inbounds begin
+            for ii in axes(du, 1)
+                du[ii, j1, j2, k] += source_terms_node[ii]
+            end
+        end
     end
 
     return nothing
@@ -368,10 +349,10 @@ function cuda_sources!(du, u, t, source_terms,
     equations::AbstractEquations{2}, cache)
 
     node_coordinates = CuArray{Float32}(cache.elements.node_coordinates)
-    size_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2)^2, size(u, 4))
+    size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 4))
 
     source_terms_kernel = @cuda launch = false source_terms_kernel!(du, u, node_coordinates, t, equations, source_terms)
-    source_terms_kernel(du, u, node_coordinates, t, equations, source_terms; configurator_3d(source_terms_kernel, size_arr)...)
+    source_terms_kernel(du, u, node_coordinates, t, equations, source_terms; configurator_2d(source_terms_kernel, size_arr)...)
 
     return nothing
 end
@@ -391,6 +372,15 @@ cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
     equations, solver, cache,)
 
+cuda_surface_integral!(du, mesh, solver, cache)
+
+cuda_jacobian!(du, mesh, cache)
+
+cuda_sources!(du, u, t,
+    source_terms, equations, cache)
+
+du, u = copy_to_cpu!(du, u)
+
 # For tests
 #################################################################################
 #= reset_du!(du, solver, cache)
@@ -406,7 +396,15 @@ prolong2interfaces!(
 calc_interface_flux!(
     cache.elements.surface_flux_values, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.surface_integral, solver, cache) =#
+    solver.surface_integral, solver, cache)
+
+calc_surface_integral!(
+    du, u, mesh, equations, solver.surface_integral, solver, cache)
+
+apply_jacobian!(du, mesh, equations, solver, cache)
+
+calc_sources!(du, u, t,
+    source_terms, equations, solver, cache) =#
 
 #################################################################################
 

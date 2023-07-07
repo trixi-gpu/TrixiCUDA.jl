@@ -20,6 +20,6 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
 t = 0.0
 l = nvariables(equations) * nnodes(solver)^ndims(mesh) * nelements(solver, cache)
 du_ode = ones(Float64, l)
-u_ode = convert.(Float64, collect(1:l))
+u_ode = ones(Float64, l)
 du = wrap_array(du_ode, mesh, equations, solver, cache)
 u = wrap_array(u_ode, mesh, equations, solver, cache)

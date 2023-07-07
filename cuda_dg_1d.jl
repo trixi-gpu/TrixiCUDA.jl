@@ -373,10 +373,13 @@ calc_interface_flux!(
 calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
-apply_jacobian!(
-    du, mesh, equations, solver, cache)
+apply_jacobian!(du, mesh, equations, solver, cache)
 
-calc_sources!(du, u, t, source_terms, equations, solver, cache) =#
+calc_sources!(du, u, t, 
+    source_terms, equations, solver, cache) =#
+
+
+
 
 #= function rhs!(du, u, t,
     mesh::TreeMesh{1}, equations,

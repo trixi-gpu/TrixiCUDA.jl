@@ -83,19 +83,22 @@ end
 
 # CUDA kernel for calculating fluxes along normal direction 1 and 2
 function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, flux::Function)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
-    if (i <= size(u, 1) && j <= size(u, 2)^2 && k <= size(u, 4))
+    if (j <= size(u, 2)^2 && k <= size(u, 4))
         j1 = div(j - 1, size(u, 2)) + 1
         j2 = rem(j - 1, size(u, 2)) + 1
 
         u_node = get_nodes_vars(u, equations, j1, j2, k)
+        flux_node1 = flux(u_node, 1, equations)
+        flux_node2 = flux(u_node, 2, equations)
 
         @inbounds begin
-            flux_arr1[i, j1, j2, k] = flux(u_node, 1, equations)[i]
-            flux_arr2[i, j1, j2, k] = flux(u_node, 2, equations)[i]
+            for ii in axes(u, 1)
+                flux_arr1[ii, j1, j2, k] = flux_node1[ii]
+                flux_arr2[ii, j1, j2, k] = flux_node2[ii]
+            end
         end
     end
 
@@ -132,10 +135,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
     flux_arr1 = similar(u)
     flux_arr2 = similar(u)
 
-    size_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2)^2, size(u, 4))
+    size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 4))
 
     flux_kernel = @cuda launch = false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
-    flux_kernel(flux_arr1, flux_arr2, u, equations; configurator_3d(flux_kernel, size_arr)...)
+    flux_kernel(flux_arr1, flux_arr2, u, equations; configurator_2d(flux_kernel, size_arr)...)
+
+    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2)^2, size(du, 4))
 
     weak_form_kernel = @cuda launch = false weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
     weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2; configurator_3d(weak_form_kernel, size_arr)...)

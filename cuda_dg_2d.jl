@@ -195,7 +195,7 @@ end
 
 # CUDA kernel for calculating surface fluxes 
 function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
-    equations::AbstractEquations{2}, surface_flux::FluxLaxFriedrichs) # ::Any
+    equations::AbstractEquations{2}, surface_flux::Any)
     j2 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -244,7 +244,7 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False,
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
     neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
     orientations = CuArray{Int32}(cache.interfaces.orientations)
-    surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u, 2), size(interfaces_u, 3), size(interfaces_u, 4))
+    surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 
     size_arr = CuArray{Float32}(undef, size(interfaces_u, 3), size(interfaces_u, 4))

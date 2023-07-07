@@ -171,7 +171,8 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, cache)
 end
 
 # CUDA kernel for calculating surface fluxes 
-function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # ::Any
+function surface_flux_kernel!(surface_flux_arr, interfaces_u,
+    equations::AbstractEquations{1}, surface_flux::FluxLaxFriedrichs) # ::Any
     k = (blockIdx().x - 1) * blockDim().x + threadIdx().x
 
     if (k <= size(surface_flux_arr, 3))
@@ -188,7 +189,7 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::Abstrac
     return nothing
 end
 
-# CUDA kernel for setting interface fluxes
+# CUDA kernel for setting interface fluxes on orientation 1 
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -213,7 +214,7 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False,
     surface_flux = dg.surface_integral.surface_flux
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
     neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
-    surface_flux_arr = CuArray{Float32}(undef, (1, size(interfaces_u, 2), size(interfaces_u, 3)))
+    surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u, 2), size(interfaces_u, 3))
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 
     size_arr = CuArray{Float32}(undef, size(interfaces_u, 3))

@@ -202,53 +202,6 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{3}, cache)
     return nothing
 end
 
-# CUDA kernel for calculating surface fluxes 
-function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
-    equations::AbstractEquations{3}, surface_flux::Any)
-    j2 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j3 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (j2 <= size(surface_flux_arr, 3) && j3 <= size(surface_flux_arr, 4) && k <= size(surface_flux_arr, 5))
-        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j2, j3, k)
-        orientation = orientations[k]
-        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
-
-        @inbounds begin
-            for j1j1 in axes(surface_flux_arr, 2)
-                surface_flux_arr[1, j1j1, j2, j3, k] = surface_flux_node[j1j1]
-            end
-        end
-    end
-
-    return nothing
-end
-
-function surface_flux_kernel1!(surface_flux_arr, interfaces_u, orientations,
-    equations::AbstractEquations{3}, surface_flux::FluxLaxFriedrichs) # ::Any
-    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-
-    if (j <= size(surface_flux_arr, 3)^2 && k <= size(surface_flux_arr, 5))
-
-        j2 = div(j - 1, 4) + 1
-        j3 = rem(j - 1, 4) + 1
-
-
-        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j2, j3, k)
-        orientation = orientations[k]
-        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
-
-        @inbounds begin
-            for j1j1 in axes(surface_flux_arr, 2)
-                surface_flux_arr[1, j1j1, j2, j3, k] = surface_flux_node[j1j1]
-            end
-        end
-    end
-
-    return nothing
-end
-
 # Inside `rhs!()` raw implementation
 #################################################################################
 du, u = copy_to_gpu!(du, u)
@@ -260,24 +213,6 @@ cuda_volume_integral!(
 
 cuda_prolong2interfaces!(u, mesh, cache)
 
-surface_flux = solver.surface_integral.surface_flux
-interfaces_u = CUDA.zeros(size(cache.interfaces.u))
-neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
-orientations = CuArray{Int32}(cache.interfaces.orientations)
-surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
-surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
-
-size_arr = CuArray{Float32}(undef, size(surface_flux_arr, 3), size(surface_flux_arr, 4), size(interfaces_u, 5))
-
-surface_flux_kernel = @cuda launch = false surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations, equations, surface_flux)
-surface_flux_kernel(surface_flux_arr, interfaces_u, orientations, equations, surface_flux; configurator_3d(surface_flux_kernel, size_arr)...)
-
-
-#= size_arr = CuArray{Float32}(undef, size(surface_flux_arr, 3)^2, size(interfaces_u, 5))
-
-surface_flux_kernel1 = @cuda launch = false surface_flux_kernel1!(surface_flux_arr, interfaces_u, orientations, equations, surface_flux)
-surface_flux_kernel1(surface_flux_arr, interfaces_u, orientations, equations, surface_flux; configurator_2d(surface_flux_kernel1, size_arr)...)
- =#
 
 # For tests
 #################################################################################

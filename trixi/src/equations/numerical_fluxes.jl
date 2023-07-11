@@ -21,7 +21,7 @@ DG method (except floating point errors).
   f_rr = flux(u_rr, orientation_or_normal_direction, equations)
 
   # Average regular fluxes
-  return 0.5 * (f_ll + f_rr)
+  return 0.5f0 * (f_ll + f_rr)
 end
 
 
@@ -145,7 +145,7 @@ DissipationLocalLaxFriedrichs() = DissipationLocalLaxFriedrichs(max_abs_speed_na
 
 @inline function (dissipation::DissipationLocalLaxFriedrichs)(u_ll, u_rr, orientation_or_normal_direction, equations)
   λ = dissipation.max_abs_speed(u_ll, u_rr, orientation_or_normal_direction, equations)
-  return -0.5 * λ * (u_rr - u_ll)
+  return -0.5f0 * λ * (u_rr - u_ll)
 end
 
 Base.show(io::IO, d::DissipationLocalLaxFriedrichs) = print(io, "DissipationLocalLaxFriedrichs(", d.max_abs_speed, ")")

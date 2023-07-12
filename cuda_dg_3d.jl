@@ -1,5 +1,5 @@
 # Remove it after first run to avoid recompilation
-#= include("header.jl") =#
+include("header.jl")
 
 # Use the target test header file
 #= include("test/linear_scalar_advection_3d.jl") =#
@@ -254,6 +254,31 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
     return nothing
 end
 
+# CUDA kernel for setting interface fluxes on orientation 1, 2, and 3
+function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids, orientations)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 3)^2 && k <= size(surface_flux_arr, 5))
+        j2 = div(j - 1, size(surface_flux_arr, 3)) + 1
+        j3 = rem(j - 1, size(surface_flux_arr, 3)) + 1
+
+        left_id = neighbor_ids[1, k]
+        right_id = neighbor_ids[2, k]
+
+        left_direction = 2 * orientations[k]
+        right_direction = 2 * orientations[k] - 1
+
+        @inbounds begin
+            surface_flux_values[i, j2, j3, left_direction, left_id] = surface_flux_arr[1, i, j2, j3, k]
+            surface_flux_values[i, j2, j3, right_direction, right_id] = surface_flux_arr[1, i, j2, j3, k]
+        end
+    end
+
+    return nothing
+end
+
 # Calculate interface fluxes
 function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False,
     equations, dg::DGSEM, cache)
@@ -270,12 +295,12 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False,
     surface_flux_kernel = @cuda launch = false surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations, equations, surface_flux)
     surface_flux_kernel(surface_flux_arr, interfaces_u, orientations, equations, surface_flux; configurator_3d(surface_flux_kernel, size_arr)...)
 
-    #= size_arr = CuArray{Float32}(undef, size(surface_flux_values, 1), size(interfaces_u, 3), size(interfaces_u, 4))
+    size_arr = CuArray{Float32}(undef, size(surface_flux_values, 1), size(interfaces_u, 3)^2, size(interfaces_u, 5))
 
     interface_flux_kernel = @cuda launch = false interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids, orientations)
     interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids, orientations; configurator_3d(interface_flux_kernel, size_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU =#
+    cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU
 
     return nothing
 end
@@ -290,6 +315,12 @@ cuda_volume_integral!(
     solver.volume_integral, solver)
 
 cuda_prolong2interfaces!(u, mesh, cache)
+
+cuda_interface_flux!(
+    mesh, have_nonconservative_terms(equations),
+    equations, solver, cache,)
+
+
 
 
 # For tests

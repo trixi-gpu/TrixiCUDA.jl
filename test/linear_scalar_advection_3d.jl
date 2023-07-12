@@ -1,7 +1,7 @@
 # The header part of test
 Random.seed!(12345)
 
-advection_velocity = (0.2, -0.7, 0.5)
+advection_velocity = (0.2f0, -0.7f0, 0.5f0)
 equations = LinearScalarAdvectionEquation3D(advection_velocity)
 
 solver = DGSEM(polydeg=3, surface_flux=flux_lax_friedrichs)

@@ -1,7 +1,7 @@
 # The header part of test
 Random.seed!(12345)
 
-advection_velocity = (0.2, -0.7)
+advection_velocity = (0.2f0, -0.7f0)
 equations = LinearScalarAdvectionEquation2D(advection_velocity)
 
 coordinates_min = (-1.0, -1.0)

@@ -415,13 +415,3 @@ apply_jacobian!(du, mesh, equations, solver, cache)
 calc_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
 
-#################################################################################
-
-#= nelements(dg::DG, cache) = nelements(cache.elements) =#
-
-#= nelements(elements::ElementContainer2D) = length(elements.cell_ids) =#
-
-#= ntuple(_ -> StaticInt(nnodes(solver)), ndims(mesh))..., nelements(solver, cache) =#
-
-#= unsafe_wrap(Array{eltype(u_ode),ndims(mesh) + 2}, pointer(u_ode),
-    (nvariables(equations), ntuple(_ -> nnodes(solver), ndims(mesh))..., nelements(solver, cache))) =#

@@ -312,25 +312,39 @@ function cuda_surface_integral!(du, mesh::TreeMesh{3}, dg::DGSEM, cache) # surfa
     return nothing
 end
 
-#= # CUDA kernel for applying inverse Jacobian 
+# CUDA kernel for applying inverse Jacobian 
 function jacobian_kernel!(du, inverse_jacobian)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
-        j1 = div(j - 1, size(du, 2)) + 1
-        j2 = rem(j - 1, size(du, 2)) + 1
+    if (i <= size(du, 1) && j <= size(du, 2)^3 && k <= size(du, 5))
+        j1 = div(j - 1, size(du, 2)^2) + 1
+        j2 = div(rem(j - 1, size(du, 2)^2), size(du, 2)) + 1
+        j3 = rem(rem(j - 1, size(du, 2)^2), size(du, 2)) + 1
 
-        @inbounds du[i, j1, j2, k] *= -inverse_jacobian[k]
+        @inbounds du[i, j1, j2, j3, k] *= -inverse_jacobian[k]
     end
 
     return nothing
-end =#
+end
+
+# Apply Jacobian from mapping to reference element
+function cuda_jacobian!(du, mesh::TreeMesh{3}, cache)
+
+    inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
+
+    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
+
+    jacobian_kernel = @cuda launch = false jacobian_kernel!(du, inverse_jacobian)
+    jacobian_kernel(du, inverse_jacobian; configurator_3d(jacobian_kernel, size_arr)...)
+
+    return nothing
+end
 
 # Inside `rhs!()` raw implementation
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -345,10 +359,12 @@ cuda_interface_flux!(
 
 cuda_surface_integral!(du, mesh, solver, cache)
 
+cuda_jacobian!(du, mesh, cache) =#
+
 
 # For tests
 #################################################################################
-#= reset_du!(du, solver, cache)
+reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -364,4 +380,6 @@ calc_interface_flux!(
     solver.surface_integral, solver, cache)
 
 calc_surface_integral!(
-    du, u, mesh, equations, solver.surface_integral, solver, cache) =#
+    du, u, mesh, equations, solver.surface_integral, solver, cache)
+
+apply_jacobian!(du, mesh, equations, solver, cache)

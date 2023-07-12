@@ -1,5 +1,5 @@
 # The header part of test
-equations = CompressibleEulerEquations1D(1.4)
+equations = CompressibleEulerEquations1D(1.4f0)
 
 initial_condition = initial_condition_convergence_test
 

@@ -185,6 +185,36 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
     return nothing
 end
 
+function prolong_interfaces_kernel2!(interfaces_u, u, neighbor_ids, orientations)
+    j1 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (j1 <= size(interfaces_u, 2) && j <= size(interfaces_u, 3)^2 && k <= size(interfaces_u, 5))
+        j2 = div(j - 1, size(interfaces_u, 3)) + 1
+        j3 = rem(j - 1, size(interfaces_u, 3)) + 1
+
+        orientation = orientations[k]
+        left_element = neighbor_ids[1, k]
+        right_element = neighbor_ids[2, k]
+
+        @inbounds begin
+            interfaces_u[1, j1, j2, j3, k] = u[j1,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j2+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j3+isequal(orientation, 2)*j3+isequal(orientation, 3)*size(u, 2),
+                left_element]
+            interfaces_u[2, j1, j2, j3, k] = u[j1,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j2+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*1+isequal(orientation, 3)*j3,
+                isequal(orientation, 1)*j3+isequal(orientation, 2)*j3+isequal(orientation, 3)*1,
+                right_element]
+        end
+    end
+
+    return nothing
+end
+
 # Prolong solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{3}, cache)
 
@@ -198,6 +228,54 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{3}, cache)
     prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations; configurator_2d(prolong_interfaces_kernel, size_arr)...)
 
     cache.interfaces.u = interfaces_u  # Automatically copy back to CPU
+
+    return nothing
+end
+
+# CUDA kernel for calculating surface fluxes 
+function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
+    equations::AbstractEquations{3}, surface_flux::Any)
+    j2 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j3 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (j2 <= size(surface_flux_arr, 3) && j3 <= size(surface_flux_arr, 4) && k <= size(surface_flux_arr, 5))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j2, j3, k)
+        orientation = orientations[k]
+        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
+
+        @inbounds begin
+            for j1j1 in axes(surface_flux_arr, 2)
+                surface_flux_arr[1, j1j1, j2, j3, k] = surface_flux_node[j1j1]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Calculate interface fluxes
+function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False,
+    equations, dg::DGSEM, cache)
+
+    surface_flux = dg.surface_integral.surface_flux
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
+    neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
+    orientations = CuArray{Int32}(cache.interfaces.orientations)
+    surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
+    surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
+
+    size_arr = CuArray{Float32}(undef, size(interfaces_u, 3), size(interfaces_u, 4), size(interfaces_u, 5))
+
+    surface_flux_kernel = @cuda launch = false surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations, equations, surface_flux)
+    surface_flux_kernel(surface_flux_arr, interfaces_u, orientations, equations, surface_flux; configurator_3d(surface_flux_kernel, size_arr)...)
+
+    #= size_arr = CuArray{Float32}(undef, size(surface_flux_values, 1), size(interfaces_u, 3), size(interfaces_u, 4))
+
+    interface_flux_kernel = @cuda launch = false interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids, orientations)
+    interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids, orientations; configurator_3d(interface_flux_kernel, size_arr)...)
+
+    cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU =#
 
     return nothing
 end

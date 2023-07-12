@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "3c7bc6e7770f248d57ff9f8234781c9cec2190ec"
+project_hash = "c7dd2e6fd98032748916c1475e90f10b0f177a00"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "dcfdf328328f2645531c4ddebf841228aef74130"
@@ -164,6 +164,12 @@ deps = ["Compat", "LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 version = "1.16.0"
+
+[[deps.ChangePrecision]]
+deps = ["LinearAlgebra", "Random", "Statistics", "Test"]
+git-tree-sha1 = "34b5f8c65ae773d3d3baa6c11833252edd15f476"
+uuid = "3cb15238-376d-56a3-8042-d33272777c9a"
+version = "1.0.0"
 
 [[deps.CloseOpenIntervals]]
 deps = ["Static", "StaticArrayInterface"]

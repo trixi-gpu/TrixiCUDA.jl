@@ -344,7 +344,7 @@ end
 
 # Inside `rhs!()` raw implementation
 #################################################################################
-#= du, u = copy_to_gpu!(du, u)
+du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -359,12 +359,12 @@ cuda_interface_flux!(
 
 cuda_surface_integral!(du, mesh, solver, cache)
 
-cuda_jacobian!(du, mesh, cache) =#
+cuda_jacobian!(du, mesh, cache)
 
 
 # For tests
 #################################################################################
-reset_du!(du, solver, cache)
+#= reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -382,4 +382,4 @@ calc_interface_flux!(
 calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
-apply_jacobian!(du, mesh, equations, solver, cache)
+apply_jacobian!(du, mesh, equations, solver, cache) =#

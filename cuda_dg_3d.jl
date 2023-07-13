@@ -2,8 +2,8 @@
 #= include("header.jl") =#
 
 # Use the target test header file
-include("test/linear_scalar_advection_3d.jl")
-#= include("test/compressible_euler_3d.jl") =#
+#= include("test/linear_scalar_advection_3d.jl") =#
+include("test/compressible_euler_3d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -382,6 +382,50 @@ function cuda_jacobian!(du, mesh::TreeMesh{3}, cache)
     return nothing
 end
 
+# CUDA kernel for calculating source terms
+function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{3}, source_terms::Function)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(du, 2)^3 && k <= size(du, 5))
+        j1 = div(j - 1, size(du, 2)^2) + 1
+        j2 = div(rem(j - 1, size(du, 2)^2), size(du, 2)) + 1
+        j3 = rem(rem(j - 1, size(du, 2)^2), size(du, 2)) + 1
+
+        u_local = get_nodes_vars(u, equations, j1, j2, j3, k)
+        x_local = get_node_coords(node_coordinates, equations, j1, j2, j3, k)
+        source_terms_node = source_terms(u_local, x_local, t, equations)
+
+        @inbounds begin
+            for ii in axes(du, 1)
+                du[ii, j1, j2, j3, k] += source_terms_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Calculate source terms               
+function cuda_sources!(du, u, t, source_terms::Nothing,
+    equations::AbstractEquations{3}, cache)
+
+    return nothing
+end
+
+# Calculate source terms 
+function cuda_sources!(du, u, t, source_terms,
+    equations::AbstractEquations{3}, cache)
+
+    node_coordinates = CuArray{Float32}(cache.elements.node_coordinates)
+    size_arr = CuArray{Float32}(undef, size(u, 2)^3, size(u, 5))
+
+    source_terms_kernel = @cuda launch = false source_terms_kernel!(du, u, node_coordinates, t, equations, source_terms)
+    source_terms_kernel(du, u, node_coordinates, t, equations, source_terms; configurator_2d(source_terms_kernel, size_arr)...)
+
+    return nothing
+end
+
 # Inside `rhs!()` raw implementation
 #################################################################################
 du, u = copy_to_gpu!(du, u)
@@ -401,6 +445,10 @@ cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
 
+cuda_sources!(du, u, t,
+    source_terms, equations, cache)
+
+du, u = copy_to_cpu!(du, u)
 
 # For tests
 #################################################################################
@@ -422,4 +470,7 @@ calc_interface_flux!(
 calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
-apply_jacobian!(du, mesh, equations, solver, cache) =#
+apply_jacobian!(du, mesh, equations, solver, cache)
+
+calc_sources!(du, u, t,
+    source_terms, equations, solver, cache) =#

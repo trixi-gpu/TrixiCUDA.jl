@@ -1,6 +1,5 @@
-# The header part of test
-Random.seed!(12345)
-
+# The header part of test 
+# `Random.seed!()`
 advection_velocity = (0.2f0, -0.7f0)
 equations = LinearScalarAdvectionEquation2D(advection_velocity)
 

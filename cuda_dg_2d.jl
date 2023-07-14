@@ -92,6 +92,7 @@ function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, 
         j2 = rem(j - 1, size(u, 2)) + 1
 
         u_node = get_nodes_vars(u, equations, j1, j2, k)
+
         flux_node1 = flux(u_node, 1, equations)
         flux_node2 = flux(u_node, 2, equations)
 
@@ -127,7 +128,56 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
     return nothing
 end
 
-# Calculate volume integral
+# CUDA kernel for calculating volume fluxes in direction x and y
+function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, u, equations::AbstractEquations{2}, volume_flux::Function)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(u, 2)^3 && k <= size(u, 4))
+        j1 = div(j - 1, size(u, 2)^2) + 1
+        j2 = div(rem(j - 1, size(u, 2)^2), size(u, 2)) + 1
+        j3 = rem(rem(j - 1, size(u, 2)^2), size(u, 2)) + 1
+
+        u_node1 = get_nodes_vars(u, equations, j1, j2, k)
+        u_node2 = get_nodes_vars(u, equations, j3, j2, k)
+        u_node3 = get_nodes_vars(u, equations, j1, j3, k)
+
+        volume_flux_node1 = volume_flux(u_node1, u_node2, 1, equations)
+        volume_flux_node2 = volume_flux(u_node1, u_node3, 2, equations)
+
+        @inbounds begin
+            for ii in axes(u, 1)
+                volume_flux_arr1[ii, j1, j3, j2, k] = volume_flux_node1[ii]
+                volume_flux_arr2[ii, j1, j2, j3, k] = volume_flux_node2[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# CUDA kernel for calculating volume integrals
+function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_flux_arr2)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
+        j1 = div(j - 1, size(du, 2)) + 1
+        j2 = rem(j - 1, size(du, 2)) + 1
+
+        @inbounds begin
+            for ii in axes(du, 2)
+                du[i, j1, j2, k] += derivative_split[j1, ii] * volume_flux_arr1[i, j1, ii, j2, k]
+                du[i, j1, j2, k] += derivative_split[j2, ii] * volume_flux_arr2[i, j1, j2, ii, k]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Launch CUDA kernels to calculate volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
     nonconservative_terms, equations,
     volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
@@ -145,6 +195,28 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
 
     weak_form_kernel = @cuda launch = false weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
     weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2; configurator_3d(weak_form_kernel, size_arr)...)
+
+    return nothing
+end
+
+# Launch CUDA kernels to calculate volume integrals
+function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
+    nonconservative_terms::False, equations,
+    volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
+
+    derivative_split = CuArray{Float32}(dg.basis.derivative_split)
+    volume_flux_arr1 = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2), size(u, 3))
+    volume_flux_arr2 = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2), size(u, 3))
+
+    size_arr = CuArray{Float32}(undef, size(u, 2)^3, size(u, 4))
+
+    volume_flux_kernel = @cuda launch = false volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, u, equations, volume_flux)
+    volume_flux_kernel(volume_flux_arr1, volume_flux_arr2, u, equations, volume_flux; configurator_2d(volume_flux_kernel, size_arr)...)
+
+    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2)^2, size(du, 4))
+
+    volume_integral_kernel = @cuda launch = false volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_flux_arr2)
+    volume_integral_kernel(du, derivative_split, volume_flux_arr1, volume_flux_arr2; configurator_3d(volume_integral_kernel, size_arr)...)
 
     return nothing
 end
@@ -177,7 +249,7 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
     return nothing
 end
 
-# Prolong solution to interfaces
+# Launch CUDA kernel to prolong solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, cache)
 
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
@@ -203,6 +275,7 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
     if (j2 <= size(surface_flux_arr, 3) && k <= size(surface_flux_arr, 4))
         u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j2, k)
         orientation = orientations[k]
+
         surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
 
         @inbounds begin
@@ -237,7 +310,7 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
     return nothing
 end
 
-# Calculate interface fluxes
+# Launch CUDA kernels to calculate interface fluxes
 function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False,
     equations, dg::DGSEM, cache)
 
@@ -295,7 +368,7 @@ function surface_integral_kernel2!(du, factor_arr, surface_flux_values)
     return nothing
 end
 
-# Calculate surface integrals
+# Launch CUDA kernel to calculate surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{2}, dg::DGSEM, cache) # surface_integral
 
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[size(du, 2), 2]])
@@ -328,7 +401,7 @@ function jacobian_kernel!(du, inverse_jacobian)
     return nothing
 end
 
-# Apply Jacobian from mapping to reference element
+# Launch CUDA kernel to apply Jacobian to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{2}, cache)
 
     inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
@@ -352,6 +425,7 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
 
         u_local = get_nodes_vars(u, equations, j1, j2, k)
         x_local = get_node_coords(node_coordinates, equations, j1, j2, k)
+
         source_terms_node = source_terms(u_local, x_local, t, equations)
 
         @inbounds begin
@@ -364,14 +438,14 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
     return nothing
 end
 
-# Calculate source terms               
+# Return nothing to calculate source terms              
 function cuda_sources!(du, u, t, source_terms::Nothing,
     equations::AbstractEquations{2}, cache)
 
     return nothing
 end
 
-# Calculate source terms 
+# Launch CUDA kernel to calculate source terms 
 function cuda_sources!(du, u, t, source_terms,
     equations::AbstractEquations{2}, cache)
 
@@ -393,7 +467,7 @@ cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-cuda_prolong2interfaces!(u, mesh, cache)
+#= cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
@@ -406,7 +480,7 @@ cuda_jacobian!(du, mesh, cache)
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u)
+du, u = copy_to_cpu!(du, u) =#
 
 # For tests
 #################################################################################

@@ -89,6 +89,7 @@ function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Functi
 
     if (j <= size(u, 2) && k <= size(u, 3))
         u_node = get_nodes_vars(u, equations, j, k)
+
         flux_node = flux(u_node, 1, equations)
 
         @inbounds begin
@@ -129,6 +130,7 @@ function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1}
 
         u_node1 = get_nodes_vars(u, equations, j1, k)
         u_node2 = get_nodes_vars(u, equations, j2, k)
+
         volume_flux_node = volume_flux(u_node1, u_node2, 1, equations)
 
         @inbounds begin
@@ -237,6 +239,7 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u,
 
     if (k <= size(surface_flux_arr, 3))
         u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, k)
+
         surface_flux_node = surface_flux(u_ll, u_rr, 1, equations)
 
         @inbounds begin
@@ -337,7 +340,7 @@ function jacobian_kernel!(du, inverse_jacobian)
     return nothing
 end
 
-# Launch CUDA kernel to apply Jacobian from mapping to reference element
+# Launch CUDA kernel to apply Jacobian to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{1}, cache)
 
     inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
@@ -356,6 +359,7 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
     if (j <= size(du, 2) && k <= size(du, 3))
         u_local = get_nodes_vars(u, equations, j, k)
         x_local = get_node_coords(node_coordinates, equations, j, k)
+
         source_terms_node = source_terms(u_local, x_local, t, equations)
 
         @inbounds begin

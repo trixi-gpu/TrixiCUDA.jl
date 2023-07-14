@@ -138,12 +138,12 @@ function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, u, equations::A
         j2 = div(rem(j - 1, size(u, 2)^2), size(u, 2)) + 1
         j3 = rem(rem(j - 1, size(u, 2)^2), size(u, 2)) + 1
 
-        u_node1 = get_nodes_vars(u, equations, j1, j2, k)
-        u_node2 = get_nodes_vars(u, equations, j3, j2, k)
-        u_node3 = get_nodes_vars(u, equations, j1, j3, k)
+        u_node = get_nodes_vars(u, equations, j1, j2, k)
+        u_node1 = get_nodes_vars(u, equations, j3, j2, k)
+        u_node2 = get_nodes_vars(u, equations, j1, j3, k)
 
-        volume_flux_node1 = volume_flux(u_node1, u_node2, 1, equations)
-        volume_flux_node2 = volume_flux(u_node1, u_node3, 2, equations)
+        volume_flux_node1 = volume_flux(u_node, u_node1, 1, equations)
+        volume_flux_node2 = volume_flux(u_node, u_node2, 2, equations)
 
         @inbounds begin
             for ii in axes(u, 1)
@@ -206,8 +206,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2},
 
     volume_flux = volume_integral.volume_flux
     derivative_split = CuArray{Float32}(dg.basis.derivative_split)
-    volume_flux_arr1 = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2), size(u, 3))
-    volume_flux_arr2 = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2), size(u, 3))
+    volume_flux_arr1 = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2), size(u, 4))
+    volume_flux_arr2 = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2), size(u, 4))
 
     size_arr = CuArray{Float32}(undef, size(u, 2)^3, size(u, 4))
 

@@ -128,10 +128,10 @@ function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1}
         j1 = div(j - 1, size(u, 2)) + 1
         j2 = rem(j - 1, size(u, 2)) + 1
 
-        u_node1 = get_nodes_vars(u, equations, j1, k)
-        u_node2 = get_nodes_vars(u, equations, j2, k)
+        u_node = get_nodes_vars(u, equations, j1, k)
+        u_node1 = get_nodes_vars(u, equations, j2, k)
 
-        volume_flux_node = volume_flux(u_node1, u_node2, 1, equations)
+        volume_flux_node = volume_flux(u_node, u_node1, 1, equations)
 
         @inbounds begin
             for ii in axes(u, 1)

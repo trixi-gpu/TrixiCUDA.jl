@@ -118,25 +118,7 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr)
     return nothing
 end
 
-# Calculate volume integral
-function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
-    nonconservative_terms, equations,
-    volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
-
-    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
-    flux_arr = similar(u)
-
-    size_arr = CuArray{Float32}(undef, size(u, 2), size(u, 3))
-
-    flux_kernel = @cuda launch = false flux_kernel!(flux_arr, u, equations, flux)
-    flux_kernel(flux_arr, u, equations, flux; configurator_2d(flux_kernel, size_arr)...)
-
-    weak_form_kernel = @cuda launch = false weak_form_kernel!(du, derivative_dhat, flux_arr)
-    weak_form_kernel(du, derivative_dhat, flux_arr; configurator_3d(weak_form_kernel, du)...)
-
-    return nothing
-end
-
+# CUDA kernel for calculating volume fluxes in direction x
 function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1}, volume_flux::Function)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -155,6 +137,60 @@ function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1}
             end
         end
     end
+
+    return nothing
+end
+
+# CUDA kernel for calculating volume integrals
+function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds begin
+            for ii in axes(du, 2)
+                du[i, j, k] += derivative_split[j, ii] * volume_flux_arr[i, j, ii, k]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Calculate volume integrals
+function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
+    nonconservative_terms::False, equations,
+    volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
+
+    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
+    flux_arr = similar(u)
+
+    size_arr = CuArray{Float32}(undef, size(u, 2), size(u, 3))
+
+    flux_kernel = @cuda launch = false flux_kernel!(flux_arr, u, equations, flux)
+    flux_kernel(flux_arr, u, equations, flux; configurator_2d(flux_kernel, size_arr)...)
+
+    weak_form_kernel = @cuda launch = false weak_form_kernel!(du, derivative_dhat, flux_arr)
+    weak_form_kernel(du, derivative_dhat, flux_arr; configurator_3d(weak_form_kernel, du)...)
+
+    return nothing
+end
+
+function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
+    nonconservative_terms::False, equations,
+    volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
+
+    derivative_split = CuArray{Float32}(dg.basis.derivative_split)
+    volume_flux_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
+
+    size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 3))
+
+    volume_flux_kernel = @cuda launch = false volume_flux_kernel!(volume_flux_arr, u, equations, volume_flux)
+    volume_flux_kernel(volume_flux_arr, u, equations, volume_flux; configurator_2d(volume_flux_kernel, size_arr)...)
+
+    volume_integral_kernel = @cuda launch = false volume_integral_kernel!(du, derivative_split, volume_flux_arr)
+    volume_integral_kernel(du, derivative_split, volume_flux_arr; configurator_3d(volume_integral_kernel, du)...)
 
     return nothing
 end
@@ -356,20 +392,12 @@ end
 #################################################################################
 du, u = copy_to_gpu!(du, u)
 
-volume_flux = solver.volume_integral.volume_flux
-volume_flux_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
-
-size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 3))
-
-volume_flux_kernel = @cuda launch = false volume_flux_kernel!(volume_flux_arr, u, equations, volume_flux)
-volume_flux_kernel(volume_flux_arr, u, equations, volume_flux; configurator_2d(volume_flux_kernel, size_arr)...)
-
-#= cuda_volume_integral!(
+cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-cuda_prolong2interfaces!(u, mesh, cache)
+#= cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
@@ -406,6 +434,6 @@ calc_surface_integral!(
 
 apply_jacobian!(du, mesh, equations, solver, cache)
 
-calc_sources!(du, u, t, 
+calc_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
 

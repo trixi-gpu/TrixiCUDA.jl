@@ -137,6 +137,28 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
     return nothing
 end
 
+function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1}, volume_flux::Function)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(u, 2)^2 && k <= size(u, 3))
+        j1 = div(j - 1, size(u, 2)) + 1
+        j2 = rem(j - 1, size(u, 2)) + 1
+
+        u_node1 = get_nodes_vars(u, equations, j1, k)
+        u_node2 = get_nodes_vars(u, equations, j2, k)
+        volume_flux_node = volume_flux(u_node1, u_node2, 1, equations)
+
+        @inbounds begin
+            for ii in axes(u, 1)
+                volume_flux_arr[ii, j1, j2, k] = volume_flux_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # CUDA kernel for prolonging two interfaces in direction x
 function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -334,7 +356,15 @@ end
 #################################################################################
 du, u = copy_to_gpu!(du, u)
 
-cuda_volume_integral!(
+volume_flux = solver.volume_integral.volume_flux
+volume_flux_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
+
+size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 3))
+
+volume_flux_kernel = @cuda launch = false volume_flux_kernel!(volume_flux_arr, u, equations, volume_flux)
+volume_flux_kernel(volume_flux_arr, u, equations, volume_flux; configurator_2d(volume_flux_kernel, size_arr)...)
+
+#= cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
@@ -352,7 +382,7 @@ cuda_jacobian!(du, mesh, cache)
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u)
+du, u = copy_to_cpu!(du, u) =#
 
 # For tests
 #################################################################################
@@ -378,47 +408,4 @@ apply_jacobian!(du, mesh, equations, solver, cache)
 
 calc_sources!(du, u, t, 
     source_terms, equations, solver, cache) =#
-
-
-
-
-#= function rhs!(du, u, t,
-    mesh::TreeMesh{1}, equations,
-    initial_condition, boundary_conditions, source_terms::Source,
-    dg::DG, cache) where {Source}
-
-    reset_du!(du, solver, cache)
-
-    calc_volume_integral!(
-        du, u, mesh,
-        have_nonconservative_terms(equations), equations,
-        solver.volume_integral, solver, cache)
-
-    prolong2interfaces!(
-        cache, u, mesh, equations, solver.surface_integral, solver)
-
-    calc_interface_flux!(
-        cache.elements.surface_flux_values, mesh,
-        have_nonconservative_terms(equations), equations,
-        solver.surface_integral, solver, cache)
-
-    calc_surface_integral!(
-        du, u, mesh, equations, solver.surface_integral, solver, cache)
-
-    apply_jacobian!(
-        du, mesh, equations, solver, cache)
-
-    calc_sources!(du, u, t, source_terms, equations, dg, cache)
-
-    return nothing
-end
-
-function semidiscretize(semi::AbstractSemidiscretization, tspan)
-    u0_ode = compute_coefficients(first(tspan), semi)
-
-    iip = true
-    specialize = SciMLBase.FullSpecialize
-    return ODEProblem{iip,specialize}(rhs!, u0_ode, tspan, semi)
-end =#
-
 

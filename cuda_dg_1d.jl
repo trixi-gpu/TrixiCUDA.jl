@@ -158,7 +158,7 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
     return nothing
 end
 
-# Calculate volume integrals
+# Launch CUDA kernels to calculate volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
     nonconservative_terms::False, equations,
     volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
@@ -177,6 +177,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
     return nothing
 end
 
+# Launch CUDA kernels to calculate volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
     nonconservative_terms::False, equations,
     volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
@@ -213,7 +214,7 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids)
     return nothing
 end
 
-# Prolong solution to interfaces
+# Launch CUDA kernel to prolong solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, cache)
 
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
@@ -266,7 +267,7 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
     return nothing
 end
 
-# Calculate interface fluxes
+# Launch CUDA kernels to calculate interface fluxes
 function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False,
     equations, dg::DGSEM, cache)
 
@@ -309,7 +310,7 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values)
     return nothing
 end
 
-# Calculate surface integrals
+# Launch CUDA kernel to calculate surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{1}, dg::DGSEM, cache)
 
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[size(du, 2), 2]])
@@ -336,7 +337,7 @@ function jacobian_kernel!(du, inverse_jacobian)
     return nothing
 end
 
-# Apply Jacobian from mapping to reference element
+# Launch CUDA kernel to apply Jacobian from mapping to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{1}, cache)
 
     inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
@@ -367,14 +368,14 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
     return nothing
 end
 
-# Calculate source terms               
+# Return nothing to calculate source terms               
 function cuda_sources!(du, u, t, source_terms::Nothing,
     equations::AbstractEquations{1}, cache)
 
     return nothing
 end
 
-# Calculate source terms 
+# Launch CUDA kernel to calculate source terms 
 function cuda_sources!(du, u, t, source_terms,
     equations::AbstractEquations{1}, cache)
 

@@ -37,3 +37,12 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
     boundary_conditions=boundary_conditions,
     source_terms=source_terms_harmonic)
+
+@unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
+
+t = 0.0
+l = nvariables(equations) * nnodes(solver)^ndims(mesh) * nelements(solver, cache)
+du_ode = rand(Float64, l)
+u_ode = rand(Float64, l)
+du = wrap_array(du_ode, mesh, equations, solver, cache)
+u = wrap_array(u_ode, mesh, equations, solver, cache)

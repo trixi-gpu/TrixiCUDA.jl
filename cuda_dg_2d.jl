@@ -2,12 +2,13 @@
 #= include("header.jl") =#
 
 # Set random seed for random tests
-#= Random.seed!(123) =#
+Random.seed!(123)
 
 # Use the target test header file
 #= include("test/advection_basic_2d.jl") =#
-include("test/euler_ec_2d.jl")
+#= include("test/euler_ec_2d.jl") =#
 #= include("test/euler_source_terms_2d.jl") =#
+include("test/hypdiff_harmonic_nonperiodic_2d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -340,6 +341,52 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False,
     return nothing
 end
 
+# CUDA kernel for prolonging two boundaries in direction x and y
+function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_sides, orientations)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(boundaries_u, 2) * size(boundaries_u, 3) && k <= size(boundaries_u, 4))
+        j1 = div(j - 1, size(boundaries_u, 3)) + 1
+        j2 = rem(j - 1, size(boundaries_u, 3)) + 1
+
+        element = neighbor_ids[k]
+        side = neighbor_sides[k]
+        orientation = orientations[k]
+
+        @inbounds begin
+            boundaries_u[1, j1, j2, k] = u[j1,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*size(u, 2),
+                element] * isequal(side, 1) # Set to 0 instead of NaN
+            boundaries_u[2, j1, j2, k] = u[j1,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*1,
+                element] * (1 - isequal(side, 1)) # Set to 0 instead of NaN
+        end
+    end
+
+    return nothing
+end
+
+# Launch CUDA kernel to prolong solution to boundaries
+function cuda_prolong2boundaries!(u, cache, mesh::TreeMesh{2})
+
+    neighbor_ids = CuArray{Int32}(cache.boundaries.neighbor_ids)
+    neighbor_sides = CuArray{Int32}(cache.boundaries.neighbor_sides)
+    orientations = CuArray{Int32}(cache.boundaries.orientations)
+    boundaries_u = CuArray{Float32}(cache.boundaries.u)
+
+    size_arr = CuArray{Float32}(undef, size(boundaries_u, 2) * size(boundaries_u, 3), size(boundaries_u, 4))
+
+    prolong_boundaries_kernel = @cuda launch = false prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_sides, orientations)
+    prolong_boundaries_kernel(boundaries_u, u, neighbor_ids, neighbor_sides, orientations; configurator_2d(prolong_boundaries_kernel, size_arr)...)
+
+    cache.boundaries.u = boundaries_u  # Automatically copy back to CPU
+
+    return nothing
+end
+
 # CUDA kernel for calculating surface integrals along axis x
 function surface_integral_kernel1!(du, factor_arr, surface_flux_values)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -471,13 +518,15 @@ cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-#= cuda_prolong2interfaces!(u, mesh, cache)
+cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
     equations, solver, cache,)
 
-cuda_surface_integral!(du, mesh, solver, cache)
+cuda_prolong2boundaries!(u, cache, mesh)
+
+#= cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
 
@@ -503,7 +552,10 @@ calc_interface_flux!(
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver, cache)
 
-calc_surface_integral!(
+prolong2boundaries!(cache, u, mesh, equations,
+    solver.surface_integral, solver) =#
+
+#= calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)

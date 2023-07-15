@@ -2,7 +2,7 @@
 #= include("header.jl") =#
 
 # Set random seed for random tests
-#= Random.seed!(123) =#
+Random.seed!(123)
 
 # Use the target test header file
 #= include("test/advection_basic_1d.jl") =#

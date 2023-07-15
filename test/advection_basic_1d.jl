@@ -1,5 +1,4 @@
-# The header part of test 
-# `Random.seed!()`
+# The header part for testing basic kernels in 1D
 advection_velocity = 1.0f0
 equations = LinearScalarAdvectionEquation1D(advection_velocity)
 

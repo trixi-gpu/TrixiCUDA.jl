@@ -1,10 +1,14 @@
 # Remove it after first run to avoid recompilation
 #= include("header.jl") =#
 
+# Set random seed for random tests
+#= Random.seed!(123) =#
+
 # Use the target test header file
 #= include("test/advection_basic_1d.jl") =#
-include("test/euler_ec_1d.jl")
+#= include("test/euler_ec_1d.jl") =#
 #= include("test/euler_source_terms_1d.jl") =#
+include("test/hypdiff_harmonic_nonperiodic_1d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -220,8 +224,8 @@ end
 # Launch CUDA kernel to prolong solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, cache)
 
-    interfaces_u = CuArray{Float32}(cache.interfaces.u)
     neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
 
     size_arr = CuArray{Float32}(undef, size(interfaces_u, 2), size(interfaces_u, 3))
 
@@ -276,8 +280,8 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False,
     equations, dg::DGSEM, cache)
 
     surface_flux = dg.surface_integral.surface_flux
-    interfaces_u = CuArray{Float32}(cache.interfaces.u)
     neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
     surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 
@@ -296,8 +300,40 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False,
     return nothing
 end
 
-# Prolong solution to boundaries
-# Calculate boundary fluxes
+# CUDA kernel for prolonging two boundaries in direction x
+function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_sides)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(boundaries_u, 2) && k <= size(boundaries_u, 3))
+        element = neighbor_ids[k]
+        side = neighbor_sides[k]
+
+        @inbounds begin
+            boundaries_u[1, j, k] = u[j, size(u, 2), element] * isequal(side, 1) # set to 0 instead of NaN
+            boundaries_u[2, j, k] = u[j, 1, element] * (1 - isequal(side, 1))
+        end
+    end
+
+    return nothing
+end
+
+# Launch CUDA kernel to prolong solution to boundaries
+function cuda_prolong2boundaries!(u, cache, mesh::TreeMesh{1})
+
+    neighbor_ids = CuArray{Int32}(cache.boundaries.neighbor_ids)
+    neighbor_sides = CuArray{Int32}(cache.boundaries.neighbor_sides)
+    boundaries_u = CuArray{Float32}(cache.boundaries.u)
+
+    size_arr = CuArray{Float32}(undef, size(boundaries_u, 2), size(boundaries_u, 3))
+
+    prolong_boundaries_kernel = @cuda launch = false prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_sides)
+    prolong_boundaries_kernel(boundaries_u, u, neighbor_ids, neighbor_sides; configurator_2d(prolong_boundaries_kernel, size_arr)...)
+
+    cache.boundaries.u = boundaries_u  # Automatically copy back to CPU
+
+    return nothing
+end
 
 # CUDA kernel for calculating surface integrals
 function surface_integral_kernel!(du, factor_arr, surface_flux_values)
@@ -403,13 +439,15 @@ cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-#= cuda_prolong2interfaces!(u, mesh, cache)
+cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
     equations, solver, cache,)
 
-cuda_surface_integral!(du, mesh, solver, cache)
+cuda_prolong2boundaries!(u, cache, mesh)
+
+#= cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
 
@@ -435,7 +473,10 @@ calc_interface_flux!(
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver, cache)
 
-calc_surface_integral!(
+prolong2boundaries!(cache, u, mesh, equations,
+    solver.surface_integral, solver) =#
+
+#= calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)

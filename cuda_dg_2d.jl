@@ -1,6 +1,9 @@
 # Remove it after first run to avoid recompilation
 #= include("header.jl") =#
 
+# Set random seed for random tests
+#= Random.seed!(123) =#
+
 # Use the target test header file
 #= include("test/advection_basic_2d.jl") =#
 include("test/euler_ec_2d.jl")
@@ -253,9 +256,9 @@ end
 # Launch CUDA kernel to prolong solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, cache)
 
-    interfaces_u = CuArray{Float32}(cache.interfaces.u)
     neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
     orientations = CuArray{Int32}(cache.interfaces.orientations)
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
 
     size_arr = CuArray{Float32}(undef, size(interfaces_u, 2) * size(interfaces_u, 3), size(interfaces_u, 4))
 
@@ -316,9 +319,9 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False,
     equations, dg::DGSEM, cache)
 
     surface_flux = dg.surface_integral.surface_flux
-    interfaces_u = CuArray{Float32}(cache.interfaces.u)
     neighbor_ids = CuArray{Int32}(cache.interfaces.neighbor_ids)
     orientations = CuArray{Int32}(cache.interfaces.orientations)
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
     surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 

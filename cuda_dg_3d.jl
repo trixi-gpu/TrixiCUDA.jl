@@ -393,7 +393,7 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
 end
 
 # Launch CUDA kernel to prolong solution to boundaries
-function cuda_prolong2boundaries!(u, cache, mesh::TreeMesh{3})
+function cuda_prolong2boundaries!(u, mesh::TreeMesh{3}, cache)
 
     neighbor_ids = CuArray{Int32}(cache.boundaries.neighbor_ids)
     neighbor_sides = CuArray{Int32}(cache.boundaries.neighbor_sides)
@@ -577,7 +577,7 @@ cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
     equations, solver, cache,)
 
-cuda_prolong2boundaries!(u, cache, mesh)
+cuda_prolong2boundaries!(u, mesh, cache)
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
 

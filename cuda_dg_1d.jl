@@ -335,15 +335,16 @@ function cuda_prolong2boundaries!(u, mesh::TreeMesh{1}, cache)
     return nothing
 end
 
-# CUDA kernel for calculating surface integrals
+# CUDA kernel for calculating surface integrals along axis x 
 function surface_integral_kernel!(du, factor_arr, surface_flux_values)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(du, 1) && k <= size(du, 3))
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         @inbounds begin
-            du[i, 1, k] -= surface_flux_values[i, 1, k] * factor_arr[1]
-            du[i, size(du, 2), k] += surface_flux_values[i, 2, k] * factor_arr[2]
+            du[i, j, k] -= surface_flux_values[i, 1, k] * isequal(j, 1) * factor_arr[1]
+            du[i, j, k] += surface_flux_values[i, 2, k] * isequal(j, size(du, 2)) * factor_arr[2]
         end
     end
 
@@ -356,10 +357,10 @@ function cuda_surface_integral!(du, mesh::TreeMesh{1}, dg::DGSEM, cache)
     factor_arr = CuArray{Float32}([dg.basis.boundary_interpolation[1, 1], dg.basis.boundary_interpolation[size(du, 2), 2]])
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 
-    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 3))
+    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2), size(du, 3))
 
     surface_integral_kernel = @cuda launch = false surface_integral_kernel!(du, factor_arr, surface_flux_values)
-    surface_integral_kernel(du, factor_arr, surface_flux_values; configurator_2d(surface_integral_kernel, size_arr)...)
+    surface_integral_kernel(du, factor_arr, surface_flux_values; configurator_3d(surface_integral_kernel, size_arr)...)
 
     return nothing
 end
@@ -447,9 +448,9 @@ cuda_interface_flux!(
 
 cuda_prolong2boundaries!(u, mesh, cache)
 
-#= cuda_surface_integral!(du, mesh, solver, cache)
+cuda_surface_integral!(du, mesh, solver, cache)
 
-cuda_jacobian!(du, mesh, cache)
+#= cuda_jacobian!(du, mesh, cache)
 
 cuda_sources!(du, u, t,
     source_terms, equations, cache)

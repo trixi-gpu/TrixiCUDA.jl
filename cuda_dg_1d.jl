@@ -14,7 +14,7 @@ include("test/hypdiff_harmonic_nonperiodic_1d.jl")
 #################################################################################
 
 # CUDA kernel configurator for 1D array computing
-function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32,1})
+function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{<:Any,1})
     config = launch_configuration(kernel.fun)
 
     threads = min(length(array), config.threads)
@@ -24,7 +24,7 @@ function configurator_1d(kernel::CUDA.HostKernel, array::CuArray{Float32,1})
 end
 
 # CUDA kernel configurator for 2D array computing
-function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32,2})
+function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{<:Any,2})
     config = launch_configuration(kernel.fun)
 
     threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 2))), 2))
@@ -34,7 +34,7 @@ function configurator_2d(kernel::CUDA.HostKernel, array::CuArray{Float32,2})
 end
 
 # CUDA kernel configurator for 3D array computing
-function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{Float32,3})
+function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{<:Any,3})
     config = launch_configuration(kernel.fun)
 
     threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 3))), 3))
@@ -335,6 +335,22 @@ function cuda_prolong2boundaries!(u, mesh::TreeMesh{1}, cache)
     return nothing
 end
 
+# CUDA kernel for getting last and first indices
+function last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+
+    if (i <= length(n_boundaries_per_direction))
+        @inbounds begin
+            for ii in 1:i
+                lasts[i] += n_boundaries_per_direction[ii]
+            end
+            firsts[i] = lasts[i] - n_boundaries_per_direction[i] + 1
+        end
+    end
+
+    return nothing
+end
+
 # CUDA kernel for calculating surface integrals along axis x 
 function surface_integral_kernel!(du, factor_arr, surface_flux_values)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -448,9 +464,17 @@ cuda_interface_flux!(
 
 cuda_prolong2boundaries!(u, mesh, cache)
 
-cuda_surface_integral!(du, mesh, solver, cache)
+n_boundaries_per_direction = CuArray{Int32}(cache.boundaries.n_boundaries_per_direction)
+surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
+lasts = similar(n_boundaries_per_direction)
+firsts = similar(n_boundaries_per_direction)
 
-#= cuda_jacobian!(du, mesh, cache)
+last_first_indices_kernel = @cuda launch = false last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
+last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction; configurator_1d(last_first_indices_kernel, lasts)...)
+
+#= cuda_surface_integral!(du, mesh, solver, cache)
+
+cuda_jacobian!(du, mesh, cache)
 
 cuda_sources!(du, u, t,
     source_terms, equations, cache)

@@ -471,14 +471,6 @@ cuda_interface_flux!(
 
 cuda_prolong2boundaries!(u, mesh, cache)
 
-n_boundaries_per_direction = CuArray{Int32}(cache.boundaries.n_boundaries_per_direction)
-surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
-lasts = similar(n_boundaries_per_direction)
-firsts = similar(n_boundaries_per_direction)
-
-last_first_indices_kernel = @cuda launch = false last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
-last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction; configurator_1d(last_first_indices_kernel, lasts)...)
-
 #= cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)

@@ -1,11 +1,11 @@
 # Remove it after first run to avoid recompilation
-#= include("header.jl") =#
+include("header.jl")
 
 # Set random seed for random tests
-Random.seed!(123)
+#= Random.seed!(123) =#
 
 # Use the target test header file
-include("test/advection_basic_2d.jl")
+#= include("test/advection_basic_2d.jl") =#
 #= include("test/euler_ec_2d.jl") =#
 #= include("test/euler_source_terms_2d.jl") =#
 #= include("test/hypdiff_harmonic_nonperiodic_2d.jl") =#
@@ -606,6 +606,7 @@ function rhs_new!(du, u, t, mesh::TreeMesh{2}, equations,
     calc_sources!(du, u, t,
         source_terms, equations, dg, cache)
 
+    return nothing
 end
 
 function rhs_new!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
@@ -614,18 +615,15 @@ function rhs_new!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
     u = wrap_array(u_ode, mesh, equations, solver, cache)
     du = wrap_array(du_ode, mesh, equations, solver, cache)
 
-
     rhs_new!(du, u, t, mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache)
 
     return nothing
-
 end
 
-function semidiscretize_new(semi::AbstractSemidiscretization, tspan)
+function semidiscretize_new(semi::SemidiscretizationHyperbolic, tspan)
     u0_ode = compute_coefficients(first(tspan), semi)
 
-
-    iip = true # is-inplace, i.e., we modify a vector when calling rhs!
-    specialize = SciMLBase.FullSpecialize # specialize on rhs! and parameters (semi)
+    iip = true
+    specialize = SciMLBase.FullSpecialize
     return ODEProblem{iip,specialize}(rhs_new!, u0_ode, tspan, semi)
 end

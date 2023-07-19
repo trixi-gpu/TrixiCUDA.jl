@@ -5,10 +5,10 @@
 Random.seed!(123)
 
 # Use the target test header file
-#= include("test/advection_basic_2d.jl") =#
+include("test/advection_basic_2d.jl")
 #= include("test/euler_ec_2d.jl") =#
 #= include("test/euler_source_terms_2d.jl") =#
-include("test/hypdiff_harmonic_nonperiodic_2d.jl")
+#= include("test/hypdiff_harmonic_nonperiodic_2d.jl") =#
 
 # Kernel configurators 
 #################################################################################
@@ -522,7 +522,7 @@ end
 
 # Inside `rhs!()` raw implementation
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -539,7 +539,7 @@ cuda_prolong2boundaries!(u, mesh, cache)
 
 cuda_surface_integral!(du, mesh, solver, cache)
 
-#= cuda_jacobian!(du, mesh, cache)
+cuda_jacobian!(du, mesh, cache)
 
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
@@ -564,9 +564,9 @@ calc_interface_flux!(
     solver.surface_integral, solver, cache)
 
 prolong2boundaries!(cache, u, mesh, equations,
-    solver.surface_integral, solver) =#
+    solver.surface_integral, solver)
 
-#= calc_surface_integral!(
+calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)
@@ -574,3 +574,58 @@ apply_jacobian!(du, mesh, equations, solver, cache)
 calc_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
 
+# Pack kernels into `rhs!()`
+#################################################################################
+function rhs_new!(du, u, t, mesh::TreeMesh{2}, equations,
+    initial_condition, boundary_conditions, source_terms::Source,
+    dg::DGSEM, cache) where {Source}
+
+    reset_du!(du, dg, cache)
+
+    calc_volume_integral!(
+        du, u, mesh,
+        have_nonconservative_terms(equations), equations,
+        dg.volume_integral, dg, cache)
+
+    prolong2interfaces!(
+        cache, u, mesh, equations, dg.surface_integral, dg)
+
+    calc_interface_flux!(
+        cache.elements.surface_flux_values, mesh,
+        have_nonconservative_terms(equations), equations,
+        dg.surface_integral, dg, cache)
+
+    prolong2boundaries!(cache, u, mesh, equations,
+        dg.surface_integral, dg)
+
+    calc_surface_integral!(
+        du, u, mesh, equations, dg.surface_integral, dg, cache)
+
+    apply_jacobian!(du, mesh, equations, dg, cache)
+
+    calc_sources!(du, u, t,
+        source_terms, equations, dg, cache)
+
+end
+
+function rhs_new!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
+    @unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
+
+    u = wrap_array(u_ode, mesh, equations, solver, cache)
+    du = wrap_array(du_ode, mesh, equations, solver, cache)
+
+
+    rhs_new!(du, u, t, mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache)
+
+    return nothing
+
+end
+
+function semidiscretize_new(semi::AbstractSemidiscretization, tspan)
+    u0_ode = compute_coefficients(first(tspan), semi)
+
+
+    iip = true # is-inplace, i.e., we modify a vector when calling rhs!
+    specialize = SciMLBase.FullSpecialize # specialize on rhs! and parameters (semi)
+    return ODEProblem{iip,specialize}(rhs_new!, u0_ode, tspan, semi)
+end

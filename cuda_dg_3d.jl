@@ -569,12 +569,12 @@ cuda_prolong2boundaries!(u, mesh, cache)
 
 cuda_surface_integral!(du, mesh, solver, cache)
 
-#= cuda_jacobian!(du, mesh, cache)
+cuda_jacobian!(du, mesh, cache)
 
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u) =#
+du, u = copy_to_cpu!(du, u)
 
 # For tests
 #################################################################################
@@ -603,3 +603,6 @@ apply_jacobian!(du, mesh, equations, solver, cache)
 
 calc_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
+
+# Pack kernels into `rhs!()`
+#################################################################################

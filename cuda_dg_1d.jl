@@ -351,6 +351,13 @@ function last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
     return nothing
 end
 
+# Assert 
+function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_condition::BoundaryConditionPeriodic,
+    equations, cache)
+
+    @assert isequal(length(cache.boundaries.orientations), 1)
+end
+
 # CUDA kernel for calculating surface integrals along axis x 
 function surface_integral_kernel!(du, factor_arr, surface_flux_values)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -426,7 +433,7 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
     return nothing
 end
 
-# Return nothing to calculate source terms               
+# Return nothing             
 function cuda_sources!(du, u, t, source_terms::Nothing,
     equations::AbstractEquations{1}, cache)
 

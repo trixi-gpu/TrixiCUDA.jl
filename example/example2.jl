@@ -1,9 +1,6 @@
-using Trixi
-using OrdinaryDiffEq
+#= include("../cuda_dg_2d.jl") =#
 
-include("../cuda_dg_2d.jl")
-
-equations = CompressibleEulerEquations2D(1.4)
+equations = CompressibleEulerEquations2D(1.4f0)
 
 function initial_condition_isentropic_vortex(x, t, equations::CompressibleEulerEquations2D)
 
@@ -45,6 +42,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
 tspan = (0.0, 20.0)
-ode = semidiscretize(semi, tspan)
+ode = semidiscretize_gpu(semi, tspan)
 
-sol = solve(ode, CarpenterKennedy2N54(williamson_condition=false), dt=1.0; abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)
+sol = OrdinaryDiffEq.solve(ode, RDPK3SpFSAL49();
+    abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)

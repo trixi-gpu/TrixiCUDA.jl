@@ -574,9 +574,9 @@ apply_jacobian!(du, mesh, equations, solver, cache)
 calc_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
 
-# Pack kernels into `rhs!()`
+# Pack kernels into `rhs_cpu!()`
 #################################################################################
-function rhs_new!(du, u, t, mesh::TreeMesh{2}, equations,
+function rhs_cpu!(du, u, t, mesh::TreeMesh{2}, equations,
     initial_condition, boundary_conditions, source_terms::Source,
     dg::DGSEM, cache) where {Source}
 
@@ -598,6 +598,16 @@ function rhs_new!(du, u, t, mesh::TreeMesh{2}, equations,
     prolong2boundaries!(cache, u, mesh, equations,
         dg.surface_integral, dg)
 
+    calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
+        dg.surface_integral, dg)
+
+    prolong2mortars!(cache, u, mesh, equations,
+        dg.mortar, dg.surface_integral, dg)
+
+    calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+        have_nonconservative_terms(equations), equations,
+        dg.mortar, dg.surface_integral, dg, cache)
+
     calc_surface_integral!(
         du, u, mesh, equations, dg.surface_integral, dg, cache)
 
@@ -609,21 +619,73 @@ function rhs_new!(du, u, t, mesh::TreeMesh{2}, equations,
     return nothing
 end
 
-function rhs_new!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
+function rhs_cpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
     @unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
 
     u = wrap_array(u_ode, mesh, equations, solver, cache)
     du = wrap_array(du_ode, mesh, equations, solver, cache)
 
-    rhs_new!(du, u, t, mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache)
+    rhs_cpu!(du, u, t, mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache)
 
     return nothing
 end
 
-function semidiscretize_new(semi::SemidiscretizationHyperbolic, tspan)
+function semidiscretize_cpu(semi::SemidiscretizationHyperbolic, tspan)
     u0_ode = compute_coefficients(first(tspan), semi)
 
     iip = true
     specialize = SciMLBase.FullSpecialize
-    return ODEProblem{iip,specialize}(rhs_new!, u0_ode, tspan, semi)
+    return ODEProblem{iip,specialize}(rhs_cpu!, u0_ode, tspan, semi)
+end
+
+# Pack kernels into `rhs_gpu!()`
+#################################################################################
+function rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations,
+    initial_condition, boundary_conditions, source_terms::Source,
+    dg::DGSEM, cache) where {Source}
+
+    du, u = copy_to_gpu!(du, u)
+
+    cuda_volume_integral!(
+        du, u, mesh,
+        have_nonconservative_terms(equations), equations,
+        dg.volume_integral, dg)
+
+    cuda_prolong2interfaces!(u, mesh, cache)
+
+    cuda_interface_flux!(
+        mesh, have_nonconservative_terms(equations),
+        equations, dg, cache,)
+
+    #= cuda_prolong2boundaries!(u, mesh, cache) =#
+
+    cuda_surface_integral!(du, mesh, dg, cache)
+
+    cuda_jacobian!(du, mesh, cache)
+
+    cuda_sources!(du, u, t,
+        source_terms, equations, cache)
+
+    du, u = copy_to_cpu!(du, u)
+
+    return nothing
+end
+
+function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
+    @unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
+
+    u = wrap_array(u_ode, mesh, equations, solver, cache)
+    du = wrap_array(du_ode, mesh, equations, solver, cache)
+
+    rhs_gpu!(du, u, t, mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache)
+
+    return nothing
+end
+
+function semidiscretize_gpu(semi::SemidiscretizationHyperbolic, tspan)
+    u0_ode = compute_coefficients(first(tspan), semi)
+
+    iip = true
+    specialize = SciMLBase.FullSpecialize
+    return ODEProblem{iip,specialize}(rhs_gpu!, u0_ode, tspan, semi)
 end

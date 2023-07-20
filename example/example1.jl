@@ -1,9 +1,6 @@
-using OrdinaryDiffEq
-using Trixi
+#= include("../cuda_dg_2d.jl") =#
 
-include("../cuda_dg_2d.jl")
-
-advection_velocity = (0.2, -0.7)
+advection_velocity = (0.2f0, -0.7f0)
 equations = LinearScalarAdvectionEquation2D(advection_velocity)
 
 initial_condition = initial_condition_convergence_test
@@ -22,6 +19,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
 tspan = (0.0, 1.0)
-ode = semidiscretize(semi, tspan)
+ode = semidiscretize_gpu(semi, tspan)
 
-sol = solve(ode, CarpenterKennedy2N54(williamson_condition=false), dt=1.0; abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)
+sol = OrdinaryDiffEq.solve(ode, RDPK3SpFSAL49();
+    abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)

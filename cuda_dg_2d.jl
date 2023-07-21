@@ -422,6 +422,40 @@ function last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
     return nothing
 end
 
+# CUDA kernel for calculating boundary fluxes
+function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t,
+    lasts_firsts, indices_arr,
+    neighbor_ids, neighbor_sides, orientations,
+    boundary_conditions::NamedTuple, equations::AbstractEquations{2}, surface_flux::Function)
+
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(surface_flux_values, 2) && k <= length(lasts_firsts))
+        boundary = lasts_firsts[k]
+        direction = findall(x -> x <= boundary, indices_arr)
+
+        neighbor = neighbor_ids[boundary]
+        side = neighbor_sides[boundary]
+        orientation = orientations[boundary]
+
+        u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, j, boundary)
+        u_inner = isequal(side, 1) * u_ll + (1 - isequal(side, 1)) * u_rr
+        x = get_node_coords(node_coordinates, equations, j, boundary)
+
+        boundary_condition = boundary_conditions[direction]
+        boundary_flux_node = boundary_condition(u_inner, orientation, direction, x, t, surface_flux, equations)
+
+        @inbounds begin
+            for ii in axes(surface_flux_values, 1)
+                surface_flux_values[ii, j, direction, neighbor] = boundary_flux_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Assert 
 function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_condition::BoundaryConditionPeriodic,
     equations, dg::DGSEM, cache)
@@ -681,13 +715,27 @@ surface_flux = solver.surface_integral.surface_flux
 n_boundaries_per_direction = CuArray{Int32}(cache.boundaries.n_boundaries_per_direction)
 neighbor_ids = CuArray{Int32}(cache.boundaries.neighbor_ids)
 neighbor_sides = CuArray{Int32}(cache.boundaries.neighbor_sides)
+orientations = CuArray{Int32}(cache.boundaries.orientations)
 boundaries_u = CuArray{Float32}(cache.boundaries.u)
+node_coordinates = CuArray{Float32}(cache.boundaries.node_coordinates)
 surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 lasts = similar(n_boundaries_per_direction)
 firsts = similar(n_boundaries_per_direction)
 
 last_first_indices_kernel = @cuda launch = false last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
 last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction; configurator_1d(last_first_indices_kernel, lasts)...)
+
+lasts = Array(lasts)
+firsts = Array(firsts)
+lasts_firsts = CuArray{Int32}(firsts[1]:lasts[4])
+indices_arr = CuArray{Int32}([firsts[1], firsts[2], firsts[3], firsts[4]])
+size_arr = CuArray{Float32}(undef, size(surface_flux_values, 2), length(lasts_firsts))
+
+boundary_flux_kernel = @cuda launch = false boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t,
+    lasts_firsts, indices_arr, neighbor_ids, neighbor_sides, orientations, boundary_conditions, equations, surface_flux)
+boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, lasts_firsts, indices_arr, neighbor_ids, neighbor_sides,
+    orientations, boundary_conditions, equations, surface_flux; configurator_2d(boundary_flux_kernel, size_arr)...)
+
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
 

@@ -1,5 +1,5 @@
 # Remove it after first run to avoid recompilation
-include("header.jl")
+#= include("header.jl") =#
 
 # Set random seed for random tests
 #= Random.seed!(123) =#
@@ -8,7 +8,7 @@ include("header.jl")
 #= include("test/advection_basic_2d.jl") =#
 #= include("test/euler_ec_2d.jl") =#
 #= include("test/euler_source_terms_2d.jl") =#
-#= include("test/hypdiff_harmonic_nonperiodic_2d.jl") =#
+include("test/hypdiff_harmonic_nonperiodic_2d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -411,7 +411,7 @@ end
 
 # Assert 
 function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_condition::BoundaryConditionPeriodic,
-    equations, cache)
+    equations, dg::DGSEM, cache)
 
     @assert isequal(length(cache.boundaries.orientations), 1)
 end
@@ -525,60 +525,6 @@ function cuda_sources!(du, u, t, source_terms,
 
     return nothing
 end
-
-# Inside `rhs!()` raw implementation
-#################################################################################
-#= du, u = copy_to_gpu!(du, u)
-
-cuda_volume_integral!(
-    du, u, mesh,
-    have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver)
-
-cuda_prolong2interfaces!(u, mesh, cache)
-
-cuda_interface_flux!(
-    mesh, have_nonconservative_terms(equations),
-    equations, solver, cache,)
-
-cuda_prolong2boundaries!(u, mesh, cache)
-
-cuda_surface_integral!(du, mesh, solver, cache)
-
-cuda_jacobian!(du, mesh, cache)
-
-cuda_sources!(du, u, t,
-    source_terms, equations, cache)
-
-du, u = copy_to_cpu!(du, u) =#
-
-# For tests
-#################################################################################
-#= reset_du!(du, solver, cache)
-
-calc_volume_integral!(
-    du, u, mesh,
-    have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver, cache)
-
-prolong2interfaces!(
-    cache, u, mesh, equations, solver.surface_integral, solver)
-
-calc_interface_flux!(
-    cache.elements.surface_flux_values, mesh,
-    have_nonconservative_terms(equations), equations,
-    solver.surface_integral, solver, cache)
-
-prolong2boundaries!(cache, u, mesh, equations,
-    solver.surface_integral, solver)
-
-calc_surface_integral!(
-    du, u, mesh, equations, solver.surface_integral, solver, cache)
-
-apply_jacobian!(du, mesh, equations, solver, cache)
-
-calc_sources!(du, u, t,
-    source_terms, equations, solver, cache) =#
 
 # Pack kernels into `rhs_cpu!()`
 #################################################################################
@@ -695,3 +641,70 @@ function semidiscretize_gpu(semi::SemidiscretizationHyperbolic, tspan)
     specialize = SciMLBase.FullSpecialize
     return ODEProblem{iip,specialize}(rhs_gpu!, u0_ode, tspan, semi)
 end
+
+# For tests
+#################################################################################
+du, u = copy_to_gpu!(du, u)
+
+cuda_volume_integral!(
+    du, u, mesh,
+    have_nonconservative_terms(equations), equations,
+    solver.volume_integral, solver)
+
+cuda_prolong2interfaces!(u, mesh, cache)
+
+cuda_interface_flux!(
+    mesh, have_nonconservative_terms(equations),
+    equations, solver, cache,)
+
+cuda_prolong2boundaries!(u, mesh, cache)
+
+
+surface_flux = solver.surface_integral.surface_flux
+n_boundaries_per_direction = CuArray{Int32}(cache.boundaries.n_boundaries_per_direction)
+neighbor_ids = CuArray{Int32}(cache.boundaries.neighbor_ids)
+neighbor_sides = CuArray{Int32}(cache.boundaries.neighbor_sides)
+boundaries_u = CuArray{Float32}(cache.boundaries.u)
+surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
+lasts = similar(n_boundaries_per_direction)
+firsts = similar(n_boundaries_per_direction)
+
+last_first_indices_kernel = @cuda launch = false last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
+last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction; configurator_1d(last_first_indices_kernel, lasts)...)
+
+#= cuda_surface_integral!(du, mesh, solver, cache)
+
+cuda_jacobian!(du, mesh, cache)
+
+cuda_sources!(du, u, t,
+    source_terms, equations, cache)
+
+du, u = copy_to_cpu!(du, u) =#
+
+
+
+#= reset_du!(du, solver, cache)
+
+calc_volume_integral!(
+    du, u, mesh,
+    have_nonconservative_terms(equations), equations,
+    solver.volume_integral, solver, cache)
+
+prolong2interfaces!(
+    cache, u, mesh, equations, solver.surface_integral, solver)
+
+calc_interface_flux!(
+    cache.elements.surface_flux_values, mesh,
+    have_nonconservative_terms(equations), equations,
+    solver.surface_integral, solver, cache)
+
+prolong2boundaries!(cache, u, mesh, equations,
+    solver.surface_integral, solver)
+
+calc_surface_integral!(
+    du, u, mesh, equations, solver.surface_integral, solver, cache)
+
+apply_jacobian!(du, mesh, equations, solver, cache)
+
+calc_sources!(du, u, t,
+    source_terms, equations, solver, cache) =#

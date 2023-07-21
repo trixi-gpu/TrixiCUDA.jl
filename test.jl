@@ -1,19 +1,7 @@
 using CUDA, Test, BenchmarkTools
 
-function foo!(a, b)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+firsts = [1, 2, 3, 4]
+lasts = [5, 6, 7, 8]
 
-    if (i <= 4)
-        @inbounds begin
-            for ii in 1:4
-                a[ii] += b[ii]
-            end
-        end
-    end
-
-    return nothing
-end
-
-a = CUDA.ones(4)
-b = CUDA.ones(4)
-@cuda threads = 4 foo!(a, b)
+lasts_firsts = CuArray{Int32}(firsts[1]:lasts[4])
+indices_arr = CuArray{Int32}([firsts[1], firsts[2], firsts[3], firsts[4]])

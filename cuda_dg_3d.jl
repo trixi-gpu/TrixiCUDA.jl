@@ -434,7 +434,7 @@ end
 
 # Assert 
 function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_condition::BoundaryConditionPeriodic,
-    equations, cache)
+    equations, dg::DGSEM, cache)
 
     @assert isequal(length(cache.boundaries.orientations), 1)
 end
@@ -556,7 +556,10 @@ function cuda_sources!(du, u, t, source_terms,
     return nothing
 end
 
-# Inside `rhs!()` raw implementation
+# Pack kernels into `rhs!()`
+#################################################################################
+
+# For tests
 #################################################################################
 du, u = copy_to_gpu!(du, u)
 
@@ -582,8 +585,8 @@ cuda_sources!(du, u, t,
 
 du, u = copy_to_cpu!(du, u)
 
-# For tests
-#################################################################################
+
+
 #= reset_du!(du, solver, cache)
 
 calc_volume_integral!(
@@ -610,5 +613,3 @@ apply_jacobian!(du, mesh, equations, solver, cache)
 calc_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
 
-# Pack kernels into `rhs!()`
-#################################################################################

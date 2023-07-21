@@ -72,6 +72,7 @@ end
 
 # Copy data to GPU (run as Float32)
 function copy_to_gpu!(du, u)
+
     du = CUDA.zeros(size(du))
     u = CuArray{Float32}(u)
 
@@ -80,6 +81,7 @@ end
 
 # Copy data to CPU (back to Float64)
 function copy_to_cpu!(du, u)
+
     du = Array{Float64}(du)
     u = Array{Float64}(u)
 
@@ -87,7 +89,9 @@ function copy_to_cpu!(du, u)
 end
 
 # CUDA kernel for calculating fluxes along normal direction 1, 2, and 3
-function flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u, equations::AbstractEquations{3}, flux::Function)
+function flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u,
+    equations::AbstractEquations{3}, flux::Function)
+
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -116,6 +120,7 @@ end
 
 # CUDA kernel for calculating weak form
 function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2, flux_arr3)
+
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -138,7 +143,9 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2, flux_arr3)
 end
 
 # CUDA kernel for calculating volume fluxes in direction x, y, and z
-function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3, u, equations::AbstractEquations{3}, volume_flux::Function)
+function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3, u,
+    equations::AbstractEquations{3}, volume_flux::Function)
+
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -171,6 +178,7 @@ end
 
 # CUDA kernel for calculating volume integrals
 function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_flux_arr2, volume_flux_arr3)
+
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -241,6 +249,7 @@ end
 
 # CUDA kernel for prolonging two interfaces in direction x, y, and z
 function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
+
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -290,6 +299,7 @@ end
 # CUDA kernel for calculating surface fluxes 
 function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
     equations::AbstractEquations{3}, surface_flux::Any)
+
     j2 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j3 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -312,6 +322,7 @@ end
 
 # CUDA kernel for setting interface fluxes on orientation 1, 2, and 3
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids, orientations)
+
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -363,6 +374,7 @@ end
 
 # CUDA kernel for prolonging two boundaries in direction x, y, and z
 function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_sides, orientations)
+
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -418,6 +430,7 @@ end
 
 # CUDA kernel for getting last and first indices
 function last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
+
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
 
     if (i <= length(n_boundaries_per_direction))
@@ -440,7 +453,8 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_condition::BoundaryC
 end
 
 # CUDA kernel for calculating surface integrals along axis x, y, and z
-function surface_integral_kernel_new!(du, factor_arr, surface_flux_values)
+function surface_integral_kernel!(du, factor_arr, surface_flux_values)
+
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -483,6 +497,7 @@ end
 
 # CUDA kernel for applying inverse Jacobian 
 function jacobian_kernel!(du, inverse_jacobian)
+
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -512,7 +527,9 @@ function cuda_jacobian!(du, mesh::TreeMesh{3}, cache)
 end
 
 # CUDA kernel for calculating source terms
-function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{3}, source_terms::Function)
+function source_terms_kernel!(du, u, node_coordinates, t,
+    equations::AbstractEquations{3}, source_terms::Function)
+
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -561,7 +578,7 @@ end
 
 # For tests
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -583,11 +600,11 @@ cuda_jacobian!(du, mesh, cache)
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u)
+du, u = copy_to_cpu!(du, u) =#
 
 
 
-#= reset_du!(du, solver, cache)
+reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -603,13 +620,13 @@ calc_interface_flux!(
     solver.surface_integral, solver, cache)
 
 prolong2boundaries!(cache, u, mesh, equations,
-    solver.surface_integral, solver) =#
+    solver.surface_integral, solver)
 
-#= calc_surface_integral!(
+calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)
 
 calc_sources!(du, u, t,
-    source_terms, equations, solver, cache) =#
+    source_terms, equations, solver, cache)
 

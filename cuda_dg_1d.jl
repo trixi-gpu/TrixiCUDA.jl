@@ -318,6 +318,12 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
     return nothing
 end
 
+# Assert 
+function cuda_prolong2boundaries!(u, mesh::TreeMesh{1}, cache)
+
+    @assert isequal(length(cache.boundaries.orientations), 1)
+end
+
 # Launch CUDA kernel to prolong solution to boundaries
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{1}, cache)
 

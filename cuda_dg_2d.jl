@@ -2,7 +2,7 @@
 #= include("header.jl") =#
 
 # Set random seed for random tests
-#= Random.seed!(123) =#
+Random.seed!(123)
 
 # Use the target test header file
 #= include("test/advection_basic_2d.jl") =#
@@ -481,8 +481,8 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     node_coordinates = CuArray{Float32}(cache.boundaries.node_coordinates)
     surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
 
-    lasts = similar(n_boundaries_per_direction)
-    firsts = similar(n_boundaries_per_direction)
+    lasts = CUDA.zeros(Int32, length(n_boundaries_per_direction))
+    firsts = CUDA.zeros(Int32, length(n_boundaries_per_direction))
 
     last_first_indices_kernel = @cuda launch = false last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
     last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction; configurator_1d(last_first_indices_kernel, lasts)...)
@@ -736,7 +736,7 @@ end
 
 # For tests
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -747,38 +747,12 @@ cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
-    equations, solver, cache,)
+    equations, solver, cache,) =#
 
-cuda_prolong2boundaries!(u, mesh, cache)
+#= cuda_prolong2boundaries!(u, mesh, cache) =#
 
-cuda_boundary_flux!(t, mesh, boundary_conditions,
-    equations, solver, cache)
-
-#= surface_flux = solver.surface_integral.surface_flux
-n_boundaries_per_direction = CuArray{Int32}(cache.boundaries.n_boundaries_per_direction)
-neighbor_ids = CuArray{Int32}(cache.boundaries.neighbor_ids)
-neighbor_sides = CuArray{Int32}(cache.boundaries.neighbor_sides)
-orientations = CuArray{Int32}(cache.boundaries.orientations)
-boundaries_u = CuArray{Float32}(cache.boundaries.u)
-node_coordinates = CuArray{Float32}(cache.boundaries.node_coordinates)
-surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
-lasts = similar(n_boundaries_per_direction)
-firsts = similar(n_boundaries_per_direction)
-
-last_first_indices_kernel = @cuda launch = false last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
-last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction; configurator_1d(last_first_indices_kernel, lasts)...)
-
-lasts = Array(lasts)
-firsts = Array(firsts)
-lasts_firsts = CuArray{Int32}(firsts[1]:lasts[4])
-indices_arr = CuArray{Int32}([firsts[1], firsts[2], firsts[3], firsts[4]])
-size_arr = CuArray{Float32}(undef, size(surface_flux_values, 2), length(lasts_firsts))
-
-boundary_flux_kernel = @cuda launch = false boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t,
-    lasts_firsts, indices_arr, neighbor_ids, neighbor_sides, orientations, boundary_conditions, equations, surface_flux)
-boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, lasts_firsts, indices_arr, neighbor_ids, neighbor_sides,
-    orientations, boundary_conditions, equations, surface_flux; configurator_2d(boundary_flux_kernel, size_arr)...) =#
-
+#= cuda_boundary_flux!(t, mesh, boundary_conditions,
+    equations, solver, cache) =#
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
 
@@ -791,7 +765,7 @@ du, u = copy_to_cpu!(du, u) =#
 
 
 
-#= reset_du!(du, solver, cache)
+reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -806,13 +780,13 @@ calc_interface_flux!(
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver, cache)
 
-prolong2boundaries!(cache, u, mesh, equations,
+#= prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
-    dg.surface_integral, dg)
+    solver.surface_integral, solver) =#
 
-calc_surface_integral!(
+#= calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)

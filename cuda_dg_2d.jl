@@ -251,12 +251,12 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations)
 
         @inbounds begin
             interfaces_u[1, j1, j2, k] = u[j1,
-                isequal(orientation, 1)*j2+isequal(orientation, 2)*size(u, 2),
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*size(u, 2),
                 left_element]
             interfaces_u[2, j1, j2, k] = u[j1,
-                isequal(orientation, 1)*j2+isequal(orientation, 2)*1,
                 isequal(orientation, 1)*1+isequal(orientation, 2)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*1,
                 right_element]
         end
     end
@@ -747,11 +747,11 @@ cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
-    equations, solver, cache,) =#
+    equations, solver, cache,)
 
-#= cuda_prolong2boundaries!(u, mesh, cache) =#
+cuda_prolong2boundaries!(u, mesh, cache)
 
-#= cuda_boundary_flux!(t, mesh, boundary_conditions,
+cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache) =#
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
@@ -780,11 +780,11 @@ calc_interface_flux!(
     have_nonconservative_terms(equations), equations,
     solver.surface_integral, solver, cache)
 
-#= prolong2boundaries!(cache, u, mesh, equations,
+prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
-    solver.surface_integral, solver) =#
+    solver.surface_integral, solver)
 
 #= calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)

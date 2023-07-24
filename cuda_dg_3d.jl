@@ -449,18 +449,18 @@ end
 
 # CUDA kernel for calculating boundary fluxes on direction 1, 2, 3, 4, 5, 6
 function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t,
-    lasts_firsts, indices_arr,
+    boundary_arr, indices_arr,
     neighbor_ids, neighbor_sides, orientations,
     boundary_conditions::NamedTuple, equations::AbstractEquations{3}, surface_flux::Any)
 
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
-    if (j <= size(surface_flux_values, 2)^2 && k <= length(lasts_firsts))
+    if (j <= size(surface_flux_values, 2)^2 && k <= length(boundary_arr))
         j1 = div(j - 1, size(surface_flux_values, 2)) + 1
         j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
 
-        boundary = lasts_firsts[k]
+        boundary = boundary_arr[k]
         direction =
             (indices_arr[1] <= boundary) + (indices_arr[2] <= boundary) +
             (indices_arr[3] <= boundary) + (indices_arr[4] <= boundary) +
@@ -515,14 +515,14 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
     last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction; configurator_1d(last_first_indices_kernel, lasts)...)
 
     lasts, firsts = Array(lasts), Array(firsts)
-    lasts_firsts = CuArray{Int}(firsts[1]:lasts[6])
+    boundary_arr = CuArray{Int}(firsts[1]:lasts[6])
     indices_arr = CuArray{Int}([firsts[1], firsts[2], firsts[3], firsts[4], firsts[5], firsts[6]])
 
-    size_arr = CuArray{Float32}(undef, size(surface_flux_values, 2)^2, length(lasts_firsts))
+    size_arr = CuArray{Float32}(undef, size(surface_flux_values, 2)^2, length(boundary_arr))
 
     boundary_flux_kernel = @cuda launch = false boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t,
-        lasts_firsts, indices_arr, neighbor_ids, neighbor_sides, orientations, boundary_conditions, equations, surface_flux)
-    boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, lasts_firsts, indices_arr, neighbor_ids, neighbor_sides,
+        boundary_arr, indices_arr, neighbor_ids, neighbor_sides, orientations, boundary_conditions, equations, surface_flux)
+    boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr, indices_arr, neighbor_ids, neighbor_sides,
         orientations, boundary_conditions, equations, surface_flux; configurator_2d(boundary_flux_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU

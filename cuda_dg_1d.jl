@@ -373,14 +373,14 @@ end
 
 # CUDA kernel for calculating boundary fluxes on direction 1, 2
 function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t,
-    lasts_firsts, indices_arr,
+    boundary_arr, indices_arr,
     neighbor_ids, neighbor_sides, orientations,
     boundary_conditions::NamedTuple, equations::AbstractEquations{1}, surface_flux::Any)
 
     k = (blockIdx().x - 1) * blockDim().x + threadIdx().x
 
-    if (k <= length(lasts_firsts))
-        boundary = lasts_firsts[k]
+    if (k <= length(boundary_arr))
+        boundary = boundary_arr[k]
         direction = (indices_arr[1] <= boundary) + (indices_arr[2] <= boundary)
 
         neighbor = neighbor_ids[boundary]
@@ -432,14 +432,14 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
     last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction; configurator_1d(last_first_indices_kernel, lasts)...)
 
     lasts, firsts = Array(lasts), Array(firsts)
-    lasts_firsts = CuArray{Int}(firsts[1]:lasts[2])
+    boundary_arr = CuArray{Int}(firsts[1]:lasts[2])
     indices_arr = CuArray{Int}([firsts[1], firsts[2]])
 
-    size_arr = CuArray{Float32}(undef, length(lasts_firsts))
+    size_arr = CuArray{Float32}(undef, length(boundary_arr))
 
     boundary_flux_kernel = @cuda launch = false boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t,
-        lasts_firsts, indices_arr, neighbor_ids, neighbor_sides, orientations, boundary_conditions, equations, surface_flux)
-    boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, lasts_firsts, indices_arr, neighbor_ids, neighbor_sides,
+        boundary_arr, indices_arr, neighbor_ids, neighbor_sides, orientations, boundary_conditions, equations, surface_flux)
+    boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr, indices_arr, neighbor_ids, neighbor_sides,
         orientations, boundary_conditions, equations, surface_flux; configurator_1d(boundary_flux_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU

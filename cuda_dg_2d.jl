@@ -5,7 +5,7 @@
 Random.seed!(123)
 
 # Use the target test header file
-include("test/advection_basic_2d.jl")
+#= include("test/advection_basic_2d.jl") =#
 #= include("test/euler_ec_2d.jl") =#
 #= include("test/euler_source_terms_2d.jl") =#
 #= include("test/hypdiff_harmonic_nonperiodic_2d.jl") =#
@@ -641,7 +641,7 @@ function rhs_cpu!(du, u, t, mesh::TreeMesh{2}, equations,
         have_nonconservative_terms(equations), equations,
         dg.surface_integral, dg, cache)
 
-    #= prolong2boundaries!(cache, u, mesh, equations,
+    prolong2boundaries!(cache, u, mesh, equations,
         dg.surface_integral, dg)
 
     calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
@@ -652,7 +652,7 @@ function rhs_cpu!(du, u, t, mesh::TreeMesh{2}, equations,
 
     calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
         have_nonconservative_terms(equations), equations,
-        dg.mortar, dg.surface_integral, dg, cache) =#
+        dg.mortar, dg.surface_integral, dg, cache)
 
     calc_surface_integral!(
         du, u, mesh, equations, dg.surface_integral, dg, cache)
@@ -703,10 +703,11 @@ function rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations,
         mesh, have_nonconservative_terms(equations),
         equations, dg, cache,)
 
-    #= cuda_prolong2boundaries!(u, mesh, cache)
+    cuda_prolong2boundaries!(u, mesh,
+        boundary_conditions, cache)
 
     cuda_boundary_flux!(t, mesh, boundary_conditions,
-        equations, dg, cache) =#
+        equations, dg, cache)
 
     cuda_surface_integral!(du, mesh, dg, cache)
 
@@ -741,7 +742,7 @@ end
 
 # For tests
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -767,7 +768,7 @@ cuda_jacobian!(du, mesh, cache)
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u)
+du, u = copy_to_cpu!(du, u) =#
 
 
 

@@ -1,4 +1,4 @@
-# linear_advection_cuda
+# Provide GPU Support for Trixi.jl via CUDA.jl
 
 - The folder `trixi` stores folders from `Trixi.jl`, specifically `trixi/src`, `trixi/examples`, and `trixi/test`.
 - The file `header.jl` can be used as test environment initializer for running tests.

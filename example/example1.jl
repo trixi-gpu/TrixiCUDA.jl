@@ -19,7 +19,15 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
 tspan = (0.0, 1.0)
-ode = semidiscretize_gpu(semi, tspan)
 
-sol = OrdinaryDiffEq.solve(ode, RDPK3SpFSAL49();
+### Run on CPU
+ode_cpu = semidiscretize_cpu(semi, tspan)
+
+sol_cpu = OrdinaryDiffEq.solve(ode_cpu, RDPK3SpFSAL49();
+    abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)
+
+### Run on GPU
+ode_gpu = semidiscretize_gpu(semi, tspan)
+
+sol_gpu = OrdinaryDiffEq.solve(ode_gpu, RDPK3SpFSAL49();
     abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)

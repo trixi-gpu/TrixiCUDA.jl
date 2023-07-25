@@ -1,5 +1,5 @@
 # Remove it after first run to avoid recompilation
-#= include("header.jl") =#
+include("header.jl")
 
 # Set random seed for random tests
 Random.seed!(123)
@@ -639,7 +639,7 @@ function rhs_cpu!(du, u, t, mesh::TreeMesh{2}, equations,
         have_nonconservative_terms(equations), equations,
         dg.surface_integral, dg, cache)
 
-    prolong2boundaries!(cache, u, mesh, equations,
+    #= prolong2boundaries!(cache, u, mesh, equations,
         dg.surface_integral, dg)
 
     calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
@@ -650,7 +650,7 @@ function rhs_cpu!(du, u, t, mesh::TreeMesh{2}, equations,
 
     calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
         have_nonconservative_terms(equations), equations,
-        dg.mortar, dg.surface_integral, dg, cache)
+        dg.mortar, dg.surface_integral, dg, cache) =#
 
     calc_surface_integral!(
         du, u, mesh, equations, dg.surface_integral, dg, cache)
@@ -701,7 +701,10 @@ function rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations,
         mesh, have_nonconservative_terms(equations),
         equations, dg, cache,)
 
-    #= cuda_prolong2boundaries!(u, mesh, cache) =#
+    #= cuda_prolong2boundaries!(u, mesh, cache)
+
+    cuda_boundary_flux!(t, mesh, boundary_conditions,
+        equations, dg, cache) =#
 
     cuda_surface_integral!(du, mesh, dg, cache)
 

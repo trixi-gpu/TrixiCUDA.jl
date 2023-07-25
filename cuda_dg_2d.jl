@@ -1,14 +1,11 @@
 # Remove it after first run to avoid recompilation
 #= include("header.jl") =#
 
-# Set random seed for random tests
-Random.seed!(123)
-
 # Use the target test header file
 #= include("test/advection_basic_2d.jl") =#
 #= include("test/euler_ec_2d.jl") =#
 #= include("test/euler_source_terms_2d.jl") =#
-#= include("test/hypdiff_harmonic_nonperiodic_2d.jl") =#
+include("test/hypdiff_harmonic_nonperiodic_2d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -772,7 +769,7 @@ du, u = copy_to_cpu!(du, u) =#
 
 
 
-#= reset_du!(du, solver, cache)
+reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -799,4 +796,4 @@ calc_surface_integral!(
 apply_jacobian!(du, mesh, equations, solver, cache)
 
 calc_sources!(du, u, t,
-    source_terms, equations, solver, cache) =#
+    source_terms, equations, solver, cache)

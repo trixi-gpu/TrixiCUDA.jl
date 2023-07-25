@@ -27,6 +27,10 @@ ode_cpu = semidiscretize_cpu(semi, tspan)
 sol_cpu = OrdinaryDiffEq.solve(ode_cpu, RDPK3SpFSAL49();
     abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)
 
+u0_ode_cpu = copy(ode_cpu.u0)
+du_ode_cpu = similar(u0_ode_cpu)
+Trixi.rhs!(du_ode_cpu, u0_ode_cpu, semi, 0.0)
+
 # Run on GPU
 #################################################################################
 advection_velocity = (0.2f0, -0.7f0)
@@ -53,6 +57,10 @@ ode_gpu = semidiscretize_gpu(semi, tspan)
 
 sol_gpu = OrdinaryDiffEq.solve(ode_gpu, RDPK3SpFSAL49();
     abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)
+
+u0_ode_gpu = copy(ode_gpu.u0)
+du_ode_gpu = similar(u0_ode_gpu)
+Trixi.rhs!(du_ode_gpu, u0_ode_gpu, semi, 0.0f0)
 
 # Compare results
 ################################################################################

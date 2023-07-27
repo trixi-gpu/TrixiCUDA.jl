@@ -5,7 +5,8 @@
 #= include("tests/advection_basic_2d.jl") =#
 #= include("tests/euler_ec_2d.jl") =#
 #= include("tests/euler_source_terms_2d.jl") =#
-include("tests/hypdiff_nonperiodic_2d.jl")
+#= include("tests/hypdiff_nonperiodic_2d.jl") =#
+include("tests/advection_mortar_2d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -65,11 +66,13 @@ end
 end
 
 # Helper function for stable calls to `boundary_conditions`
-@generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction, x, t, surface_flux, equations)
-    n = length(boundary_conditions.parameters)
+@generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction,
+    x, t, surface_flux, equations)
 
+    n = length(boundary_conditions.parameters)
     quote
-        @nif $n d -> d == direction d -> return boundary_conditions[d](u_inner, orientation, direction, x, t, surface_flux, equations)
+        @nif $n d -> d == direction d -> return boundary_conditions[d](u_inner, orientation, direction,
+            x, t, surface_flux, equations)
     end
 end
 
@@ -509,6 +512,50 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU
 
     return nothing
+end
+
+# CUDA kernel for copying data small to small on mortars
+function prolong_mortars_small2small_kernel!(u_upper, u_lower, u,
+    neighbor_ids, large_sides, orientations)
+
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper, 2) && j <= size(u_upper, 3) && k <= size(u_upper, 4))
+        side = large_sides[k]
+        orientation = orientations[k]
+
+        lower_element = neighbor_ids[1, k]
+        upper_element = neighbor_ids[2, k]
+
+        @inbounds begin
+            u_upper[2, i, j, k] = u[i,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j,
+                isequal(orientation, 1)*j+isequal(orientation, 2)*1,
+                upper_element] * isequal(side, 1)
+            u_lower[2, i, j, k] = u[i,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j,
+                isequal(orientation, 1)*j+isequal(orientation, 2)*1,
+                lower_element] * isequal(side, 1)
+
+            u_upper[1, i, j, k] = u[i,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j,
+                isequal(orientation, 1)*j+isequal(orientation, 2)*size(u, 2),
+                upper_element] * isequal(side, 2)
+            u_lower[1, i, j, k] = u[i,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j,
+                isequal(orientation, 1)*j+isequal(orientation, 2)*size(u, 2),
+                lower_element] * isequal(side, 2)
+        end
+    end
+
+    return nothing
+end
+
+# CUDA kernel for interpolating data large to small on mortars
+function prolong_mortars_large2small_kernel!()
+
 end
 
 # CUDA kernel for calculating surface integrals along axis x, y

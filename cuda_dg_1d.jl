@@ -40,6 +40,17 @@ function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{<:Any,3})
     return (threads=threads, blocks=blocks)
 end
 
+# Helper function for stable calls to `boundary_conditions`
+@generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction,
+    x, t, surface_flux, equations)
+
+    n = length(boundary_conditions.parameters)
+    quote
+        @nif $n d -> d == direction d -> return boundary_conditions[d](u_inner, orientation, direction,
+            x, t, surface_flux, equations)
+    end
+end
+
 # Helper functions
 #################################################################################
 
@@ -390,8 +401,8 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         u_inner = isequal(side, 1) * u_ll + (1 - isequal(side, 1)) * u_rr
         x = get_node_coords(node_coordinates, equations, boundary)
 
-        boundary_condition = boundary_conditions[direction]
-        boundary_flux_node = boundary_condition(u_inner, orientation, direction, x, t, surface_flux, equations)
+        boundary_flux_node = boundary_stable_helper(boundary_conditions,
+            u_inner, orientation, direction, x, t, surface_flux, equations)
 
         @inbounds begin
             for ii in axes(surface_flux_values, 1)
@@ -570,14 +581,14 @@ cuda_prolong2boundaries!(u, mesh,
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
 
-cuda_surface_integral!(du, mesh, solver, cache)
+#= cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
 
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u)
+du, u = copy_to_cpu!(du, u) =#
 
 
 

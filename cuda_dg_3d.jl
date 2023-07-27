@@ -5,8 +5,8 @@
 #= include("tests/advection_basic_3d.jl") =#
 #= include("tests/euler_ec_3d.jl") =#
 #= include("tests/euler_source_terms_3d.jl") =#
-include("tests/hypdiff_nonperiodic_3d.jl")
-#= include("tests/advection_mortar_3d.jl") =#
+#= include("tests/hypdiff_nonperiodic_3d.jl") =#
+include("tests/advection_mortar_3d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -66,11 +66,13 @@ end
 end
 
 # Helper function for stable calls to `boundary_conditions`
-@generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction, x, t, surface_flux, equations)
-    n = length(boundary_conditions.parameters)
+@generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction,
+    x, t, surface_flux, equations)
 
+    n = length(boundary_conditions.parameters)
     quote
-        @nif $n d -> d == direction d -> return boundary_conditions[d](u_inner, orientation, direction, x, t, surface_flux, equations)
+        @nif $n d -> d == direction d -> return boundary_conditions[d](u_inner, orientation, direction,
+            x, t, surface_flux, equations)
     end
 end
 
@@ -537,6 +539,79 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
     cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU
 
     return nothing
+end
+
+# CUDA kernel for copying data small to small on mortars
+function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u,
+    neighbor_ids, large_sides, orientations)
+
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper_left, 2) && j <= size(u_upper_left, 3)^2 && k <= size(u_upper_left, 5))
+        j1 = div(j - 1, size(u_upper_left, 3)) + 1
+        j2 = rem(j - 1, size(u_upper_left, 3)) + 1
+
+        side = large_sides[k]
+        orientation = orientations[k]
+
+        lower_left_element = neighbor_ids[1, k]
+        lower_right_element = neighbor_ids[2, k]
+        upper_left_element = neighbor_ids[3, k]
+        upper_right_element = neighbor_ids[4, k]
+
+        @inbounds begin
+            u_upper_left[2, i, j1, j2, k] = u[i,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
+                upper_left_element] * isequal(side, 1)
+            u_upper_right[2, i, j1, j2, k] = u[i,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
+                upper_right_element] * isequal(side, 1)
+            u_lower_left[2, i, j1, j2, k] = u[i,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
+                lower_left_element] * isequal(side, 1)
+            u_lower_right[2, i, j1, j2, k] = u[i,
+                isequal(orientation, 1)*1+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
+                lower_right_element] * isequal(side, 1)
+
+            u_upper_left[1, i, j1, j2, k] = u[i,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*size(u, 2),
+                upper_left_element] * isequal(side, 2)
+            u_upper_right[1, i, j1, j2, k] = u[i,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*size(u, 2),
+                upper_right_element] * isequal(side, 2)
+            u_lower_left[1, i, j1, j2, k] = u[i,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*size(u, 2),
+                lower_left_element] * isequal(side, 2)
+            u_lower_right[1, i, j1, j2, k] = u[i,
+                isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
+                isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
+                isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*size(u, 2),
+                lower_right_element] * isequal(side, 2)
+        end
+    end
+
+    return nothing
+end
+
+# CUDA kernel for interpolating data large to small on mortars
+function prolong_mortars_large2small_kernel!()
+
 end
 
 # CUDA kernel for calculating surface integrals along axis x, y, z

@@ -5,7 +5,8 @@
 #= include("tests/advection_basic_3d.jl") =#
 #= include("tests/euler_ec_3d.jl") =#
 #= include("tests/euler_source_terms_3d.jl") =#
-include("tests/hypdiff_nonperiodic_3d.jl")
+#= include("tests/hypdiff_nonperiodic_3d.jl") =#
+include("tests/advection_mortar_3d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -656,7 +657,7 @@ end
 
 # For tests
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -673,14 +674,7 @@ cuda_prolong2boundaries!(u, mesh,
     boundary_conditions, cache)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
-    equations, solver, cache)
-
-#= try
-    cuda_boundary_flux!(t, mesh, boundary_conditions,
-        equations, solver, cache)
-catch err
-    code_typed(err; interactive=true)
-end =#
+    equations, solver, cache) =#
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
 
@@ -693,7 +687,7 @@ du, u = copy_to_cpu!(du, u) =#
 
 
 
-#= reset_du!(du, solver, cache)
+reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -711,7 +705,10 @@ calc_interface_flux!(
 prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
-calc_surface_integral!(
+cuda_boundary_flux!(t, mesh, boundary_conditions,
+    equations, solver, cache)
+
+#= calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)

@@ -65,6 +65,15 @@ end
     SVector(ntuple(@inline(idx -> x[idx, indices...]), Val(ndims(equations))))
 end
 
+# Helper function for stable calls to `boundary_conditions`
+@generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction, x, t, surface_flux, equations)
+    n = length(boundary_conditions.parameters)
+
+    quote
+        @nif $n d -> d == direction d -> return boundary_conditions[d](u_inner, orientation, direction, x, t, surface_flux, equations)
+    end
+end
+
 # CUDA kernels 
 #################################################################################
 
@@ -474,8 +483,8 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         u_inner = isequal(side, 1) * u_ll + (1 - isequal(side, 1)) * u_rr
         x = get_node_coords(node_coordinates, equations, j1, j2, boundary)
 
-        boundary_condition = boundary_conditions[direction]
-        boundary_flux_node = boundary_condition(u_inner, orientation, direction, x, t, surface_flux, equations)
+        boundary_flux_node = boundary_stable_helper(boundary_conditions,
+            u_inner, orientation, direction, x, t, surface_flux, equations)
 
         @inbounds begin
             for ii in axes(surface_flux_values, 1)
@@ -657,7 +666,7 @@ end
 
 # For tests
 #################################################################################
-#= du, u = copy_to_gpu!(du, u)
+du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -674,7 +683,7 @@ cuda_prolong2boundaries!(u, mesh,
     boundary_conditions, cache)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
-    equations, solver, cache) =#
+    equations, solver, cache)
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
 
@@ -687,7 +696,7 @@ du, u = copy_to_cpu!(du, u) =#
 
 
 
-reset_du!(du, solver, cache)
+#= reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -706,7 +715,7 @@ prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
-    equations, solver, cache)
+    equations, solver, cache) =#
 
 #= calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)

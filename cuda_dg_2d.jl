@@ -538,7 +538,6 @@ function prolong_mortars_small2small_kernel!(u_upper, u_lower, u,
                 isequal(orientation, 1)*1+isequal(orientation, 2)*j,
                 isequal(orientation, 1)*j+isequal(orientation, 2)*1,
                 lower_element] * isequal(side, 1)
-
             u_upper[1, i, j, k] = u[i,
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j,
                 isequal(orientation, 1)*j+isequal(orientation, 2)*size(u, 2),
@@ -554,8 +553,45 @@ function prolong_mortars_small2small_kernel!(u_upper, u_lower, u,
 end
 
 # CUDA kernel for interpolating data large to small on mortars
-function prolong_mortars_large2small_kernel!()
+function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper, forward_lower,
+    neighbor_ids, large_sides, orientations)
 
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper, 2) && j <= size(u_upper, 3) && k <= size(u_upper, 4))
+        side = large_sides[k]
+        orientation = orientations[k]
+        large_element = neighbor_ids[3, k]
+
+        leftright = side
+
+        @inbounds begin
+            for ii in axes(forward_upper, 2)
+                u_upper[leftright, i, j, k] += forward_upper[j, ii] * u[i,
+                                                   isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*ii,
+                                                   isequal(orientation, 1)*ii+isequal(orientation, 2)*size(u, 2),
+                                                   large_element] * isequal(side, 1)
+                u_lower[leftright, i, j, k] += forward_lower[j, ii] * u[i,
+                                                   isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*ii,
+                                                   isequal(orientation, 1)*ii+isequal(orientation, 2)*size(u, 2),
+                                                   large_element] * isequal(side, 1)
+            end
+            for ii in axes(forward_lower, 2)
+                u_upper[leftright, i, j, k] += forward_upper[j, ii] * u[i,
+                                                   isequal(orientation, 1)*1+isequal(orientation, 2)*ii,
+                                                   isequal(orientation, 1)*ii+isequal(orientation, 2)*1,
+                                                   large_element] * isequal(side, 2)
+                u_lower[leftright, i, j, k] += forward_lower[j, ii] * u[i,
+                                                   isequal(orientation, 1)*1+isequal(orientation, 2)*ii,
+                                                   isequal(orientation, 1)*ii+isequal(orientation, 2)*1,
+                                                   large_element] * isequal(side, 2)
+            end
+        end
+    end
+
+    return nothing
 end
 
 # CUDA kernel for calculating surface integrals along axis x, y
@@ -814,6 +850,23 @@ cuda_prolong2boundaries!(u, mesh,
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
 
+neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
+large_sides = CuArray{Int}(cache.mortars.large_sides)
+orientations = CuArray{Int}(cache.mortars.orientations)
+u_upper = CuArray{Float32}(cache.mortars.u_upper)
+u_lower = CuArray{Float32}(cache.mortars.u_lower)
+forward_upper = CuArray{Float32}(solver.mortar.forward_upper)
+forward_lower = CuArray{Float32}(solver.mortar.forward_lower)
+
+size_arr = CuArray{Float32}(undef, size(u_upper, 2), size(u_upper, 3), size(u_upper, 4))
+
+prolong_mortars_small2small_kernel = @cuda launch = false prolong_mortars_small2small_kernel!(u_upper, u_lower, u, neighbor_ids, large_sides, orientations)
+prolong_mortars_small2small_kernel(u_upper, u_lower, u, neighbor_ids, large_sides, orientations; configurator_3d(prolong_mortars_small2small_kernel, size_arr)...)
+
+prolong_mortars_large2small_kernel = @cuda launch = false prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper, forward_lower, neighbor_ids, large_sides, orientations)
+prolong_mortars_large2small_kernel(u_upper, u_lower, u, forward_upper, forward_lower, neighbor_ids, large_sides, orientations; configurator_3d(prolong_mortars_large2small_kernel, size_arr)...)
+
+
 #= cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
@@ -844,7 +897,10 @@ prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
-    solver.surface_integral, solver) =#
+    solver.surface_integral, solver)
+
+prolong2mortars!(cache, u, mesh, equations,
+    solver.mortar, solver.surface_integral, solver) =#
 
 #= calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)

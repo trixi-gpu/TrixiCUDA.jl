@@ -582,7 +582,6 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
                 lower_right_element] * isequal(side, 1)
-
             u_upper_left[1, i, j1, j2, k] = u[i,
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,

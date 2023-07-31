@@ -40,17 +40,6 @@ function configurator_3d(kernel::CUDA.HostKernel, array::CuArray{<:Any,3})
     return (threads=threads, blocks=blocks)
 end
 
-# Helper function for stable calls to `boundary_conditions`
-@generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction,
-    x, t, surface_flux, equations)
-
-    n = length(boundary_conditions.parameters)
-    quote
-        @nif $n d -> d == direction d -> return boundary_conditions[d](u_inner, orientation, direction,
-            x, t, surface_flux, equations)
-    end
-end
-
 # Helper functions
 #################################################################################
 
@@ -73,6 +62,17 @@ end
 @inline function get_node_coords(x, equations, indices...)
 
     SVector(ntuple(@inline(idx -> x[idx, indices...]), Val(ndims(equations))))
+end
+
+# Helper function for stable calls to `boundary_conditions`
+@generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction,
+    x, t, surface_flux, equations)
+
+    n = length(boundary_conditions.parameters)
+    quote
+        @nif $n d -> d == direction d -> return boundary_conditions[d](u_inner, orientation, direction,
+            x, t, surface_flux, equations)
+    end
 end
 
 # CUDA kernels 

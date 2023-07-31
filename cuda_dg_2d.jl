@@ -594,6 +594,35 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
     return nothing
 end
 
+# Launch CUDA kernels to prolong solution to mortars
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache)
+
+    neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
+    large_sides = CuArray{Int}(cache.mortars.large_sides)
+    orientations = CuArray{Int}(cache.mortars.orientations)
+    u_upper = CuArray{Float32}(cache.mortars.u_upper)
+    u_lower = CuArray{Float32}(cache.mortars.u_lower)
+    forward_upper = CuArray{Float32}(dg.mortar.forward_upper)
+    forward_lower = CuArray{Float32}(dg.mortar.forward_lower)
+
+    size_arr = CuArray{Float32}(undef, size(u_upper, 2), size(u_upper, 3), size(u_upper, 4))
+
+    prolong_mortars_small2small_kernel = @cuda launch = false prolong_mortars_small2small_kernel!(u_upper, u_lower, u,
+        neighbor_ids, large_sides, orientations)
+    prolong_mortars_small2small_kernel(u_upper, u_lower, u, neighbor_ids, large_sides, orientations;
+        configurator_3d(prolong_mortars_small2small_kernel, size_arr)...)
+
+    prolong_mortars_large2small_kernel = @cuda launch = false prolong_mortars_large2small_kernel!(u_upper, u_lower, u,
+        forward_upper, forward_lower, neighbor_ids, large_sides, orientations)
+    prolong_mortars_large2small_kernel(u_upper, u_lower, u, forward_upper, forward_lower, neighbor_ids, large_sides, orientations;
+        configurator_3d(prolong_mortars_large2small_kernel, size_arr)...)
+
+    cache.mortars.u_upper = u_upper # Automatically copy back to CPU
+    cache.mortars.u_lower = u_lower # Automatically copy back to CPU
+
+    return nothing
+end
+
 # CUDA kernel for calculating surface integrals along axis x, y
 function surface_integral_kernel!(du, factor_arr, surface_flux_values)
 
@@ -850,22 +879,7 @@ cuda_prolong2boundaries!(u, mesh,
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
 
-neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
-large_sides = CuArray{Int}(cache.mortars.large_sides)
-orientations = CuArray{Int}(cache.mortars.orientations)
-u_upper = CuArray{Float32}(cache.mortars.u_upper)
-u_lower = CuArray{Float32}(cache.mortars.u_lower)
-forward_upper = CuArray{Float32}(solver.mortar.forward_upper)
-forward_lower = CuArray{Float32}(solver.mortar.forward_lower)
-
-size_arr = CuArray{Float32}(undef, size(u_upper, 2), size(u_upper, 3), size(u_upper, 4))
-
-prolong_mortars_small2small_kernel = @cuda launch = false prolong_mortars_small2small_kernel!(u_upper, u_lower, u, neighbor_ids, large_sides, orientations)
-prolong_mortars_small2small_kernel(u_upper, u_lower, u, neighbor_ids, large_sides, orientations; configurator_3d(prolong_mortars_small2small_kernel, size_arr)...)
-
-prolong_mortars_large2small_kernel = @cuda launch = false prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper, forward_lower, neighbor_ids, large_sides, orientations)
-prolong_mortars_large2small_kernel(u_upper, u_lower, u, forward_upper, forward_lower, neighbor_ids, large_sides, orientations; configurator_3d(prolong_mortars_large2small_kernel, size_arr)...)
-
+cuda_prolong2mortars!(u, mesh, solver, cache)
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
 

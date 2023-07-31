@@ -609,8 +609,35 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
 end
 
 # CUDA kernel for interpolating data large to small on mortars
-function prolong_mortars_large2small_kernel!()
+function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper, forward_lower,
+    neighbor_ids, large_sides, orientations)
 
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    # Threads.threadid() @issue #9
+
+    return nothing
+end
+
+# Launch CUDA kernels to prolong solution to mortars
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache)
+
+    neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
+    large_sides = CuArray{Int}(cache.mortars.large_sides)
+    orientations = CuArray{Int}(cache.mortars.orientations)
+    u_upper_left = CuArray{Float32}(cache.motars.upper_left)
+    u_upper_right = CuArray{Float32}(cache.motars.upper_right)
+    u_lower_left = CuArray{Float32}(cache.motars.lower_left)
+    u_lower_right = CuArray{Float32}(cache.motars.lower_right)
+
+    forward_upper = CuArray{Float32}(dg.mortar.forward_upper)
+    forward_lower = CuArray{Float32}(dg.mortar.forward_lower)
+
+    # Threads.threadid() @issue #9
+
+    return nothing
 end
 
 # CUDA kernel for calculating surface integrals along axis x, y, z
@@ -798,4 +825,3 @@ apply_jacobian!(du, mesh, equations, solver, cache)
 
 calc_sources!(du, u, t,
     source_terms, equations, solver, cache) =#
-

@@ -48,12 +48,12 @@ tspan = (0.0, 20.0)
 
 ode_cpu = semidiscretize_cpu(semi, tspan)
 
-sol_cpu = OrdinaryDiffEq.solve(ode_cpu, RDPK3SpFSAL49();
+sol_cpu = OrdinaryDiffEq.solve(ode_cpu, BS3(), adaptive=false, dt=0.01;
     abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)
 
-u0_ode_cpu = copy(ode_cpu.u0)
+#= u0_ode_cpu = copy(ode_cpu.u0)
 du_ode_cpu = similar(u0_ode_cpu)
-Trixi.rhs!(du_ode_cpu, u0_ode_cpu, semi, 0.0)
+Trixi.rhs!(du_ode_cpu, u0_ode_cpu, semi, 0.0) =#
 
 # Run on GPU
 #################################################################################
@@ -107,12 +107,12 @@ tspan = (0.0f0, 20.0f0)
 
 ode_gpu = semidiscretize_gpu(semi, tspan)
 
-sol_gpu = OrdinaryDiffEq.solve(ode_gpu, RDPK3SpFSAL49();
+sol_gpu = OrdinaryDiffEq.solve(ode_gpu, BS3(), adaptive=false, dt=0.01;
     abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)
 
-u0_ode_gpu = copy(ode_gpu.u0)
+#= u0_ode_gpu = copy(ode_gpu.u0)
 du_ode_gpu = similar(u0_ode_gpu)
-Trixi.rhs!(du_ode_gpu, u0_ode_gpu, semi, 0.0f0)
+Trixi.rhs!(du_ode_gpu, u0_ode_gpu, semi, 0.0f0) =#
 
 # Compare results
 ################################################################################

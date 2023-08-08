@@ -4,10 +4,10 @@
 # Use the target test header file
 #= include("tests/advection_basic_2d.jl") =#
 #= include("tests/euler_ec_2d.jl") =#
-include("tests/euler_vortex_2d.jl")
 #= include("tests/euler_source_terms_2d.jl") =#
 #= include("tests/hypdiff_nonperiodic_2d.jl") =#
 #= include("tests/advection_mortar_2d.jl") =#
+include("tests/euler_vortex_2d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -887,8 +887,6 @@ cuda_prolong2boundaries!(u, mesh,
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
 
-#= cuda_prolong2mortars!(u, mesh, solver, cache) =#
-
 cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
@@ -920,9 +918,6 @@ prolong2boundaries!(cache, u, mesh, equations,
 
 calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
     solver.surface_integral, solver)
-
-prolong2mortars!(cache, u, mesh, equations,
-    solver.mortar, solver.surface_integral, solver)
 
 calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)

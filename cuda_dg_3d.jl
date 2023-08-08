@@ -621,8 +621,14 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
     return nothing
 end
 
+# Assert
+function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, dg::DGSEM, cache)
+
+    @assert isequal(length(cache.mortars.orientations), 0)
+end
+
 # Launch CUDA kernels to prolong solution to mortars
-function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, dg::DGSEM, cache)
 
     neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
     large_sides = CuArray{Int}(cache.mortars.large_sides)

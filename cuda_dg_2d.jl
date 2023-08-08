@@ -1,9 +1,10 @@
 # Remove it after first run to avoid recompilation
-include("header.jl")
+#= include("header.jl") =#
 
 # Use the target test header file
 #= include("tests/advection_basic_2d.jl") =#
 #= include("tests/euler_ec_2d.jl") =#
+include("tests/euler_vortex_2d.jl")
 #= include("tests/euler_source_terms_2d.jl") =#
 #= include("tests/hypdiff_nonperiodic_2d.jl") =#
 #= include("tests/advection_mortar_2d.jl") =#
@@ -594,6 +595,12 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
     return nothing
 end
 
+# Assert 
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache)
+
+    @assert isequal(length(cache.mortars.orientations), 0)
+end
+
 # Launch CUDA kernels to prolong solution to mortars
 function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache)
 
@@ -804,11 +811,11 @@ end
 
 # Pack kernels into `rhs_gpu!()`
 #################################################################################
-function rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations,
+function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations,
     initial_condition, boundary_conditions, source_terms::Source,
     dg::DGSEM, cache) where {Source}
 
-    du, u = copy_to_gpu!(du, u)
+    du, u = copy_to_gpu!(du_cpu, u_cpu)
 
     cuda_volume_integral!(
         du, u, mesh,
@@ -834,7 +841,8 @@ function rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations,
     cuda_sources!(du, u, t,
         source_terms, equations, cache)
 
-    du, u = copy_to_cpu!(du, u)
+    du_computed, _ = copy_to_cpu!(du, u)
+    du_cpu .= du_computed
 
     return nothing
 end
@@ -860,7 +868,7 @@ end
 
 # For tests
 #################################################################################
-#= du, u = copy_to_gpu!(du, u)
+du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -879,16 +887,16 @@ cuda_prolong2boundaries!(u, mesh,
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
 
-cuda_prolong2mortars!(u, mesh, solver, cache) =#
+#= cuda_prolong2mortars!(u, mesh, solver, cache) =#
 
-#= cuda_surface_integral!(du, mesh, solver, cache)
+cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
 
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u) =#
+du, u = copy_to_cpu!(du, u)
 
 
 
@@ -914,9 +922,9 @@ calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
     solver.surface_integral, solver)
 
 prolong2mortars!(cache, u, mesh, equations,
-    solver.mortar, solver.surface_integral, solver) =#
+    solver.mortar, solver.surface_integral, solver)
 
-#= calc_surface_integral!(
+calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)

@@ -163,6 +163,34 @@ function volume_flux_kernel!(volume_flux_arr, u,
     return nothing
 end
 
+# CUDA kernel for calculating symmetric fluxes and nonconservative fluxes in direction x
+function symmetric_noncons_flux_kernel!(symmetric_flux_arr, noncons_flux_arr, u, derivative_split,
+    equations::AbstractEquations{1}, symmetric_flux::Function, nonconservative_flux::Function)
+
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(u, 2)^2 && k <= size(u, 3))
+        j1 = div(j - 1, size(u, 2)) + 1
+        j2 = rem(j - 1, size(u, 2)) + 1
+
+        u_node = get_nodes_vars(u, equations, j1, k)
+        u_node1 = get_nodes_vars(u, equations, j2, k)
+
+        symmetric_flux_node = symmetric_flux(u_node, u_node1, 1, equations)
+        noncons_flux_node = nonconservative_flux(u_node, u_node1, 1, equations)
+
+        @inbounds begin
+            for ii in axes(u, 1)
+                symmetric_flux_arr[ii, j1, j2, k] = symmetric_flux_node[ii]
+                noncons_flux_arr[ii, j1, j2, k] = noncons_flux_node[ii] * derivative_split[j1, j2]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # CUDA kernel for calculating volume integrals
 function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
 
@@ -175,6 +203,29 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
             for ii in axes(du, 2)
                 du[i, j, k] += derivative_split[j, ii] * volume_flux_arr[i, j, ii, k]
             end
+        end
+    end
+
+    return nothing
+end
+
+# CUDA kernel for calculating symmetric and nonsymmetric volume integrals
+function symmetric_noncons_integral_kernel!(du, derivative_split, symmetric_flux_arr, noncons_flux_arr)
+
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds begin
+            integral_contribution = 0.0f0
+
+            for ii in axes(du, 2)
+                du[i, j, k] += derivative_split[j, ii] * symmetric_flux_arr[i, j, ii, k]
+                integral_contribution += noncons_flux_arr[i, j, ii, k]
+            end
+
+            du[i, j, k] += 0.5f0 * integral_contribution
         end
     end
 
@@ -217,6 +268,30 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
 
     volume_integral_kernel = @cuda launch = false volume_integral_kernel!(du, derivative_split, volume_flux_arr)
     volume_integral_kernel(du, derivative_split, volume_flux_arr; configurator_3d(volume_integral_kernel, du)...)
+
+    return nothing
+end
+
+# Launch CUDA kernels to calculate volume integrals
+function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
+    nonconservative_terms::True, equations,
+    volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
+
+    symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
+
+    derivative_split = CuArray{Float32}(dg.basis.derivative_split)
+    symmetric_flux_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
+    noncons_flux_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
+
+    size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 3))
+
+    symmetric_noncons_flux_kernel = @cuda launch = false symmetric_noncons_flux_kernel!(symmetric_flux_arr, noncons_flux_arr, u, derivative_split,
+        equations, symmetric_flux, nonconservative_flux)
+    symmetric_noncons_flux_kernel(symmetric_flux_arr, noncons_flux_arr, u, derivative_split, equations, symmetric_flux, nonconservative_flux;
+        configurator_2d(symmetric_noncons_flux_kernel, size_arr)...)
+
+    symmetric_noncons_integral_kernel = @cuda launch = false symmetric_noncons_integral_kernel!(du, derivative_split, symmetric_flux_arr, noncons_flux_arr)
+    symmetric_noncons_integral_kernel(du, derivative_split, symmetric_flux_arr, noncons_flux_arr; configurator_3d(symmetric_noncons_integral_kernel, du)...)
 
     return nothing
 end
@@ -571,9 +646,6 @@ cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-
-
-
 #= cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
@@ -602,9 +674,9 @@ du, u = copy_to_cpu!(du, u) =#
 calc_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver, cache)
+    solver.volume_integral, solver, cache) =#
 
-prolong2interfaces!(
+#= prolong2interfaces!(
     cache, u, mesh, equations, solver.surface_integral, solver)
 
 calc_interface_flux!(
@@ -616,9 +688,9 @@ prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
-    solver.surface_integral, solver) =#
+    solver.surface_integral, solver)
 
-#= calc_surface_integral!(
+calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)

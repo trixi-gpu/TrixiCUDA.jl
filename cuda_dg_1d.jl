@@ -65,6 +65,16 @@ end
     SVector(ntuple(@inline(idx -> x[idx, indices...]), Val(ndims(equations))))
 end
 
+# Helper function for checking `cache.mortars`
+@inline function check_cache_mortars(cache)
+
+    if iszero(length(cache.mortars.orientations))
+        return True()
+    else
+        return False()
+    end
+end
+
 # Helper function for stable calls to `boundary_conditions`
 @generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction,
     x, t, surface_flux, equations)
@@ -420,7 +430,7 @@ end
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{1},
     boundary_condition::BoundaryConditionPeriodic, cache)
 
-    @assert isequal(length(cache.boundaries.orientations), 0)
+    @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Launch CUDA kernel to prolong solution to boundaries
@@ -495,7 +505,7 @@ end
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_condition::BoundaryConditionPeriodic,
     equations, dg::DGSEM, cache)
 
-    @assert isequal(length(cache.boundaries.orientations), 0)
+    @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Launch CUDA kernels to calculate boundary fluxes

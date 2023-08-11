@@ -66,6 +66,16 @@ end
     SVector(ntuple(@inline(idx -> x[idx, indices...]), Val(ndims(equations))))
 end
 
+# Helper function for checking `cache.mortars`
+@inline function check_cache_mortars(cache)
+
+    if iszero(length(cache.mortars.orientations))
+        return True()
+    else
+        return False()
+    end
+end
+
 # Helper function for stable calls to `boundary_conditions`
 @generated function boundary_stable_helper(boundary_conditions, u_inner, orientation, direction,
     x, t, surface_flux, equations)
@@ -420,7 +430,7 @@ end
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{3},
     boundary_condition::BoundaryConditionPeriodic, cache)
 
-    @assert isequal(length(cache.boundaries.orientations), 0)
+    @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Launch CUDA kernel to prolong solution to boundaries
@@ -503,7 +513,7 @@ end
 function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_condition::BoundaryConditionPeriodic,
     equations, dg::DGSEM, cache)
 
-    @assert isequal(length(cache.boundaries.orientations), 0)
+    @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Launch CUDA kernels to calculate boundary fluxes
@@ -630,13 +640,13 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
 end
 
 # Assert
-function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, dg::DGSEM, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, dg::DGSEM, cache_mortars::True, cache)
 
-    @assert isequal(length(cache.mortars.orientations), 0)
+    @assert iszero(length(cache.mortars.orientations))
 end
 
 # Launch CUDA kernels to prolong solution to mortars
-function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, dg::DGSEM, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache_mortars::False, cache)
 
     neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
     large_sides = CuArray{Int}(cache.mortars.large_sides)

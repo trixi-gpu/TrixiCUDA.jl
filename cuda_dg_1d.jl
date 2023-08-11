@@ -6,6 +6,7 @@
 #= include("tests/euler_ec_1d.jl") =#
 #= include("tests/euler_source_terms_1d.jl") =#
 #= include("tests/hypdiff_nonperiodic_1d.jl") =#
+include("tests/mhd_alfven_wave_1d.jl")
 
 # Kernel configurators 
 #################################################################################

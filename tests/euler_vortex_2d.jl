@@ -2,7 +2,6 @@
 equations = CompressibleEulerEquations2D(1.4f0)
 
 @changeprecision Float32 begin
-
     function initial_condition_isentropic_vortex(x, t, equations::CompressibleEulerEquations2D)
 
         inicenter = SVector(0.0, 0.0)
@@ -31,7 +30,6 @@ equations = CompressibleEulerEquations2D(1.4f0)
         prim = SVector(rho, v1, v2, p)
         return prim2cons(prim, equations)
     end
-
 end
 
 initial_condition = initial_condition_isentropic_vortex

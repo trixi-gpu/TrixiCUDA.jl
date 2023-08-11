@@ -6,7 +6,7 @@
 #= include("tests/euler_ec_1d.jl") =#
 #= include("tests/euler_source_terms_1d.jl") =#
 #= include("tests/hypdiff_nonperiodic_1d.jl") =#
-include("tests/mhd_alfven_wave_1d.jl")
+include("tests/shallowwater_nonperiodic_1d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -165,6 +165,7 @@ end
 
 # CUDA kernel for calculating volume integrals
 function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
+
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -570,7 +571,10 @@ cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-cuda_prolong2interfaces!(u, mesh, cache)
+
+
+
+#= cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
@@ -582,7 +586,7 @@ cuda_prolong2boundaries!(u, mesh,
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
 
-#= cuda_surface_integral!(du, mesh, solver, cache)
+cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
 

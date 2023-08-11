@@ -1,4 +1,4 @@
-# The header part for testing false nonconservative terms in 2D
+# The header part for testing true nonconservative terms in 2D
 gamma = Float32(5 / 3)
 equations = IdealGlmMhdEquations2D(gamma)
 

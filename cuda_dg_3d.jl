@@ -1,12 +1,12 @@
 # Remove it after first run to avoid recompilation
-#= include("header.jl") =#
+include("header.jl")
 
 # Use the target test header file
 #= include("tests/advection_basic_3d.jl") =#
 #= include("tests/euler_ec_3d.jl") =#
 #= include("tests/euler_source_terms_3d.jl") =#
 #= include("tests/hypdiff_nonperiodic_3d.jl") =#
-#= include("tests/advection_mortar_3d.jl") =#
+include("tests/advection_mortar_3d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -553,7 +553,7 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
         j1 = div(j - 1, size(u_upper_left, 3)) + 1
         j2 = rem(j - 1, size(u_upper_left, 3)) + 1
 
-        side = large_sides[k]
+        large_side = large_sides[k]
         orientation = orientations[k]
 
         lower_left_element = neighbor_ids[1, k]
@@ -566,42 +566,49 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
                 isequal(orientation, 1)*1+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
-                upper_left_element] * isequal(side, 1)
+                upper_left_element] * isequal(large_side, 1)
+
             u_upper_right[2, i, j1, j2, k] = u[i,
                 isequal(orientation, 1)*1+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
-                upper_right_element] * isequal(side, 1)
+                upper_right_element] * isequal(large_side, 1)
+
             u_lower_left[2, i, j1, j2, k] = u[i,
                 isequal(orientation, 1)*1+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
-                lower_left_element] * isequal(side, 1)
+                lower_left_element] * isequal(large_side, 1)
+
             u_lower_right[2, i, j1, j2, k] = u[i,
                 isequal(orientation, 1)*1+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*1+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*1,
-                lower_right_element] * isequal(side, 1)
+                lower_right_element] * isequal(large_side, 1)
+
             u_upper_left[1, i, j1, j2, k] = u[i,
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*size(u, 2),
-                upper_left_element] * isequal(side, 2)
+                upper_left_element] * isequal(large_side, 2)
+
             u_upper_right[1, i, j1, j2, k] = u[i,
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*size(u, 2),
-                upper_right_element] * isequal(side, 2)
+                upper_right_element] * isequal(large_side, 2)
+
             u_lower_left[1, i, j1, j2, k] = u[i,
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*size(u, 2),
-                lower_left_element] * isequal(side, 2)
+                lower_left_element] * isequal(large_side, 2)
+
             u_lower_right[1, i, j1, j2, k] = u[i,
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j1+isequal(orientation, 3)*j1,
                 isequal(orientation, 1)*j1+isequal(orientation, 2)*size(u, 2)+isequal(orientation, 3)*j2,
                 isequal(orientation, 1)*j2+isequal(orientation, 2)*j2+isequal(orientation, 3)*size(u, 2),
-                lower_right_element] * isequal(side, 2)
+                lower_right_element] * isequal(large_side, 2)
         end
     end
 
@@ -791,6 +798,59 @@ cuda_prolong2boundaries!(u, mesh,
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
+
+neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
+large_sides = CuArray{Int}(cache.mortars.large_sides)
+orientations = CuArray{Int}(cache.mortars.orientations)
+u_upper_left = CuArray{Float32}(cache.mortars.u_upper_left)
+u_upper_right = CuArray{Float32}(cache.mortars.u_upper_right)
+u_lower_left = CuArray{Float32}(cache.mortars.u_lower_left)
+u_lower_right = CuArray{Float32}(cache.mortars.u_lower_right)
+
+forward_upper = CuArray{Float32}(solver.mortar.forward_upper)
+forward_lower = CuArray{Float32}(solver.mortar.forward_lower)
+
+function u_large_view_helper(u, orientation, large_side, large_element)
+
+    idx1 = (orientation == 1) ? size(u, 2) * isequal(large_side, 1) + 1 * isequal(large_side, 2) : Colon()
+    idx2 = (orientation == 2) ? size(u, 2) * isequal(large_side, 1) + 1 * isequal(large_side, 2) : Colon()
+    idx3 = (orientation == 3) ? size(u, 2) * isequal(large_side, 1) + 1 * isequal(large_side, 2) : Colon()
+
+    return view(u, :, idx1, idx2, idx3, large_element)
+end
+
+function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lower_left, u_lower_right,
+    u, forward_upper, forward_lower,
+    neighbor_ids, large_sides, orientations)
+
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper_left, 2) && j <= size(u_upper_left, 3)^2 && k <= size(u_upper_left, 5))
+        j1 = div(j - 1, size(u_upper_left, 3)) + 1
+        j2 = rem(j - 1, size(u_upper_left, 3)) + 1
+
+        large_side = large_sides[k]
+        orientation = orientations[k]
+        large_element = neighbor_ids[5, k]
+
+        leftright = large_side
+
+        u_large = u_large_view_helper(u, orientation, large_side, large_element)
+
+    end
+
+    return nothing
+end
+
+size_arr = CuArray{Float32}(undef, size(u_upper_left, 2), size(u_upper_left, 3)^2, size(u_upper_left, 5))
+
+prolong_mortars_large2small_kernel = @cuda launch = false prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u, forward_upper, forward_lower,
+    neighbor_ids, large_sides, orientations)
+prolong_mortars_large2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u, forward_upper, forward_lower,
+    neighbor_ids, large_sides, orientations; configurator_3d(prolong_mortars_large2small_kernel, size_arr)...)
+
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
 

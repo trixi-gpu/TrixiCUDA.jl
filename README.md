@@ -9,7 +9,6 @@
 - The folder `profile` contains contents about how to profile GPU kernels.
 
 TODO List:
-- Resolve issues #7 and #9
 - 1D: 1) `nonconservative_terms::True`, 2) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`
 - 2D: 2) `nonconservative_terms::True`, 2) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 3) `calc_mortar_flux!()`
 - 3D: 1) `nonconservative_terms::True`, 2) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 3) `prolong2mortars!()` and `calc_mortar_flux!()` 

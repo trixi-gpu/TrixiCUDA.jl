@@ -7,7 +7,7 @@
 #= include("tests/euler_source_terms_2d.jl") =#
 #= include("tests/hypdiff_nonperiodic_2d.jl") =#
 #= include("tests/advection_mortar_2d.jl") =#
-include("tests/euler_vortex_2d.jl")
+#= include("tests/euler_vortex_2d.jl") =#
 
 # Kernel configurators 
 #################################################################################
@@ -524,7 +524,7 @@ function prolong_mortars_small2small_kernel!(u_upper, u_lower, u,
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(u_upper, 2) && j <= size(u_upper, 3) && k <= size(u_upper, 4))
-        side = large_sides[k]
+        large_side = large_sides[k]
         orientation = orientations[k]
 
         lower_element = neighbor_ids[1, k]
@@ -534,19 +534,22 @@ function prolong_mortars_small2small_kernel!(u_upper, u_lower, u,
             u_upper[2, i, j, k] = u[i,
                 isequal(orientation, 1)*1+isequal(orientation, 2)*j,
                 isequal(orientation, 1)*j+isequal(orientation, 2)*1,
-                upper_element] * isequal(side, 1)
+                upper_element] * isequal(large_side, 1)
+
             u_lower[2, i, j, k] = u[i,
                 isequal(orientation, 1)*1+isequal(orientation, 2)*j,
                 isequal(orientation, 1)*j+isequal(orientation, 2)*1,
-                lower_element] * isequal(side, 1)
+                lower_element] * isequal(large_side, 1)
+
             u_upper[1, i, j, k] = u[i,
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j,
                 isequal(orientation, 1)*j+isequal(orientation, 2)*size(u, 2),
-                upper_element] * isequal(side, 2)
+                upper_element] * isequal(large_side, 2)
+
             u_lower[1, i, j, k] = u[i,
                 isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*j,
                 isequal(orientation, 1)*j+isequal(orientation, 2)*size(u, 2),
-                lower_element] * isequal(side, 2)
+                lower_element] * isequal(large_side, 2)
         end
     end
 
@@ -562,32 +565,33 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(u_upper, 2) && j <= size(u_upper, 3) && k <= size(u_upper, 4))
-        side = large_sides[k]
+        large_side = large_sides[k]
         orientation = orientations[k]
         large_element = neighbor_ids[3, k]
 
-        leftright = side
+        leftright = large_side
 
         @inbounds begin
             for ii in axes(forward_upper, 2)
                 u_upper[leftright, i, j, k] += forward_upper[j, ii] * u[i,
                                                    isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*ii,
                                                    isequal(orientation, 1)*ii+isequal(orientation, 2)*size(u, 2),
-                                                   large_element] * isequal(side, 1)
+                                                   large_element] * isequal(large_side, 1)
                 u_lower[leftright, i, j, k] += forward_lower[j, ii] * u[i,
                                                    isequal(orientation, 1)*size(u, 2)+isequal(orientation, 2)*ii,
                                                    isequal(orientation, 1)*ii+isequal(orientation, 2)*size(u, 2),
-                                                   large_element] * isequal(side, 1)
+                                                   large_element] * isequal(large_side, 1)
             end
+
             for ii in axes(forward_lower, 2)
                 u_upper[leftright, i, j, k] += forward_upper[j, ii] * u[i,
                                                    isequal(orientation, 1)*1+isequal(orientation, 2)*ii,
                                                    isequal(orientation, 1)*ii+isequal(orientation, 2)*1,
-                                                   large_element] * isequal(side, 2)
+                                                   large_element] * isequal(large_side, 2)
                 u_lower[leftright, i, j, k] += forward_lower[j, ii] * u[i,
                                                    isequal(orientation, 1)*1+isequal(orientation, 2)*ii,
                                                    isequal(orientation, 1)*ii+isequal(orientation, 2)*1,
-                                                   large_element] * isequal(side, 2)
+                                                   large_element] * isequal(large_side, 2)
             end
         end
     end

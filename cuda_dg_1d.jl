@@ -246,7 +246,7 @@ end
 
 # Launch CUDA kernels to calculate volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
-    nonconservative_terms::False, equations,
+    nonconservative_terms, equations,
     volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
 
     derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
@@ -651,12 +651,12 @@ end
 
 # For tests
 #################################################################################
-#= du, u = copy_to_gpu!(du, u)
+du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver) =#
+    solver.volume_integral, solver)
 
 #= cuda_prolong2interfaces!(u, mesh, cache)
 
@@ -681,12 +681,12 @@ du, u = copy_to_cpu!(du, u) =#
 
 
 
-reset_du!(du, solver, cache)
+#= reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver, cache)
+    solver.volume_integral, solver, cache) =#
 
 #= prolong2interfaces!(
     cache, u, mesh, equations, solver.surface_integral, solver)

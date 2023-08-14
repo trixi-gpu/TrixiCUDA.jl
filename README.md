@@ -9,9 +9,9 @@
 - The folder `profile` contains contents about how to profile GPU kernels.
 
 TODO List:
-- 1D: 1) `nonconservative_terms::True`, 2) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`
-- 2D: 2) `nonconservative_terms::True`, 2) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 3) `calc_mortar_flux!()`
-- 3D: 1) `nonconservative_terms::True`, 2) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 3) `prolong2mortars!()` and `calc_mortar_flux!()` 
+- 1D: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`
+- 2D: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!()`
+- 3D: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `prolong2mortars!()`,3) `calc_mortar_flux!()` 
 - Run something people coming from numerical mathematics care about
 - Setup some regression tests comparing your results to CPU results obtained with the current version of Trixi.jl
 - Create meaningful benchmarks that can be used to tune the implementations later

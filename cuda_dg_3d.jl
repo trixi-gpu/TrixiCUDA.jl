@@ -1001,9 +1001,9 @@ prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
-    equations, solver, cache) =#
+    equations, solver, cache) 
 
-#= calc_surface_integral!(
+calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)

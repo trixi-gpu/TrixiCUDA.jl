@@ -6,8 +6,8 @@
 #= include("tests/euler_ec_3d.jl") =#
 #= include("tests/euler_source_terms_3d.jl") =#
 #= include("tests/hypdiff_nonperiodic_3d.jl") =#
-include("tests/advection_mortar_3d.jl")
-#= include("tests/mhd_alfven_wave_3d.jl") =#
+#= include("tests/advection_mortar_3d.jl") =#
+include("tests/mhd_alfven_wave_3d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -906,7 +906,7 @@ cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-cuda_prolong2interfaces!(u, mesh, cache)
+#= cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
@@ -969,7 +969,7 @@ prolong_mortars_large2small_kernel = @cuda launch = false prolong_mortars_large2
     neighbor_ids, large_sides, orientations, Colon())
 prolong_mortars_large2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u, forward_upper, forward_lower,
     neighbor_ids, large_sides, orientations, Colon(); configurator_3d(prolong_mortars_large2small_kernel, size_arr)...)
-
+ =#
 
 #= cuda_surface_integral!(du, mesh, solver, cache)
 

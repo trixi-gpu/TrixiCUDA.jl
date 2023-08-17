@@ -264,7 +264,7 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
 end
 
 # CUDA kernel for calculating symmetric and nonsymmetric volume integrals
-function symmetric_noncons_integral_kernel!(du, derivative_split,
+function volume_integral_kernel!(du, derivative_split,
     symmetric_flux_arr1, symmetric_flux_arr2, symmetric_flux_arr3,
     noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3)
 
@@ -368,10 +368,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3},
 
     size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
 
-    symmetric_noncons_integral_kernel = @cuda launch = false symmetric_noncons_integral_kernel!(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2,
+    volume_integral_kernel = @cuda launch = false volume_integral_kernel!(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2,
         symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3)
-    symmetric_noncons_integral_kernel(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2, symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2,
-        noncons_flux_arr3; configurator_3d(symmetric_noncons_integral_kernel, size_arr)...)
+    volume_integral_kernel(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2, symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2,
+        noncons_flux_arr3; configurator_3d(volume_integral_kernel, size_arr)...)
 
     return nothing
 end

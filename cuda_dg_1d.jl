@@ -6,7 +6,7 @@
 #= include("tests/euler_ec_1d.jl") =#
 #= include("tests/euler_source_terms_1d.jl") =#
 #= include("tests/hypdiff_nonperiodic_1d.jl") =#
-include("tests/shallowwater_nonperiodic_1d.jl")
+include("tests/shallowwater_well_balanced_1d.jl")
 
 # Kernel configurators 
 #################################################################################
@@ -221,7 +221,7 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
 end
 
 # CUDA kernel for calculating symmetric and nonsymmetric volume integrals
-function symmetric_noncons_integral_kernel!(du, derivative_split,
+function volume_integral_kernel!(du, derivative_split,
     symmetric_flux_arr, noncons_flux_arr)
 
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -302,8 +302,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1},
     symmetric_noncons_flux_kernel(symmetric_flux_arr, noncons_flux_arr, u, derivative_split, equations, symmetric_flux, nonconservative_flux;
         configurator_2d(symmetric_noncons_flux_kernel, size_arr)...)
 
-    symmetric_noncons_integral_kernel = @cuda launch = false symmetric_noncons_integral_kernel!(du, derivative_split, symmetric_flux_arr, noncons_flux_arr)
-    symmetric_noncons_integral_kernel(du, derivative_split, symmetric_flux_arr, noncons_flux_arr; configurator_3d(symmetric_noncons_integral_kernel, du)...)
+    volume_integral_kernel = @cuda launch = false volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, noncons_flux_arr)
+    volume_integral_kernel(du, derivative_split, symmetric_flux_arr, noncons_flux_arr; configurator_3d(volume_integral_kernel, du)...)
 
     return nothing
 end

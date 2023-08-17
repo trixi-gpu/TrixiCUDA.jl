@@ -3,7 +3,7 @@
 # we need to opt-in explicitly.
 # See https://ranocha.de/blog/Optimizing_EC_Trixi for further details.
 @muladd begin
-
+@changeprecision Float32 begin
 
 @doc raw"""
     IdealGlmMhdEquations1D(gamma)
@@ -522,5 +522,5 @@ end
   return (cons[2]*cons[6] + cons[3]*cons[7] + cons[4]*cons[8]) / cons[1]
 end
 
-
+  end # @changeprecision
 end # @muladd

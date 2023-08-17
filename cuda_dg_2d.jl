@@ -421,6 +421,34 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
     return nothing
 end
 
+# CUDA kernel for calculating surface and both nonconservative fluxes 
+function surface_noncons_flux_kernel!(surface_flux_arr, interfaces_u,
+    noncons_left_arr, noncons_right_arr, orientations,
+    equations::AbstractEquations{2}, surface_flux::Any, nonconservative_flux::Any)
+
+    j2 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j2 <= size(surface_flux_arr, 3) && k <= size(surface_flux_arr, 4))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j2, k)
+        orientation = orientations[k]
+
+        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
+        noncons_left_node = nonconservative_flux(u_ll, u_rr, orientation, equations)
+        noncons_right_node = nonconservative_flux(u_rr, u_ll, orientation, equations)
+
+        @inbounds begin
+            for j1j1 in axes(surface_flux_arr, 2)
+                surface_flux_arr[1, j1j1, j2, k] = surface_flux_node[j1j1]
+                noncons_left_arr[1, j1j1, j2, k] = noncons_left_node[j1j1]
+                noncons_right_arr[1, j1j1, j2, k] = noncons_right_node[j1j1]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # CUDA kernel for setting interface fluxes on orientation 1, 2
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids, orientations)
 
@@ -438,6 +466,32 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
         @inbounds begin
             surface_flux_values[i, j, left_direction, left_id] = surface_flux_arr[1, i, j, k]
             surface_flux_values[i, j, right_direction, right_id] = surface_flux_arr[1, i, j, k]
+        end
+    end
+
+    return nothing
+end
+
+# CUDA kernel for setting interface fluxes on orientation 1, 2
+function interface_flux_kernel!(surface_flux_values, surface_flux_arr,
+    noncons_left_arr, noncons_right_arr, neighbor_ids, orientations)
+
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 3) && k <= size(surface_flux_arr, 4))
+        left_id = neighbor_ids[1, k]
+        right_id = neighbor_ids[2, k]
+
+        left_direction = 2 * orientations[k]
+        right_direction = 2 * orientations[k] - 1
+
+        @inbounds begin
+            surface_flux_values[i, j, left_direction, left_id] =
+                surface_flux_arr[1, i, j, k] + 0.5f0 * noncons_left_arr[1, i, j, k]
+            surface_flux_values[i, j, right_direction, right_id] =
+                surface_flux_arr[1, i, j, k] + 0.5f0 * noncons_right_arr[1, i, j, k]
         end
     end
 
@@ -465,6 +519,39 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False,
 
     interface_flux_kernel = @cuda launch = false interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids, orientations)
     interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids, orientations; configurator_3d(interface_flux_kernel, size_arr)...)
+
+    cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU
+
+    return nothing
+end
+
+# Launch CUDA kernels to calculate interface fluxes
+function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::True,
+    equations, dg::DGSEM, cache)
+
+    surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
+
+    neighbor_ids = CuArray{Int}(cache.interfaces.neighbor_ids)
+    orientations = CuArray{Int}(cache.interfaces.orientations)
+    interfaces_u = CuArray{Float32}(cache.interfaces.u)
+    surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
+    noncons_left_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
+    noncons_right_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
+    surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
+
+    size_arr = CuArray{Float32}(undef, size(interfaces_u, 3), size(interfaces_u, 4))
+
+    surface_noncons_flux_kernel = @cuda launch = false surface_noncons_flux_kernel!(surface_flux_arr, interfaces_u, noncons_left_arr,
+        noncons_right_arr, orientations, equations, surface_flux, nonconservative_flux)
+    surface_noncons_flux_kernel(surface_flux_arr, interfaces_u, noncons_left_arr, noncons_right_arr, orientations, equations, surface_flux,
+        nonconservative_flux; configurator_2d(surface_noncons_flux_kernel, size_arr)...)
+
+    size_arr = CuArray{Float32}(undef, size(surface_flux_values, 1), size(interfaces_u, 3), size(interfaces_u, 4))
+
+    interface_flux_kernel = @cuda launch = false interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
+        noncons_right_arr, neighbor_ids, orientations)
+    interface_flux_kernel(surface_flux_values, surface_flux_arr, noncons_left_arr, noncons_right_arr, neighbor_ids, orientations;
+        configurator_3d(interface_flux_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # Automatically copy back to CPU
 
@@ -986,13 +1073,13 @@ cuda_volume_integral!(
     have_nonconservative_terms(equations), equations,
     solver.volume_integral, solver)
 
-#= cuda_prolong2interfaces!(u, mesh, cache)
+cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
     equations, solver, cache,)
 
-cuda_prolong2boundaries!(u, mesh,
+#= cuda_prolong2boundaries!(u, mesh,
     boundary_conditions, cache)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
@@ -1017,17 +1104,17 @@ du, u = copy_to_cpu!(du, u) =#
 calc_volume_integral!(
     du, u, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.volume_integral, solver, cache) =#
+    solver.volume_integral, solver, cache)
 
-#= prolong2interfaces!(
+prolong2interfaces!(
     cache, u, mesh, equations, solver.surface_integral, solver)
 
 calc_interface_flux!(
     cache.elements.surface_flux_values, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.surface_integral, solver, cache)
+    solver.surface_integral, solver, cache) =#
 
-prolong2boundaries!(cache, u, mesh, equations,
+#= prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,

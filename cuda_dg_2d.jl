@@ -6,8 +6,8 @@
 #= include("tests/euler_ec_2d.jl") =#
 #= include("tests/euler_source_terms_2d.jl") =#
 #= include("tests/hypdiff_nonperiodic_2d.jl") =#
-#= include("tests/advection_mortar_2d.jl") =#
-include("tests/shallowwater_well_balanced_2d.jl")
+include("tests/advection_mortar_2d.jl")
+#= include("tests/shallowwater_well_balanced_2d.jl") =#
 
 # Kernel configurators 
 #################################################################################
@@ -794,13 +794,13 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
 end
 
 # Assert 
-function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache_mortars::True, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DGSEM, cache)
 
     @assert iszero(length(cache.mortars.orientations))
 end
 
 # Launch CUDA kernels to prolong solution to mortars
-function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache_mortars::False, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::False, dg::DGSEM, cache)
 
     neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
     large_sides = CuArray{Int}(cache.mortars.large_sides)
@@ -1066,7 +1066,7 @@ end
 
 # For tests
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -1077,18 +1077,19 @@ cuda_prolong2interfaces!(u, mesh, cache)
 
 cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
-    equations, solver, cache,)
+    equations, solver, cache)
 
-#= cuda_prolong2boundaries!(u, mesh,
+cuda_prolong2boundaries!(u, mesh,
     boundary_conditions, cache)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
 
-cuda_prolong2mortars!(u, mesh, solver,
-    check_cache_mortars(cache), cache)
+cuda_prolong2mortars!(
+    u, mesh, check_cache_mortars(cache),
+    solver, cache) =#
 
-cuda_surface_integral!(du, mesh, solver, cache)
+#= cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
 
@@ -1099,7 +1100,7 @@ du, u = copy_to_cpu!(du, u) =#
 
 
 
-#= reset_du!(du, solver, cache)
+reset_du!(du, solver, cache)
 
 calc_volume_integral!(
     du, u, mesh,
@@ -1112,15 +1113,22 @@ prolong2interfaces!(
 calc_interface_flux!(
     cache.elements.surface_flux_values, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.surface_integral, solver, cache) =#
+    solver.surface_integral, solver, cache)
 
-#= prolong2boundaries!(cache, u, mesh, equations,
+prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
     solver.surface_integral, solver)
 
-calc_surface_integral!(
+prolong2mortars!(cache, u, mesh, equations,
+    solver.mortar, solver.surface_integral, solver)
+
+calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+    have_nonconservative_terms(equations), equations,
+    solver.mortar, solver.surface_integral, solver, cache)
+
+#= calc_surface_integral!(
     du, u, mesh, equations, solver.surface_integral, solver, cache)
 
 apply_jacobian!(du, mesh, equations, solver, cache)

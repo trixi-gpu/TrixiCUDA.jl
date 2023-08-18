@@ -742,7 +742,7 @@ cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
     equations, solver, cache)
 
-#= cuda_prolong2boundaries!(u, mesh,
+cuda_prolong2boundaries!(u, mesh,
     boundary_conditions, cache)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
@@ -755,7 +755,7 @@ cuda_jacobian!(du, mesh, cache)
 cuda_sources!(du, u, t,
     source_terms, equations, cache)
 
-du, u = copy_to_cpu!(du, u) =#
+du, u = copy_to_cpu!(du, u)
 
 
 

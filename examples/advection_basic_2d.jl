@@ -57,22 +57,3 @@ sol_gpu = OrdinaryDiffEq.solve(ode_gpu, BS3(), adaptive=false, dt=0.01;
 # Compare results
 ################################################################################
 extrema(sol_cpu.u[end] - sol_gpu.u[end])
-
-# Step inspection
-################################################################################
-#= integrator_cpu = init(ode_cpu, BS3())
-integrator_gpu = init(ode_gpu, BS3())
-
-global step = 0
-while (integrator_cpu.t < tspan[2] && integrator_gpu.t < tspan[2])
-    step!(integrator_cpu)
-    step!(integrator_gpu)
-
-    global step += 1
-
-    if (maximum(abs.(integrator_cpu.u - integrator_gpu.u))) > 0.1
-        println("Step:", step)
-        println("CPU:", integrator_cpu.u, " ", integrator_cpu.t, " ", integrator_cpu.dt)
-        println("GPU:", integrator_gpu.u, " ", integrator_gpu.t, " ", integrator_gpu.dt)
-    end
-end =#

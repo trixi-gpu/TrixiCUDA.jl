@@ -7,7 +7,7 @@
 #= include("tests/euler_source_terms_3d.jl") =#
 #= include("tests/hypdiff_nonperiodic_3d.jl") =#
 #= include("tests/advection_mortar_3d.jl") =#
-include("tests/mhd_alfven_wave_3d.jl")
+#= include("tests/mhd_alfven_wave_3d.jl") =#
 
 # Kernel configurators 
 #################################################################################

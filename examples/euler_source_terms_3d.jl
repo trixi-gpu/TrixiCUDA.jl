@@ -1,23 +1,25 @@
-#= include("../cuda_dg_2d.jl") =#
+#= include("../cuda_dg_3d.jl") =#
 
 # Run on CPU
 #################################################################################
-equations = CompressibleEulerEquations2D(1.4)
+equations = CompressibleEulerEquations3D(1.4)
 
 initial_condition = initial_condition_convergence_test
-solver = DGSEM(polydeg=3, surface_flux=flux_lax_friedrichs)
 
-coordinates_min = (0.0, 0.0)
-coordinates_max = (2.0, 2.0)
+solver = DGSEM(polydeg=3, surface_flux=flux_lax_friedrichs,
+    volume_integral=VolumeIntegralWeakForm())
+
+coordinates_min = (0.0, 0.0, 0.0)
+coordinates_max = (2.0, 2.0, 2.0)
 
 mesh = TreeMesh(coordinates_min, coordinates_max,
-    initial_refinement_level=4,
+    initial_refinement_level=2,
     n_cells_max=10_000)
 
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
     source_terms=source_terms_convergence_test)
 
-tspan = (0.0, 2.0)
+tspan = (0.0, 5.0)
 
 ode_cpu = semidiscretize_cpu(semi, tspan)
 
@@ -26,22 +28,24 @@ sol_cpu = OrdinaryDiffEq.solve(ode_cpu, BS3(); #= SSPRK43() =#
 
 # Run on GPU
 #################################################################################
-equations = CompressibleEulerEquations2D(1.4f0)
+equations = CompressibleEulerEquations3D(1.4f0)
 
 initial_condition = initial_condition_convergence_test
-solver = DGSEM(polydeg=3, surface_flux=flux_lax_friedrichs)
 
-coordinates_min = (0.0f0, 0.0f0)
-coordinates_max = (2.0f0, 2.0f0)
+solver = DGSEM(polydeg=3, surface_flux=flux_lax_friedrichs,
+    volume_integral=VolumeIntegralWeakForm())
+
+coordinates_min = (0.0f0, 0.0f0, 0.0f0)
+coordinates_max = (2.0f0, 2.0f0, 2.0f0)
 
 mesh = TreeMesh(coordinates_min, coordinates_max,
-    initial_refinement_level=4,
+    initial_refinement_level=2,
     n_cells_max=10_000)
 
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
     source_terms=source_terms_convergence_test)
 
-tspan = (0.0f0, 2.0f0)
+tspan = (0.0f0, 5.0f0)
 
 ode_gpu = semidiscretize_gpu(semi, tspan)
 

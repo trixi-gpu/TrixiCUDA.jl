@@ -1,5 +1,5 @@
 # Remove it after first run to avoid recompilation
-#= include("header.jl") =#
+include("header.jl")
 
 # Use the target test header file
 #= include("tests/advection_basic_3d.jl") =#
@@ -845,7 +845,7 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, dg::DGSEM, cache_mortars::T
 end
 
 # Launch CUDA kernels to prolong solution to mortars
-function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, dg::DGSEM, cache_mortars::False, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, dg::DGSEM, cache_mortars::False, cache)
 
     neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
     large_sides = CuArray{Int}(cache.mortars.large_sides)
@@ -990,7 +990,7 @@ end
 
 # For tests
 #################################################################################
-du, u = copy_to_gpu!(du, u)
+#= du, u = copy_to_gpu!(du, u)
 
 cuda_volume_integral!(
     du, u, mesh,
@@ -1003,66 +1003,13 @@ cuda_interface_flux!(
     mesh, have_nonconservative_terms(equations),
     equations, solver, cache)
 
-#= cuda_prolong2boundaries!(u, mesh,
+cuda_prolong2boundaries!(u, mesh,
     boundary_conditions, cache)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,
     equations, solver, cache)
 
-neighbor_ids = CuArray{Int}(cache.mortars.neighbor_ids)
-large_sides = CuArray{Int}(cache.mortars.large_sides)
-orientations = CuArray{Int}(cache.mortars.orientations)
-u_upper_left = CuArray{Float32}(cache.mortars.u_upper_left)
-u_upper_right = CuArray{Float32}(cache.mortars.u_upper_right)
-u_lower_left = CuArray{Float32}(cache.mortars.u_lower_left)
-u_lower_right = CuArray{Float32}(cache.mortars.u_lower_right)
-
-forward_upper = CuArray{Float32}(solver.mortar.forward_upper)
-forward_lower = CuArray{Float32}(solver.mortar.forward_lower)
-
-function u_large_view_helper(u, orientation, large_side, large_element, colon)
-
-    idx1 = (orientation == 1) ? size(u, 2) * isequal(large_side, 1) + 1 * isequal(large_side, 2) : colon
-    idx2 = (orientation == 2) ? size(u, 2) * isequal(large_side, 1) + 1 * isequal(large_side, 2) : colon
-    idx3 = (orientation == 3) ? size(u, 2) * isequal(large_side, 1) + 1 * isequal(large_side, 2) : colon
-
-    return view(u, :, idx1, idx2, idx3, large_element)
-end
-
-function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lower_left, u_lower_right,
-    u, forward_upper, forward_lower,
-    neighbor_ids, large_sides, orientations, colon::Colon)
-
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (i <= size(u_upper_left, 2) && j <= size(u_upper_left, 3)^2 && k <= size(u_upper_left, 5))
-        j1 = div(j - 1, size(u_upper_left, 3)) + 1
-        j2 = rem(j - 1, size(u_upper_left, 3)) + 1
-
-        large_side = large_sides[k]
-        orientation = orientations[k]
-        large_element = neighbor_ids[5, k]
-
-        leftright = large_side
-
-        u_large = u_large_view_helper(u, orientation, large_side, large_element, colon)
-
-    end
-
-    return nothing
-end
-
-size_arr = CuArray{Float32}(undef, size(u_upper_left, 2), size(u_upper_left, 3)^2, size(u_upper_left, 5))
-
-prolong_mortars_large2small_kernel = @cuda launch = false prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u, forward_upper, forward_lower,
-    neighbor_ids, large_sides, orientations, Colon())
-prolong_mortars_large2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u, forward_upper, forward_lower,
-    neighbor_ids, large_sides, orientations, Colon(); configurator_3d(prolong_mortars_large2small_kernel, size_arr)...)
- =#
-
-#= cuda_surface_integral!(du, mesh, solver, cache)
+cuda_surface_integral!(du, mesh, solver, cache)
 
 cuda_jacobian!(du, mesh, cache)
 
@@ -1086,9 +1033,9 @@ prolong2interfaces!(
 calc_interface_flux!(
     cache.elements.surface_flux_values, mesh,
     have_nonconservative_terms(equations), equations,
-    solver.surface_integral, solver, cache) =#
+    solver.surface_integral, solver, cache)
 
-#= prolong2boundaries!(cache, u, mesh, equations,
+prolong2boundaries!(cache, u, mesh, equations,
     solver.surface_integral, solver)
 
 cuda_boundary_flux!(t, mesh, boundary_conditions,

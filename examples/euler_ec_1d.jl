@@ -12,6 +12,7 @@ solver = DGSEM(polydeg=3, surface_flux=flux_ranocha,
 
 coordinates_min = (-2.0,)
 coordinates_max = (2.0,)
+
 mesh = TreeMesh(coordinates_min, coordinates_max,
     initial_refinement_level=5,
     n_cells_max=10_000)
@@ -37,6 +38,7 @@ solver = DGSEM(polydeg=3, surface_flux=flux_ranocha,
 
 coordinates_min = (-2.0f0,)
 coordinates_max = (2.0f0,)
+
 mesh = TreeMesh(coordinates_min, coordinates_max,
     initial_refinement_level=5,
     n_cells_max=10_000)

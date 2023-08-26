@@ -170,7 +170,7 @@ BenchmarkTools.Trial: 4 samples with 1 evaluation.
  Memory estimate: 3.69 GiB, allocs estimate: 136804.
 ```
 
-2. Benchmarks on `elixir_euler_source_terms.jl`
+3. Benchmarks on `elixir_euler_source_terms.jl`
 ```Julia
 # Benchmark result for `euler_source_terms_1d.jl` on CPU
 

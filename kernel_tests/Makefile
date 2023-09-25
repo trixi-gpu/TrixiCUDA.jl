@@ -8,11 +8,11 @@ NVCC=nvcc
 NVCC_FLAGS=-arch=$(ARCH) -std=c++17
 
 # The target binary program
-TARGET=test
+TARGET=kernel_test2
 
 all: $(TARGET)
 
-$(TARGET): test.cu
+$(TARGET): kernel_test2.cu
 	$(NVCC) $(NVCC_FLAGS) $^ -o $@
 
 run: $(TARGET)

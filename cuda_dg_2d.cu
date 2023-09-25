@@ -9,6 +9,8 @@
 // Using namespaces
 using namespace std;
 
+// TODO: Define matrix structs to simplify kernel calls
+
 // CUDA kernel configurator for 1D array computing
 pair<dim3, dim3> configurator_1d(void* kernelFun, int arrayLength) {
     cudaFuncAttributes attributes;
@@ -46,5 +48,92 @@ pair<dim3, dim3> configurator_3d(void* kernelFun, int arrayWidth, int arrayHeigh
     return {threads, blocks};
 }
 
+// CUDA kernels
+//----------------------------------------------
+
+// Copy data from host to device (from double to float)
+void copy_to_gpu(float*** &du_device, double*** du_host, float*** &u_device, double*** u_host, int width, int height, int depth) {
+    
+    // 3D extent for allocation
+    cudaExtent extent = make_cudaExtent(width * sizeof(float), height^2, depth); // We treat it as a 3D array with height = height^2
+    
+    // Allocate memory for du on the GPU and set to zero
+    cudaPitchedPtr devDuPitchedPtr;
+    cudaMalloc3D(&devDuPitchedPtr, extent);
+    cudaMemset3D(devDuPitchedPtr, 0, extent);
+    
+    // Allocate memory for u on the GPU
+    cudaPitchedPtr devUPitchedPtr;
+    cudaMalloc3D(&devUPitchedPtr, extent);
+    
+    // Convert u from double to float and copy to GPU
+    cudaMemcpy3DParms copyParams = {0};
+    float* temp_u_float = new float[width * height^2 * depth];
+    
+    int idx = 0;
+    for (int z = 0; z < depth; z++) {
+        for (int y = 0; y < height^2; y++) {
+            for (int x = 0; x < width; x++) {
+                temp_u_float[idx++] = static_cast<float>(u_host[z][y][x]);
+            }
+        }
+    }
+
+    copyParams.srcPtr   = make_cudaPitchedPtr((void*)temp_u_float, width * sizeof(float), width, height^2);
+    copyParams.dstPtr   = devUPitchedPtr;
+    copyParams.extent   = extent;
+    copyParams.kind     = cudaMemcpyHostToDevice;
+    cudaMemcpy3D(&copyParams);
+
+    // Assign the pointers to the device memory
+    du_device = (float***)devDuPitchedPtr.ptr;
+    u_device = (float***)devUPitchedPtr.ptr;
+    
+    delete[] temp_u_float;
+}
+
+// Copy data from device to host (from float to double)
+void copy_to_cpu(float*** du_device, double*** &du_host, float*** u_device, double*** &u_host, int width, int height, int depth) {
+
+    // 3D extent for copy
+    cudaExtent extent = make_cudaExtent(width * sizeof(float), height^2, depth); // We treat it as a 3D array with height = height^2
+    
+    // Temporary buffer for float data from the device
+    float* temp_u_float = new float[width * height^2 * depth];
+    float* temp_du_float = new float[width * height^2 * depth];
+
+    cudaMemcpy3DParms copyParamsU = {0};
+    copyParamsU.dstPtr   = make_cudaPitchedPtr((void*)temp_u_float, width * sizeof(float), width, height^2);
+    copyParamsU.srcPtr   = make_cudaPitchedPtr((void*)u_device, width * sizeof(float), width, height^2);
+    copyParamsU.extent   = extent;
+    copyParamsU.kind     = cudaMemcpyDeviceToHost;
+    cudaMemcpy3D(&copyParamsU);
+
+    cudaMemcpy3DParms copyParamsDu = {0};
+    copyParamsDu.dstPtr   = make_cudaPitchedPtr((void*)temp_du_float, width * sizeof(float), width, height^2);
+    copyParamsDu.srcPtr   = make_cudaPitchedPtr((void*)du_device, width * sizeof(float), width, height^2);
+    copyParamsDu.extent   = extent;
+    copyParamsDu.kind     = cudaMemcpyDeviceToHost;
+    cudaMemcpy3D(&copyParamsDu);
+
+    // Convert float data back to double and store in u_host
+    int idx = 0;
+    for (int z = 0; z < depth; z++) {
+        for (int y = 0; y < height^2; y++) {
+            for (int x = 0; x < width; x++) {
+                u_host[z][y][x] = static_cast<double>(temp_u_float[idx]);
+                du_host[z][y][x] = static_cast<double>(temp_du_float[idx]);
+                idx++;
+            }
+        }
+    }
+
+    delete[] temp_u_float;
+    delete[] temp_du_float;
+
+    // Free GPU memory
+    cudaFree(du_device);
+    cudaFree(u_device);
+}
 
 

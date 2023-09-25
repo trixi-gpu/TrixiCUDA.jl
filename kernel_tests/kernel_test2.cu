@@ -43,7 +43,7 @@ void copy_to_gpu(float*** &du_device, double*** du_host, float*** &u_device, dou
 }
 
 
-bool areArraysEqual(float*** array1, float*** array2, int width, int height, int depth) {
+bool areArraysEqual(float*** array1, double*** array2, int width, int height, int depth) {
     for (int z = 0; z < depth; ++z) {
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
@@ -82,14 +82,17 @@ void test_copy_to_gpu() {
     // Call our function
     copy_to_gpu(du_device, du_host, u_device, u_host, width, height, depth);
 
-    // Here you would typically copy back the data from the GPU to the host 
-    // and then compare to verify if the results are as expected.
-    // For the sake of this example, we will assume that there's a function 
-    // areArraysEqual that can compare two 3D arrays on the device.
+    // Print host arrays
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                std::cout << u_host[z][y][x] << " ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << "------" << std::endl;  // Separate different depths
+    }
 
-    // If this function existed, you would call:
-    // bool isEqual = areArraysEqual(du_device, expected_du_device, width, height, depth);
-    
     // For now, let's print a message to know the function was called.
     std::cout << "copy_to_gpu function was called. Verification functionality should be added." << std::endl;
 

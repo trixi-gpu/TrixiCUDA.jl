@@ -9,6 +9,8 @@
 // Using namespaces
 using namespace std;
 
+// TODO: Define matrix structs to simplify kernel calls
+
 // Kernel configurators 
 //----------------------------------------------
 
@@ -53,32 +55,87 @@ pair<dim3, dim3> configurator_3d(void* kernelFun, int arrayWidth, int arrayHeigh
 //----------------------------------------------
 
 // Copy data from host to device (from double to float)
-void copy_to_gpu(float*** du_device, const double*** du_host, float*** u_device, const double*** u_host, int dimX, int dimY, int dimZ) {
-    int totalElements = dimX * dimY * dimZ;
-
-    // Allocate memory on the GPU
-    cudaMalloc(&du_device, totalElements * sizeof(float));
-    cudaMalloc(&u_device, totalElements * sizeof(float));
-
-    // Set du_device to zeros
-    cudaMemset(*du_device, 0, totalElements * sizeof(float));
-
-    // Convert double data on the CPU to float and then transfer to the GPU
-    float* temp_u_float = new float[totalElements];
-
+void copy_to_gpu(float*** &du_device, double*** du_host, float*** &u_device, double*** u_host, int width, int height, int depth) {
+    
+    // 3D extent for allocation
+    cudaExtent extent = make_cudaExtent(width * sizeof(float), height, depth);
+    
+    // Allocate memory for du on the GPU and set to zero
+    cudaPitchedPtr devDuPitchedPtr;
+    cudaMalloc3D(&devDuPitchedPtr, extent);
+    cudaMemset3D(devDuPitchedPtr, 0, extent);
+    
+    // Allocate memory for u on the GPU
+    cudaPitchedPtr devUPitchedPtr;
+    cudaMalloc3D(&devUPitchedPtr, extent);
+    
+    // Convert u from double to float and copy to GPU
+    cudaMemcpy3DParms copyParams = {0};
+    float* temp_u_float = new float[width * height * depth];
+    
     int idx = 0;
-    for (int i = 0; i < dimX; i++) {
-        for (int j = 0; j < dimY; j++) {
-            for (int k = 0; k < dimZ; k++) {
-                temp_u_float[idx++] = static_cast<float>(u_host[i][j][k]);
+    for (int z = 0; z < depth; z++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                temp_u_float[idx++] = static_cast<float>(u_host[z][y][x]);
             }
         }
     }
 
-    cudaMemcpy(*u_device, temp_u_float, totalElements * sizeof(float), cudaMemcpyHostToDevice);
+    copyParams.srcPtr   = make_cudaPitchedPtr((void*)temp_u_float, width * sizeof(float), width, height);
+    copyParams.dstPtr   = devUPitchedPtr;
+    copyParams.extent   = extent;
+    copyParams.kind     = cudaMemcpyHostToDevice;
+    cudaMemcpy3D(&copyParams);
 
+    // Assign the pointers to the device memory
+    du_device = (float***)devDuPitchedPtr.ptr;
+    u_device = (float***)devUPitchedPtr.ptr;
+    
     delete[] temp_u_float;
 }
 
+// Copy data from device to host (from float to double)
+void copy_to_cpu(float*** du_device, double*** &du_host, float*** u_device, double*** &u_host, int width, int height, int depth) {
 
+    // 3D extent for copy
+    cudaExtent extent = make_cudaExtent(width * sizeof(float), height, depth);
+    
+    // Temporary buffer for float data from the device
+    float* temp_u_float = new float[width * height * depth];
+    float* temp_du_float = new float[width * height * depth];
+
+    cudaMemcpy3DParms copyParamsU = {0};
+    copyParamsU.dstPtr   = make_cudaPitchedPtr((void*)temp_u_float, width * sizeof(float), width, height);
+    copyParamsU.srcPtr   = make_cudaPitchedPtr((void*)u_device, width * sizeof(float), width, height);
+    copyParamsU.extent   = extent;
+    copyParamsU.kind     = cudaMemcpyDeviceToHost;
+    cudaMemcpy3D(&copyParamsU);
+
+    cudaMemcpy3DParms copyParamsDu = {0};
+    copyParamsDu.dstPtr   = make_cudaPitchedPtr((void*)temp_du_float, width * sizeof(float), width, height);
+    copyParamsDu.srcPtr   = make_cudaPitchedPtr((void*)du_device, width * sizeof(float), width, height);
+    copyParamsDu.extent   = extent;
+    copyParamsDu.kind     = cudaMemcpyDeviceToHost;
+    cudaMemcpy3D(&copyParamsDu);
+
+    // Convert float data back to double and store in u_host
+    int idx = 0;
+    for (int z = 0; z < depth; z++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                u_host[z][y][x] = static_cast<double>(temp_u_float[idx]);
+                du_host[z][y][x] = static_cast<double>(temp_du_float[idx]);
+                idx++;
+            }
+        }
+    }
+
+    delete[] temp_u_float;
+    delete[] temp_du_float;
+
+    // Free GPU memory
+    cudaFree(du_device);
+    cudaFree(u_device);
+}
 

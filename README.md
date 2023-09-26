@@ -12,7 +12,7 @@ At present, two primary strategies are being explored for leveraging GPU capabil
 - The folder `trixi` stores folders from `Trixi.jl`, specifically `trixi/src`, `trixi/examples`, and `trixi/test`.
 - The file `header.jl` can be used as test environment initializer for running tests.
 - The folder `test` contains the header part of tests for different equations.
-- The file `cuda_dg_1d.jl`, `cuda_dg_2d.jl`, and `cuda_dg_3d.jl` (and corresponding `cuda_dg_1d.cu`, `cuda_dg_2d.cu`, and `cuda_dg_3d.cu`) run tests for prototyping 1D, 2D, and 3D GPU code for `rhs!()` functions.
+- The file `cuda_dg_1d.jl`, `cuda_dg_2d.jl`, and `cuda_dg_3d.jl` (and the corresponding `cuda_dg_1d.cu`, `cuda_dg_2d.cu`, and `cuda_dg_3d.cu`) run tests for prototyping 1D, 2D, and 3D GPU code for `rhs!()` functions.
 - The files under `kernel_tests` creates sample kernels for running 1D, 2D, and 3D GPU code.
 - The folder `docs` contains useful resources for this project.
 - The folder `profile` contains contents about how to profile GPU kernels.

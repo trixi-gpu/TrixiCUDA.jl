@@ -402,22 +402,74 @@ __global__ void volume_integral_kernel(float *du, float *derivative_split,
 // Launch CUDA kernels to calculate volume integrals
 
 // CUDA kernel for prolonging two interfaces in direction x
-__global__ void prolong_interfaces_kernel(float *interfaces_u, const float *u,
-                                          const int *neighbor_ids, int interfaces_u_dim2,
-                                          int interfaces_u_dim3, int u_dim2) {
+__global__ void prolong_interfaces_kernel(float *interfaces_u, float *u, int *neighbor_ids,
+                                          int interfaces_u_dim2, int interfaces_u_dim3, int u_dim2,
+                                          int u_dim3) {
     // Compute the indices
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 
     // Ensure that we don't go out of bounds
     if (j < interfaces_u_dim2 && k < interfaces_u_dim3) {
-        int left_element = neighbor_ids[k * 2];
-        int right_element = neighbor_ids[k * 2 + 1];
+        int left_element = neighbor_ids[k];
+        int right_element = neighbor_ids[interfaces_u_dim3 + k];
 
         // Memory access (considering flattened arrays for simplicity)
-        interfaces_u[(j * interfaces_u_dim3 + k) * 2] = u[j * u_dim2 * u_dim2 + (u_dim2 - 1)];
-        interfaces_u[(j * interfaces_u_dim3 + k) * 2 + 1] = u[j * u_dim2 * u_dim2];
+        interfaces_u[j * interfaces_u_dim3 + k] =
+            u[j * u_dim2 * u_dim3 + (u_dim2 - 1) * u_dim3 + left_element];
+        interfaces_u[interfaces_u_dim2 * interfaces_u_dim3 + j * interfaces_u_dim3 + k] =
+            u[j * u_dim2 * u_dim3 + right_element];
     }
 }
 
-//
+// CUDA kernel for calculating surface fluxes
+__global__ void surface_flux_kernel(float *surface_flux_arr, float *interfaces_u,
+                                    int surface_flux_arr_dim2, int surface_flux_arr_dim3,
+                                    AbstractEquations equations) {
+    // Compute the indices
+    int k = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (k < surface_flux_arr_dim3) {
+        float *u_ll, *u_rr;
+        get_surface_node_vars(interfaces_u, equations, k, u_ll,
+                              u_rr); // TODO: `get_surface_node_vars`
+
+        float *surface_flux_node = surface_flux(u_ll, u_rr, 1, equations); // TODO: `surface_flux`
+
+        for (int jj = 0; jj < surface_flux_arr_dim2; jj++) {
+            surface_flux_arr[jj * surface_flux_arr_dim3 + k] =
+                surface_flux_node[jj]; // Adjusted for flattened array
+        }
+    }
+}
+
+// CUDA kernel for calculating surface and both nonconservative fluxes
+__global__ void surface_noncons_flux_kernel(float *surface_flux_arr, float *interfaces_u,
+                                            float *noncons_left_arr, float *noncons_right_arr,
+                                            int surface_flux_arr_dim3,
+                                            AbstractEquations *equations) {
+
+    // Compute the indices
+    int k = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+    if (k < surface_flux_arr_dim3) {
+        float *u_ll, *u_rr;
+        get_surface_node_vars(interfaces_u, *equations, k, u_ll,
+                              u_rr); // TODO: `get_surface_node_vars`
+
+        float *surface_flux_node = surface_flux(u_ll, u_rr, 1, *equations); // TODO: `surface_flux`
+        float *noncons_left_node =
+            nonconservative_flux(u_ll, u_rr, 1, *equations); // TODO: `nonconservative_flux`
+        float *noncons_right_node =
+            nonconservative_flux(u_rr, u_ll, 1, *equations); // TODO: `nonconservative_flux`
+
+        for (int jj = 0; jj < surface_flux_arr_dim3; ++jj) {
+            surface_flux_arr[jj * surface_flux_arr_dim3 + k] =
+                surface_flux_node[jj]; // Adjusted based on the 1D memory layout
+            noncons_left_arr[jj * surface_flux_arr_dim3 + k] =
+                noncons_left_node[jj]; // Adjusted based on the 1D memory layout
+            noncons_right_arr[jj * surface_flux_arr_dim3 + k] =
+                noncons_right_node[jj]; // Adjusted based on the 1D memory layout
+        }
+    }
+}

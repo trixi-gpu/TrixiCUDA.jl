@@ -11,12 +11,18 @@ using namespace std;
 
 // TODO: Define matrix structs to simplify kernel calls
 
+// Kernel configurators 
+//----------------------------------------------
+
 // CUDA kernel configurator for 1D array computing
 pair<dim3, dim3> configurator_1d(void* kernelFun, int arrayLength) {
-    cudaFuncAttributes attributes;
-    cudaFuncGetAttributes(&attributes, kernelFun);
-    
-    int threads = min(arrayLength, attributes.maxThreadsPerBlock);
+    int blockSize;
+    int minGridSize;
+
+    // Get the potential block size for maximum occupancy
+    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, kernelFun); // Use CUDA occupancy calculator
+
+    int threads = blockSize;
     int blocks = ceil(static_cast<float>(arrayLength) / threads);
     
     return {dim3(blocks), dim3(threads)};
@@ -24,28 +30,34 @@ pair<dim3, dim3> configurator_1d(void* kernelFun, int arrayLength) {
 
 // CUDA kernel configurator for 2D array computing
 pair<dim3, dim3> configurator_2d(void* kernelFun, int arrayWidth, int arrayHeight) {
-    cudaFuncAttributes attributes;
-    cudaFuncGetAttributes(&attributes, kernelFun);
+    int blockSize;
+    int minGridSize;
 
-    int threadsPerDimension = static_cast<int>(floor(sqrt(min(arrayWidth * arrayHeight, attributes.maxThreadsPerBlock))));
+    // Get the potential block size for maximum occupancy
+    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, kernelFun); // Use CUDA occupancy calculator 
+
+    int threadsPerDimension = static_cast<int>(sqrt(blockSize));
 
     dim3 threads(threadsPerDimension, threadsPerDimension);
     dim3 blocks(ceil(static_cast<float>(arrayWidth) / threads.x), ceil(static_cast<float>(arrayHeight) / threads.y));
 
-    return {threads, blocks};
+    return {blocks, threads};
 }
 
 // CUDA kernel configurator for 3D array computing
 pair<dim3, dim3> configurator_3d(void* kernelFun, int arrayWidth, int arrayHeight, int arrayDepth) {
-    cudaFuncAttributes attributes;
-    cudaFuncGetAttributes(&attributes, kernelFun);
+    int blockSize;
+    int minGridSize;
 
-    int threadsPerDimension = static_cast<int>(floor(cbrt(min(arrayWidth * arrayHeight * arrayDepth, attributes.maxThreadsPerBlock))));
+    // Get the potential block size for maximum occupancy
+    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, kernelFun); // Use CUDA occupancy calculator 
+
+    int threadsPerDimension = static_cast<int>(cbrt(blockSize)); 
 
     dim3 threads(threadsPerDimension, threadsPerDimension, threadsPerDimension);
     dim3 blocks(ceil(static_cast<float>(arrayWidth) / threads.x), ceil(static_cast<float>(arrayHeight) / threads.y), ceil(static_cast<float>(arrayDepth) / threads.z));
 
-    return {threads, blocks};
+    return {blocks, threads};
 }
 
 // CUDA kernels

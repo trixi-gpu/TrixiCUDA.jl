@@ -12,10 +12,30 @@ const int ARRAY_SIZE = 10;
 // Define the structure for AbstractEquations
 // Note: This is a stub. TODO: Define the actual structure
 struct AbstractEquations {
-    int some_property;
-    float another_property;
+    int some_property = 0;
+    float another_property = 0.0f;
 
-    AbstractEquations(int prop1, float prop2) : some_property(prop1), another_property(prop2) {}
+    // Default constructor
+    AbstractEquations() = default;
+
+    // Parameterized constructor
+    AbstractEquations(int someProp, float anotherProp)
+        : some_property(someProp), another_property(anotherProp) {}
+
+    // Example member function
+    float computeSomething() const { return some_property * another_property; }
+
+    // ... Add more member functions or properties as needed
+};
+
+// Define the structure for ConditionTuple
+// Note: This is a stub. TODO: Define the actual structure
+struct ConditionTuple {
+    int someField; // Replace with your actual field names and types
+    double anotherField;
+
+    NamedTuple(int someField, double anotherField)
+        : someField(someField), anotherField(anotherField) {}
 };
 
 // Define internal functions
@@ -86,7 +106,7 @@ __device__ float *nonconservative_flux(float *u_node, float *u_node1, int direct
 // Define the get_surface_node_vars function
 // Note: This is a stub. TODO: Define the actual function
 __device__ float *surface_flux(float *u_ll, float *u_rr, int direction,
-                               AbstractEquations &equations) {
+                               AbstractEquations equations) {
     float *result = new float[ARRAY_SIZE];
 
     for (int i = 0; i < ARRAY_SIZE; ++i) {
@@ -96,12 +116,22 @@ __device__ float *surface_flux(float *u_ll, float *u_rr, int direction,
     return result;
 }
 
+// Define the source_terms function
+// Note: This is a stub. TODO: Define the actual function
+__device__ source_terms(float *u_local, float *x_local, float t, float *&source_terms_node) {
+    source_terms_node = new float[ARRAY_SIZE];
+
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        source_terms_node[i] = u_local[i] + x_local[i] + t;
+    }
+}
+
 // Define helper functions
 //----------------------------------------------
 
 // Define the get_nodes_vars function
 // Note: This is a stub. TODO: Define the actual structure
-__device__ float *get_nodes_vars(float *u, AbstractEquations &equations, int j, int k) {
+__device__ float *get_nodes_vars(float *u, AbstractEquations equations, int j, int k) {
     float *node_vars = new float[ARRAY_SIZE];
 
     for (int i = 0; i < ARRAY_SIZE; i++) {
@@ -113,11 +143,26 @@ __device__ float *get_nodes_vars(float *u, AbstractEquations &equations, int j, 
 
 // Define the get_surface_node_vars function
 // Note: This is a stub. TODO: Define the actual function
-__device__ void get_surface_node_vars(float *interfaces_u, AbstractEquations &equations, int k,
+__device__ void get_surface_node_vars(float *interfaces_u, AbstractEquations equations, int k,
                                       float *u_ll, float *u_rr) {
     // Placeholder implementation, update with actual logic
     *u_ll = interfaces_u[k];
     *u_rr = interfaces_u[k + 1];
+}
+
+// Define the get_node_coords function
+// Note: This is a stub. TODO: Define the actual function
+__device__ *get_node_coords(float *node_coordinates, AbstractEquations equations, int boundary) {
+
+    return node_coordinates; // Simply returning the input for now.
+}
+
+// Define the get_node_coords function
+// Note: This is a stub. TODO: Define the actual function
+__device__ float *get_node_coords(float *node_coordinates, AbstractEquations equations, int index1,
+                                  int index2) {
+
+    return node_coordinates; // Simply returning the input for now.
 }
 
 #endif // HEADER_H

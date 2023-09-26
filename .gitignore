@@ -1,0 +1,18 @@
+# Ignore the .vscode configuration folder
+.vscode/
+
+# Ignore executable files
+*.exe
+*.out
+
+# Ignore build folders
+build/
+Debug/
+Release/
+x64/
+x86/
+bin/
+obj/
+
+
+

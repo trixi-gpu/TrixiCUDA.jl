@@ -1,7 +1,7 @@
 #include <iostream>
 
 // CUDA kernel to add two arrays element-wise
-__global__ void addArrays(float* a, float* b, float* result, int N) {
+__global__ void addArrays(float *a, float *b, float *result, int N) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (tid < N) {
@@ -13,7 +13,7 @@ int main() {
     int N = 1024; // Size of arrays
     size_t size = N * sizeof(float);
 
-    float *a, *b, *result; // Host arrays
+    float *a, *b, *result;       // Host arrays
     float *d_a, *d_b, *d_result; // Device arrays
 
     // Allocate memory on the host
@@ -28,9 +28,9 @@ int main() {
     }
 
     // Allocate memory on the device
-    cudaMalloc((void**)&d_a, size);
-    cudaMalloc((void**)&d_b, size);
-    cudaMalloc((void**)&d_result, size);
+    cudaMalloc((void **)&d_a, size);
+    cudaMalloc((void **)&d_b, size);
+    cudaMalloc((void **)&d_result, size);
 
     // Copy input data from host to device
     cudaMemcpy(d_a, a, size, cudaMemcpyHostToDevice);

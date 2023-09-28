@@ -12,50 +12,52 @@ const int ARRAY_SIZE = 10;
 // Define the structure for AbstractEquations
 // Note: This is a stub. TODO: Define the actual structure
 struct AbstractEquations {
-    int some_property = 0;
-    float another_property = 0.0f;
+    int someProperty = 0;
+    float anotherProperty = 0.0f;
 
     // Default constructor
     AbstractEquations() = default;
 
     // Parameterized constructor
     AbstractEquations(int someProp, float anotherProp)
-        : some_property(someProp), another_property(anotherProp) {}
+        : someProperty(someProp), anotherProperty(anotherProp) {}
 
     // Example member function
-    float computeSomething() const { return some_property * another_property; }
+    float computeSomething() const { return someProperty * anotherProperty; }
 
     // ... Add more member functions or properties as needed
 };
 
 // Define the structure for ConditionTuple
 // Note: This is a stub. TODO: Define the actual structure
-struct ConditionTuple {
-    int someField; // Replace with your actual field names and types
-    double anotherField;
+/* struct ConditionTuple {
+    int someField = 0; // Replace with your actual field names and types
+    float anotherField = 0.0f;
 
-    NamedTuple(int someField, double anotherField)
+    ConditionTuple() = default;
+
+    NamedTuple(int someField, float anotherField)
         : someField(someField), anotherField(anotherField) {}
-};
+}; */
 
 // Define internal functions
 //----------------------------------------------
 
 // Define the flux function
 // Note: This is a stub. TODO: Define the actual function
-__device__ float *flux(float *u_node, int direction, AbstractEquations equations) {
+float *flux(float *u_node, int direction, AbstractEquations equations) {
     float *result = new float[ARRAY_SIZE];
 
     for (int i = 0; i < ARRAY_SIZE; ++i) {
-        result[i] = u_node[i] * direction * equations.some_property;
+        result[i] = u_node[i] * direction * equations.someProperty;
     }
 
     return result;
-}
+} 
 
 // Define the volume flux function
 // Note: This is a stub. TODO: Define the actual function
-__device__ float *volume_flux(float *u_node, float *u_node1, int direction,
+float *volume_flux(float *u_node, float *u_node1, int direction,
                               AbstractEquations equations) {
     float *result = new float[ARRAY_SIZE];
 
@@ -68,7 +70,7 @@ __device__ float *volume_flux(float *u_node, float *u_node1, int direction,
 
 // Define the symmetric flux function
 // Note: This is a stub. TODO: Define the actual function
-__device__ float *symmetric_flux(float *u_node, float *u_node1, int direction,
+float *symmetric_flux(float *u_node, float *u_node1, int direction,
                                  AbstractEquations equations) {
     float *result = new float[ARRAY_SIZE];
 
@@ -81,7 +83,7 @@ __device__ float *symmetric_flux(float *u_node, float *u_node1, int direction,
 
 // Define the nonconservative flux function
 // Note: This is a stub. TODO: Define the actual function
-__device__ float *nonconservative_flux(float *u_node, float *u_node1, int direction,
+float *nonconservative_flux(float *u_node, float *u_node1, int direction,
                                        AbstractEquations equations) {
     float *result = new float[ARRAY_SIZE];
 
@@ -92,7 +94,7 @@ __device__ float *nonconservative_flux(float *u_node, float *u_node1, int direct
     return result;
 }
 
-__device__ float *nonconservative_flux(float *u_node, float *u_node1, int direction,
+ float *nonconservative_flux(float *u_node, float *u_node1, int direction,
                                        AbstractEquations equations) {
     float *result = new float[ARRAY_SIZE];
 
@@ -105,7 +107,7 @@ __device__ float *nonconservative_flux(float *u_node, float *u_node1, int direct
 
 // Define the get_surface_node_vars function
 // Note: This is a stub. TODO: Define the actual function
-__device__ float *surface_flux(float *u_ll, float *u_rr, int direction,
+float *surface_flux(float *u_ll, float *u_rr, int direction,
                                AbstractEquations equations) {
     float *result = new float[ARRAY_SIZE];
 
@@ -118,7 +120,7 @@ __device__ float *surface_flux(float *u_ll, float *u_rr, int direction,
 
 // Define the source_terms function
 // Note: This is a stub. TODO: Define the actual function
-__device__ source_terms(float *u_local, float *x_local, float t, float *&source_terms_node) {
+ void source_terms(float *u_local, float *x_local, float t, float *&source_terms_node) {
     source_terms_node = new float[ARRAY_SIZE];
 
     for (int i = 0; i < ARRAY_SIZE; i++) {
@@ -131,7 +133,7 @@ __device__ source_terms(float *u_local, float *x_local, float t, float *&source_
 
 // Define the get_nodes_vars function
 // Note: This is a stub. TODO: Define the actual structure
-__device__ float *get_nodes_vars(float *u, AbstractEquations equations, int j, int k) {
+float *get_nodes_vars(float *u, AbstractEquations equations, int j, int k) {
     float *node_vars = new float[ARRAY_SIZE];
 
     for (int i = 0; i < ARRAY_SIZE; i++) {
@@ -143,7 +145,7 @@ __device__ float *get_nodes_vars(float *u, AbstractEquations equations, int j, i
 
 // Define the get_surface_node_vars function
 // Note: This is a stub. TODO: Define the actual function
-__device__ void get_surface_node_vars(float *interfaces_u, AbstractEquations equations, int k,
+void get_surface_node_vars(float *interfaces_u, AbstractEquations equations, int k,
                                       float *u_ll, float *u_rr) {
     // Placeholder implementation, update with actual logic
     *u_ll = interfaces_u[k];
@@ -152,14 +154,7 @@ __device__ void get_surface_node_vars(float *interfaces_u, AbstractEquations equ
 
 // Define the get_node_coords function
 // Note: This is a stub. TODO: Define the actual function
-__device__ *get_node_coords(float *node_coordinates, AbstractEquations equations, int boundary) {
-
-    return node_coordinates; // Simply returning the input for now.
-}
-
-// Define the get_node_coords function
-// Note: This is a stub. TODO: Define the actual function
-__device__ float *get_node_coords(float *node_coordinates, AbstractEquations equations, int index1,
+float *get_node_coords(float *node_coordinates, AbstractEquations equations, int index1,
                                   int index2) {
 
     return node_coordinates; // Simply returning the input for now.

@@ -5,8 +5,7 @@ with the DG method for 1D problems.
 */
 
 // Include libraries and header files
-#include "header.hpp"
-#include <cuda_runtime.h>
+#include "header.h"
 #include <iostream>
 
 // Using namespaces

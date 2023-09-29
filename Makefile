@@ -12,7 +12,7 @@ TARGET=cuda_dg_1d # cuda_dg_1d, cuda_dg_2d, cuda_dg_3d
 
 all: $(TARGET)
 
-$(TARGET): cuda_dg_1d.cu header.hpp # cuda_dg_1d.cu, cuda_dg_2d.cu, cuda_dg_3d.cu
+$(TARGET): cuda_dg_1d.cu # cuda_dg_1d.cu, cuda_dg_2d.cu, cuda_dg_3d.cu
 	$(NVCC) $(NVCC_FLAGS) $< -o $@
 
 run: $(TARGET)

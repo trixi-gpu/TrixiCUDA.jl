@@ -8,15 +8,19 @@ NVCC=nvcc
 NVCC_FLAGS=-arch=$(ARCH) -std=c++17
 
 # The target binary program
-TARGET=kernel_test3
+TARGET=kernel_test3 	# kernel_test1, kernel_test2, kernel_test3
+OBJECTS=kernel_test3.o	# kernel_test1.o, kernel_test2.o, kernel_test3.o
 
 all: $(TARGET)
 
-$(TARGET): kernel_test3.cu
+$(OBJECTS): kernel_test3.cu test.h # kernel_test1.cu, kernel_test2.cu, kernel_test3.cu
+	$(NVCC) $(NVCC_FLAGS) -c $< -o $@
+
+$(TARGET): $(OBJECTS)
 	$(NVCC) $(NVCC_FLAGS) $^ -o $@
 
 run: $(TARGET)
 	./$(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJECTS)

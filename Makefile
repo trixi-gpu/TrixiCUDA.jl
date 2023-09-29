@@ -8,15 +8,19 @@ NVCC=nvcc
 NVCC_FLAGS=-arch=$(ARCH) -std=c++17
 
 # The target binary program
-TARGET=cuda_dg_1d # cuda_dg_1d, cuda_dg_2d, cuda_dg_3d
+TARGET=cuda_dg_1d 	# cuda_dg_1d, cuda_dg_2d, cuda_dg_3d
+OBJECTS=cuda_dg_1d.o	# cuda_dg_1d.o, cuda_dg_2d.o, cuda_dg_3d.o
 
 all: $(TARGET)
 
-$(TARGET): cuda_dg_1d.cu # cuda_dg_1d.cu, cuda_dg_2d.cu, cuda_dg_3d.cu
-	$(NVCC) $(NVCC_FLAGS) $< -o $@
+$(OBJECTS): cuda_dg_1d.cu header.h # cuda_dg_1d.cu, cuda_dg_2d.cu, cuda_dg_3d.cu
+	$(NVCC) $(NVCC_FLAGS) -c $< -o $@
+
+$(TARGET): $(OBJECTS)
+	$(NVCC) $(NVCC_FLAGS) $^ -o $@
 
 run: $(TARGET)
 	./$(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJECTS)

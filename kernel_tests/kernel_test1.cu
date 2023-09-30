@@ -1,3 +1,5 @@
+// Knernel test file for 1D array problem
+
 #include <iostream>
 
 // CUDA kernel to add two arrays element-wise
@@ -51,7 +53,7 @@ int main() {
 
     // Verify results
     for (int i = 0; i < N; ++i) {
-        if (result[i] != 3.0f) {
+        if (result[i] != 3.0f) { // Check if the result is correct
             std::cerr << "Mismatch at element " << i << ": " << result[i] << std::endl;
             break;
         }

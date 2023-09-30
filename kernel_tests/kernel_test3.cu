@@ -1,44 +1,79 @@
-#include "test.h"
+// Kernel test file for 3D array problem
+
 #include <iostream>
 
-__global__ void addPointsKernel(Point *a, Point *b, Point *c) {
-    int idx = threadIdx.x;
-    c[idx].x = a[idx].x + b[idx].x;
-    c[idx].y = a[idx].y + b[idx].y;
+// Kernel Definition
+__global__ void My3DKernel(cudaPitchedPtr pitchedPtr, int width, int height, int depth) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    int z = threadIdx.z + blockIdx.z * blockDim.z;
+
+    if (x < width && y < height && z < depth) {
+        char *devPtr = (char *)pitchedPtr.ptr;
+        size_t pitch = pitchedPtr.pitch;
+        size_t slicePitch = pitch * height;
+
+        float *slice = (float *)((char *)devPtr + z * slicePitch);
+        float *row = (float *)((char *)slice + y * pitch);
+        row[x] += 1.0f;
+    }
 }
 
 int main() {
-    const int numPoints = 1;
-    Point h_a[numPoints], h_b[numPoints], h_c[numPoints];
-    Point *d_a, *d_b, *d_c;
+    int width = 4, height = 4, depth = 4;
+    cudaExtent extent = make_cudaExtent(width * sizeof(float), height, depth);
 
     // Initialize host data
-    h_a[0].x = 1.0f;
-    h_a[0].y = 2.0f;
-    h_b[0].x = 3.0f;
-    h_b[0].y = 4.0f;
+    float *h_data = new float[width * height * depth];
+    for (int i = 0; i < width * height * depth; i++) {
+        h_data[i] = 1.0f;
+    }
 
-    // Allocate device memory
-    cudaMalloc(&d_a, numPoints * sizeof(Point));
-    cudaMalloc(&d_b, numPoints * sizeof(Point));
-    cudaMalloc(&d_c, numPoints * sizeof(Point));
+    // Allocate 3D memory on GPU
+    cudaPitchedPtr pitchedPtr;
+    cudaMalloc3D(&pitchedPtr, extent);
 
-    // Copy data to device
-    cudaMemcpy(d_a, h_a, numPoints * sizeof(Point), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_b, h_b, numPoints * sizeof(Point), cudaMemcpyHostToDevice);
+    // Copy data to 3D memory on GPU
+    cudaMemcpy3DParms copyParams = {0};
+    copyParams.srcPtr = make_cudaPitchedPtr((void *)h_data, width * sizeof(float), width, height);
+    copyParams.dstPtr = pitchedPtr;
+    copyParams.extent = extent;
+    copyParams.kind = cudaMemcpyHostToDevice;
+    cudaMemcpy3D(&copyParams);
 
-    // Call the kernel
-    addPointsKernel<<<1, numPoints>>>(d_a, d_b, d_c);
+    // Set grid and block sizes
+    dim3 threadsPerBlock(4, 4, 4);
+    dim3 numBlocks(4, 4, 4);
 
-    // Copy result back to host
-    cudaMemcpy(h_c, d_c, numPoints * sizeof(Point), cudaMemcpyDeviceToHost);
+    My3DKernel<<<numBlocks, threadsPerBlock>>>(pitchedPtr, width, height, depth);
 
-    std::cout << "Result: (" << h_c[0].x << ", " << h_c[0].y << ")\n";
+    // Copy 3D data back to host
+    copyParams.srcPtr = pitchedPtr;
+    copyParams.dstPtr = make_cudaPitchedPtr((void *)h_data, width * sizeof(float), width, height);
+    copyParams.extent = extent;
+    copyParams.kind = cudaMemcpyDeviceToHost;
+    cudaMemcpy3D(&copyParams);
 
-    // Clean up
-    cudaFree(d_a);
-    cudaFree(d_b);
-    cudaFree(d_c);
+    // Test the results
+    bool success = true;
+    for (int i = 0; i < width * height * depth; i++) {
+        if (h_data[i] != 2.0f) {
+            std::cerr << "Error: Value at " << i << " is " << h_data[i] << " (expected 2.0)"
+                      << std::endl;
+            success = false;
+            break;
+        }
+    }
+
+    if (success) {
+        std::cout << "Test Passed!" << std::endl;
+    } else {
+        std::cout << "Test Failed!" << std::endl;
+    }
+
+    // Cleanup
+    delete[] h_data;
+    cudaFree(pitchedPtr.ptr);
 
     return 0;
 }

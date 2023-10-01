@@ -4,8 +4,9 @@ implements launch configurations and GPU kernels using CUDA and C++. The focus i
 with the DG method for 3D problems.
 */
 
-// Include libraries and header files
+// Include libraries and some header files
 #include "header.h"
+#include "matrix.h"
 #include <iostream>
 
 // Using namespaces

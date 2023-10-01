@@ -6,6 +6,7 @@ with the DG method for 2D problems.
 
 // Include libraries and header files
 #include "header.h"
+#include "matrix.h"
 #include <iostream>
 
 // Using namespaces

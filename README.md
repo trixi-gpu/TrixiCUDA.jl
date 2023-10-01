@@ -10,14 +10,17 @@ At present, two primary strategies are being explored for leveraging GPU capabil
 
 ## Project Directory Structure
 - The folder `trixi` stores folders from `Trixi.jl`, specifically `trixi/src`, `trixi/examples`, and `trixi/test`.
-- The file `header.jl` can be used as test environment initializer for running tests.
-- The folder `test` contains the header part of tests for different equations.
-- The file `cuda_dg_1d.jl`, `cuda_dg_2d.jl`, and `cuda_dg_3d.jl` (and the corresponding `cuda_dg_1d.cu`, `cuda_dg_2d.cu`, and `cuda_dg_3d.cu`) run tests for prototyping 1D, 2D, and 3D GPU code for `rhs!()` functions.
-- The files under `kernel_tests` creates sample kernels for running 1D, 2D, and 3D GPU code.
-- The folder `docs` contains useful resources for this project.
+- The folder `docs` contains useful resources and instructions for this project.
 - The folder `profile` contains contents about how to profile GPU kernels.
+- The folder `cuda_julia` contains primary files (`cuda_dg_1d.jl`, `cuda_dg_2d.jl`, and `cuda_dg_3d.jl`) that are used to test the performance of `rhs!()` functions implemented in CUDA.jl.
+- The folder `cuda_cpp` contains primary files (`cuda_dg_1d.cu`, `cuda_dg_2d.cu`, and `cuda_dg_3d.cu`) that are used to test the performance of `rhs!()` functions implemented in CUDA/C++.
 
 ## Kernels to be Implemented
 - 1D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`
 - 2D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!()`
 - 3D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `prolong2mortars!()`, 3) `calc_mortar_flux!()` 
+
+## Show Your Support
+
+If you found this project interesting and inspiring, kindly give it a star. Your support means a lot to us! ❤️
+

@@ -5,6 +5,7 @@ with the DG method for 1D problems.
 */
 
 // Include libraries and header files
+#include "configurator.h"
 #include "header.h"
 #include "matrix.h"
 #include <iostream>
@@ -13,61 +14,6 @@ with the DG method for 1D problems.
 using namespace std;
 
 // TODO: Define matrix structs to simplify CUDA kenerls and kernel calls
-
-// Kernel configurators
-//----------------------------------------------
-
-// CUDA kernel configurator for 1D array computing
-pair<dim3, dim3> configurator_1d(void *kernelFun, int arrayLength) {
-    int blockSize;
-    int minGridSize;
-
-    // Get the potential block size for maximum occupancy
-    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
-                                       kernelFun); // Use CUDA occupancy calculator
-
-    int threads = blockSize;
-    int blocks = ceil(static_cast<float>(arrayLength) / threads);
-
-    return {dim3(blocks), dim3(threads)};
-}
-
-// CUDA kernel configurator for 2D array computing
-pair<dim3, dim3> configurator_2d(void *kernelFun, int arrayWidth, int arrayHeight) {
-    int blockSize;
-    int minGridSize;
-
-    // Get the potential block size for maximum occupancy
-    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
-                                       kernelFun); // Use CUDA occupancy calculator
-
-    int threadsPerDimension = static_cast<int>(sqrt(blockSize));
-
-    dim3 threads(threadsPerDimension, threadsPerDimension);
-    dim3 blocks(ceil(static_cast<float>(arrayWidth) / threads.x),
-                ceil(static_cast<float>(arrayHeight) / threads.y));
-
-    return {blocks, threads};
-}
-
-// CUDA kernel configurator for 3D array computing
-pair<dim3, dim3> configurator_3d(void *kernelFun, int arrayWidth, int arrayHeight, int arrayDepth) {
-    int blockSize;
-    int minGridSize;
-
-    // Get the potential block size for maximum occupancy
-    cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
-                                       kernelFun); // Use CUDA occupancy calculator
-
-    int threadsPerDimension = static_cast<int>(cbrt(blockSize));
-
-    dim3 threads(threadsPerDimension, threadsPerDimension, threadsPerDimension);
-    dim3 blocks(ceil(static_cast<float>(arrayWidth) / threads.x),
-                ceil(static_cast<float>(arrayHeight) / threads.y),
-                ceil(static_cast<float>(arrayDepth) / threads.z));
-
-    return {blocks, threads};
-}
 
 // CUDA kernels
 //----------------------------------------------
@@ -736,11 +682,11 @@ int main() {
     createRandomArrays(flux_arr, derivative_dhat, width, height, depth);
 
     AbstractEquations equations; // Initialize appropriately
-    auto config2d = configurator_2d((void *)flux_kernel, height, depth);
+    auto config2d = configurator2D((void *)flux_kernel, height, depth);
     flux_kernel<<<config2d.first, config2d.second>>>(flux_arr, u_device, width, height, depth,
                                                      equations);
 
-    auto config3d = configurator_3d((void *)weak_form_kernel, width, height, depth);
+    auto config3d = configurator3D((void *)weak_form_kernel, width, height, depth);
     weak_form_kernel<<<config3d.first, config3d.second>>>(du_device, derivative_dhat, flux_arr,
                                                           width, height, depth);
 

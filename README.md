@@ -1,5 +1,5 @@
 # Provide GPU Support for Trixi.jl via CUDA
-Note: This project is still in the developing and testing phase. See [Project Summary](https://gist.github.com/huiyuxie/44b561f9f854aada98fdb37036081454) for future steps. 
+This project is undertaken as part of the [Google Summer of Code 2023](https://summerofcode.withgoogle.com/) program and is in the developing and testing phase. Please check the [Project Summary](https://gist.github.com/huiyuxie/44b561f9f854aada98fdb37036081454) for future steps. 
 
 ## GPU Strategy Overview
 At present, two primary strategies are being explored for leveraging GPU capabilities:
@@ -20,7 +20,5 @@ At present, two primary strategies are being explored for leveraging GPU capabil
 - 2D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!()`
 - 3D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `prolong2mortars!()`, 3) `calc_mortar_flux!()` 
 
-## Show Your Support
-
+## How to Show Your Support
 If you found this project interesting and inspiring, kindly give it a star. Your support means a lot to us! ❤️
-

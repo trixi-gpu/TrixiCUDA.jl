@@ -1,53 +1,46 @@
 /*
-This is the definition file for the matrix structure and some matrix-realted functions. Note that
-all matrices are stored in the row-major order and all indices are 0-based.
+This is the definition file for the common matrix structures (different from special matrix
+structures) and some matrix-realted functions. Here the linear memory is allocated through
+`cudaMalloc`.
+Note that all matrices are stored in the row-major order and all indices are 0-based.
 */
 
 #ifndef MATRIX_H
 #define MATRIX_H
 
-// Define the 1D matrix(array) structure and related functions
-// 1D Matrix: M(col) = *(M.elements + col)
-struct Matrix1D {
+// Define the 1D array structure and related functions
+// 1D Array: A(i) = *(A.elements + i)
+struct Array {
     int width;
+
     float *elements;
 
-    __host__ void initOnHost(int w) {
-        width = w;
-        elements = new float[width];
-    }
+    __host__ void initOnHost(int w) { elements = new float[w]; }
 
-    __host__ void initOnDevice(int w) {
-        width = w;
-        cudaMalloc(&elements, width * sizeof(float));
-    }
+    __host__ void initOnDevice(int w) { cudaMalloc(&elements, w * sizeof(float)); }
 
     __host__ void freeOnHost() { delete[] elements; }
 
     __host__ void freeOnDevice() { cudaFree(elements); }
 };
 
-inline __device__ float getElement1D(Matrix1D M, int col) { return M.elements[col]; }
+inline __device__ float getElement(Array A, int col) { return A.elements[col]; }
 
-inline __device__ void setElement1D(Matrix1D M, int col, float value) { M.elements[col] = value; }
+inline __device__ void setElement(Array A, int col, float value) { A.elements[col] = value; }
 
 // Define the 2D matrix structure and related functions
 // 2D Matrix: M(row, col) = *(M.elements + row * M.width + col)
-struct Matrix2D {
+struct Array2D {
     int width;
     int height;
-    float *elements;
 
-    __host__ void initOnHost(int w, int h) {
-        width = w;
-        height = h;
-        elements = new float[width * height];
-    }
+    float *elements;
+    size_t pitch;
+
+    __host__ void initOnHost(int w, int h) { elements = new float[w * h]; }
 
     __host__ void initOnDevice(int w, int h) {
-        width = w;
-        height = h;
-        cudaMalloc(&elements, width * height * sizeof(float));
+        cudaMallocPitch(&elements, &pitch, w * sizeof(float), h);
     }
 
     __host__ void freeOnHost() { delete[] elements; }
@@ -55,48 +48,51 @@ struct Matrix2D {
     __host__ void freeOnDevice() { cudaFree(elements); }
 };
 
-inline __device__ float getElement2D(Matrix2D M, int row, int col) {
-    return M.elements[row * M.width + col];
+inline __device__ float getElement2D(Array2D A, int row, int col) {
+    return A.elements[row * A.width + col];
 }
 
-inline __device__ void setElement2D(Matrix2D M, int row, int col, float value) {
-    M.elements[row * M.width + col] = value;
+inline __device__ void setElement2D(Array2D A, int row, int col, float value) {
+    A.elements[row * A.width + col] = value;
 }
 
 // Define the 3D matrix structure and related functions
 // 3D Matrix: M(row, col, layer1) = *(M.elements + layer1 * M.width * M.height + row * M.width +
 // col)
-struct Matrix3D {
+struct Array3D {
     int width;
     int height;
-    int depth1;
-    float *elements;
+    int depth;
 
-    __host__ void initOnHost(int w, int h, int d1) {
+    float *elements;
+    size_t pitch;
+    cudaPitchedPtr pitchedPtr;
+
+    __host__ void initOnHost(int w, int h, int d) {
         width = w;
         height = h;
-        depth1 = d1;
-        elements = new float[width * height * depth1];
+        depth = d;
+        elements = new float[width * height * depth];
     }
 
-    __host__ void initOnDevice(int w, int h, int d1) {
-        width = w;
-        height = h;
-        depth1 = d1;
-        cudaMalloc(&elements, width * height * depth1 * sizeof(float));
+    __host__ void initOnDevice(int w, int h, int d) {
+        cudaExtent extent = make_cudaExtent(w * sizeof(float), h, d);
+        cudaMalloc3D(&pitchedPtr, extent);
+        elements = (float *)pitchedPtr.ptr;
+        pitch = pitchedPtr.pitch;
     }
 
     __host__ void freeOnHost() { delete[] elements; }
 
-    __host__ void freeOnDevice() { cudaFree(elements); }
+    __host__ void freeOnDevice() { cudaFree(pitchedPtr.ptr); }
 };
 
-inline __device__ float getElement3D(Matrix3D M, int row, int col, int layer1) {
-    return M.elements[layer1 * M.width * M.height + row * M.width + col];
+inline __device__ float getElement3D(Array3D A, int row, int col, int layer1) {
+    return A.elements[layer1 * A.width * A.height + row * A.width + col];
 }
 
-inline __device__ void setElement3D(Matrix3D M, int row, int col, int layer1, float value) {
-    M.elements[layer1 * M.width * M.height + row * M.width + col] = value;
+inline __device__ void setElement3D(Array3D A, int row, int col, int layer1, float value) {
+    A.elements[layer1 * A.width * A.height + row * A.width + col] = value;
 }
 
 // Define the 4D matrix structure and related functions

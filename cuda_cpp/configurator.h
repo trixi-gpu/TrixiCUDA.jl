@@ -51,7 +51,7 @@ __host__ std::pair<dim3, dim3> configurator3D(void *kernelFun, int arrayWidth, i
     dim3 configGrids(ceil(arrayWidth / configBlocks.x), ceil(arrayHeight / configBlocks.y),
                      ceil(arrayDepth / configBlocks.z));
 
-    return {blocks, threads};
+    return {configGrids, configBlocks};
 }
 
 #endif // CONFIGURATOR_HS

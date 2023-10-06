@@ -3,8 +3,8 @@ Define kernel congifurators for parallel computing on 1D, 2D and 3D blocks and g
 occupancy calculator is applied.
 */
 
-#ifndef CONFIGURATOR_H
-#define CONFIGURATOR_H
+#ifndef CONFIGURATORS_H
+#define CONFIGURATORS_H
 
 // CUDA kernel configurator for parallel computing on 1D blocks and grids
 __host__ std::pair<dim3, dim3> configurator1D(void *kernelFun, int arrayLength) {
@@ -54,4 +54,4 @@ __host__ std::pair<dim3, dim3> configurator3D(void *kernelFun, int arrayWidth, i
     return {configGrids, configBlocks};
 }
 
-#endif // CONFIGURATOR_HS
+#endif // CONFIGURATORS_H

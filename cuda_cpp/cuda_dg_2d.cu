@@ -8,102 +8,57 @@ with the DG method for 2D problems.
 #include "arrays.h"
 #include "configurators.h"
 #include "header.h"
-#include <iostream>
 
-// Using namespaces
-using namespace std;
-
-// TODO: Define matrix structs to simplify CUDA kenerls and kernel calls
-
-// CUDA kernels
-//----------------------------------------------
-
-/*
-Data Storage Decision: 1D (Flattened) vs. 3D Format on GPU
-
-1D (Flattened) Format:
-- Pros:
-    - Linear memory access can provide better cache coherency and memory throughput in some cases.
-    - Simplifies the indexing logic in kernels, as you only deal with a single index.
-    - Easier interoperability with libraries or functions that expect linear memory.
-
-- Cons:
-    - The logic to map between 3D spatial coordinates and 1D indices might be less intuitive.
-    - Can lead to divergent access patterns if neighboring threads access non-contiguous memory
-locations.
-
-3D Format:
-- Pros:
-    - More intuitive indexing based on spatial coordinates.
-    - Can lead to coalesced memory accesses if neighboring threads access neighboring spatial
-coordinates.
-    - Easier to visualize and debug, especially when analyzing spatial patterns.
-
-- Cons:
-    - Might be slightly more overhead in indexing calculations.
-    - Some GPU functions or libraries might expect linear memory and would require conversion.
-
-
-Test both formats in the context of the specific application. Measure performance, ease of
-development, and other relevant metrics. After careful consideration and based on empirical data and
-specific application needs, we have currently chosen to use the 1D format.
+/* CUDA kernels
+====================================================================================================
+Optimization
+- Try to use shared memory
+- Compare linear memory and array memeory
+- Run on mutiple GPUs
+====================================================================================================
 */
 
-// TODO: Implement a function to convert du and u into du_host and u_host as flattened 1D arrays
+// TODO: Convert raw `du` and `u` to array structures
 
-// Copy data from host to device (from double to float)
-void copy_to_gpu(float *&du_device, double *du_host, float *&u_device, double *u_host, int width,
-                 int height, int depth) {
+// Copy data from host to device
+__host__ std::pair<Array4D, Array4D> copyToGPU(Array4D duHost, Array4D uHost) {
+    Array4D duDevice, uDevice;
+    int width = duHost.width;
+    int height1 = duHost.height1;
+    int height2 = duHost.height2;
+    int depth = duHost.depth;
 
-    // Calculate total size for the 1D array
-    size_t totalSize = width * height ^ 2 * depth * sizeof(float);
+    duDevice.initOnDevice(width, height1, height2, depth);
+    uDevice.initOnDevice(width, height1, height2, depth);
 
-    // Allocate linear memory for `du` on the GPU and set to zero
-    cudaMalloc((void **)&du_device, totalSize);
-    cudaMemset(du_device, 0, totalSize);
+    copyToDevice(duHost, duDevice);
+    copyToDevice(uHost, uDevice);
 
-    // Allocate linear memory for `u` on the GPU
-    cudaMalloc((void **)&u_device, totalSize);
+    // Can also be reused, please compare the performance
+    duHost.freeOnHost();
+    uHost.freeOnHost();
 
-    // Convert `u` from double to float and copy to GPU in 1D format
-    float *temp_u_float = new float[width * height ^ 2 * depth];
-    for (int i = 0; i < width * height ^ 2 * depth; i++) {
-        temp_u_float[i] = static_cast<float>(u_host[i]);
-    }
-
-    // Copy the linear memory to the GPU
-    cudaMemcpy(u_device, temp_u_float, totalSize, cudaMemcpyHostToDevice);
-
-    delete[] temp_u_float;
+    return {duDevice, uDevice};
 }
 
-// Copy data from device to host (from float to double)
-void copy_to_cpu(float *du_device, double *&du_host, float *u_device, double *&u_host, int width,
-                 int height, int depth) {
+// Copy data from device to host
+__host__ std::pair<Array4D, Array4D> copyToCPU(Array4D duDevice, Array4D uDevice) {
+    Array4D duHost, uHost;
+    int width = duDevice.width;
+    int height1 = duDevice.height1;
+    int height2 = duDevice.height2;
+    int depth = duDevice.depth;
 
-    // Calculate total size for the 1D array
-    size_t totalSize = width * height ^ 2 * depth * sizeof(float);
+    duHost.initOnHost(width, height1, height2, depth);
+    uHost.initOnHost(width, height1, height2, depth);
 
-    // Temporary buffers for float data from the device
-    float *temp_u_float = new float[width * height ^ 2 * depth];
-    float *temp_du_float = new float[width * height ^ 2 * depth];
+    copyToCPU(duDevice, duHost);
+    copyToCPU(uDevice, uHost);
 
-    // Copy data from device (GPU) to temporary float buffers on host (CPU)
-    cudaMemcpy(temp_u_float, u_device, totalSize, cudaMemcpyDeviceToHost);
-    cudaMemcpy(temp_du_float, du_device, totalSize, cudaMemcpyDeviceToHost);
+    duDevice.freeOnDevice();
+    uDevice.freeOnDevice();
 
-    // Convert float data back to double and store in 1D host arrays
-    for (int idx = 0; idx < width * height ^ 2 * depth; idx++) {
-        u_host[idx] = static_cast<double>(temp_u_float[idx]);
-        du_host[idx] = static_cast<double>(temp_du_float[idx]);
-    }
-
-    delete[] temp_u_float;
-    delete[] temp_du_float;
-
-    // Free GPU memory
-    cudaFree(du_device);
-    cudaFree(u_device);
+    return {duHost, uHost};
 }
 
 /* // Copy data from host to device (from double to float)
@@ -656,94 +611,4 @@ void createRandomArrays(float *&flux_arr, float *&derivative_dhat, int width, in
     delete[] host_derivative_dhat;
 }
 
-int main() {
-    // Set temporary array size for tests
-    int width = 10;
-    int height = 10;
-    int depth = 10;
-    size_t totalSize = width * height * depth;
-
-    // Allocate and initialize host arrays
-    double *u_host = new double[totalSize];
-    double *du_host = new double[totalSize];
-    for (int i = 0; i < totalSize; i++) {
-        u_host[i] = i * 0.5; // Just some example values
-        du_host[i] = 0;      // This will remain zero before the GPU computation
-    }
-
-    // Pointers for device arrays
-    float *u_device = nullptr;
-    float *du_device = nullptr;
-
-    // Copy to GPU
-    copy_to_gpu(du_device, du_host, u_device, u_host, width, height, depth);
-
-    // ... [Here to run some GPU computation here on u_device and du_device] ...
-
-    float *flux_arr, *derivative_dhat;
-    createRandomArrays(flux_arr, derivative_dhat, width, height, depth);
-
-    AbstractEquations equations; // Initialize appropriately
-    auto config2d = configurator2D((void *)flux_kernel, height, depth);
-    flux_kernel<<<config2d.first, config2d.second>>>(flux_arr, u_device, width, height, depth,
-                                                     equations);
-
-    auto config3d = configurator3D((void *)weak_form_kernel, width, height, depth);
-    weak_form_kernel<<<config3d.first, config3d.second>>>(du_device, derivative_dhat, flux_arr,
-                                                          width, height, depth);
-
-    /* volume_flux_kernel<<<config3d.first, config3d.second>>>(volume_flux_arr, u_device, width,
-                                                            height, depth, equations); */
-
-    /* symmetric_noncons_flux_kernel<<<config3d.first, config3d.second>>>(
-        symmetric_flux_arr, noncons_flux_arr, u, derivative_split, int u_dim1, int u_dim2,
-        int u_dim3, AbstractEquations equations); */
-
-    /* volume_integral_kernel<<<config3d.first, config3d.second>>>(du, derivative_split,
-                                                                 volume_flux_arr, du_dim1,
-                                                                 du_dim2, du_dim3); */
-
-    /* volume_integral_kernel<<<config3d.first, config3d.second>>>(du, derivative_split,
-                                                                 symmetric_flux_arr,
-                                                                 noncons_flux_arr, du_dim1,
-                                                                 du_dim2, du_dim3); */
-
-    /* surface_flux_kernel<<<config3d.first, config3d.second>>>(surface_flux_arr, interfaces_u,
-                                                                surface_flux_arr_dim2,
-                                                                surface_flux_arr_dim3,
-                                                                AbstractEquations equations); */
-
-    /* surface_noncons_flux_kernel<<<config3d.first, config3d.second>>>(
-        surface_flux_arr, interfaces_u, noncons_left_arr, noncons_right_arr, surface_flux_arr_dim3,
-        AbstractEquations equations); */
-
-    /* interface_flux_kernel<<<config3d.first, config3d.second>>>(surface_flux_values,
-                                                                 surface_flux_arr,
-                                                                 neighbor_ids,
-                                                                 surface_flux_values_dim1,
-                                                                 surface_flux_values_dim3,
-                                                                 surface_flux_arr_dim3); */
-
-    /* interface_flux_kernel<<<config3d.first, config3d.second>>>(surface_flux_values,
-                                                                    surface_flux_arr,
-                                                                    noncons_left_arr,
-                                                                    noncons_right_arr,
-                                                                    neighbor_ids,
-                                                                    surface_flux_values_dim1,
-                                                                    surface_flux_values_dim3,
-                                                                    surface_flux_arr_dim3); */
-
-    // Copy back to CPU
-    copy_to_cpu(du_device, du_host, u_device, u_host, width, height, depth);
-
-    // Print some of the results to verify (optional)
-    for (int i = 0; i < 10; i++) {
-        std::cout << "u_host[" << i << "] = " << u_host[i] << ", du_host[" << i
-                  << "] = " << du_host[i] << std::endl;
-    }
-
-    delete[] u_host;
-    delete[] du_host;
-
-    return 0;
-}
+// Main test function is moved to the main file

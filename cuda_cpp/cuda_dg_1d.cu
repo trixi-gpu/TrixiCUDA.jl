@@ -5,9 +5,9 @@ with the DG method for 1D problems.
 */
 
 // Include libraries and header files
-#include "configurator.h"
+#include "arrays.h"
+#include "configurators.h"
 #include "header.h"
-#include "matrix.h"
 #include <iostream>
 
 // Using namespaces
@@ -51,7 +51,8 @@ specific application needs, we have currently chosen to use the 1D format.
 
 // TODO: Implement a function to convert du and u into du_host and u_host as flattened 1D arrays
 
-// Copy data from host to device (from double to float)
+// Copy data from host to device
+// Have defined in arrays.h please compare
 void copy_to_gpu(float *&du_device, double *du_host, float *&u_device, double *u_host, int width,
                  int height, int depth) {
 
@@ -77,7 +78,8 @@ void copy_to_gpu(float *&du_device, double *du_host, float *&u_device, double *u
     delete[] temp_u_float;
 }
 
-// Copy data from device to host (from float to double)
+// Copy data from device to host
+// Have defined in arrays.h please compare
 void copy_to_cpu(float *du_device, double *&du_host, float *u_device, double *&u_host, int width,
                  int height, int depth) {
 

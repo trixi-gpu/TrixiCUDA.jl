@@ -43,6 +43,16 @@ __host__ void copyToHost(Array deviceArray, Array hostArray) {
     cudaMemcpy(hostPtr, devicePtr, size, cudaMemcpyDeviceToHost);
 }
 
+__host__ float getHostElement(Array hostArray, int i) { return hostArray.elements[i]; }
+
+__host__ void setHostElement(Array hostArray, int i, float value) { hostArray.elements[i] = value; }
+
+__device__ float getDeviceElement(Array deviceArray, int i) { return deviceArray.elements[i]; }
+
+__device__ float setDeviceElement(Array deviceArray, int i, float value) {
+    deviceArray.elements[i] = value;
+}
+
 // Define the 2D array structure and related functions
 /*
 ====================================================================================================
@@ -84,6 +94,26 @@ __host__ void copyToHost(Array2D deviceArray, Array2D hostArray) {
 
     cudaMemcpy2D(hostPtr, hostArray.width * sizeof(float), devicePtr, pitch,
                  deviceArray.width * sizeof(float), deviceArray.height, cudaMemcpyDeviceToHost);
+}
+
+__host__ float getHostElement(Array2D hostArray, int i, int j) {
+    return hostArray.elements[i * hostArray.width + j];
+}
+
+__host__ void setHostElement(Array2D hostArray, int i, int j, float value) {
+    hostArray.elements[i * hostArray.width + j] = value;
+}
+
+__device__ float getDeviceElement(Array2D deviceArray, int i, int j) {
+    float *row = (float *)((char *)deviceArray.elements + i * deviceArray.pitch);
+    float element = row[j];
+
+    return element;
+}
+
+__device__ void setDeviceElement(Array2D deviceArray, int i, int j, float value) {
+    float *row = (float *)((char *)deviceArray.elements + i * deviceArray.pitch);
+    row[j] = value;
 }
 
 // Define the 3D array structure and related functions
@@ -153,6 +183,34 @@ __host__ void copyToHost(Array3D deviceArray, Array3D hostArray) {
     copyParams.kind = cudaMemcpyDeviceToHost;
 
     cudaMemcpy3D(&copyParams);
+}
+
+__host__ float getHostElement(Array3D hostArray, int i, int j, int k) {
+    return hostArray.elements[k * hostArray.width * hostArray.height + i * hostArray.width + j];
+}
+
+__host__ void setHostElement(Array3D hostArray, int i, int j, int k, float value) {
+    hostArray.elements[k * hostArray.width * hostArray.height + i * hostArray.width + j] = value;
+}
+
+__device__ float getDeviceElement(Array3D deviceArray, int i, int j, int k) {
+    size_t pitch = deviceArray.pitch;
+    size_t slicePitch = pitch * deviceArray.height;
+
+    char *slice = (char *)deviceArray.elements + k * slicePitch;
+    float *row = (float *)(slice + i * pitch);
+    float element = row[j];
+
+    return element;
+}
+
+__device__ void setDeviceElement(Array3D deviceArray, int i, int j, int k, float value) {
+    size_t pitch = deviceArray.pitch;
+    size_t slicePitch = pitch * deviceArray.height;
+
+    char *slice = (char *)deviceArray.elements + k * slicePitch;
+    float *row = (float *)(slice + i * pitch);
+    row[j] = value;
 }
 
 // Define the 4D array structure (stored in 3D structure on device) and related functions
@@ -236,6 +294,22 @@ __host__ void copyToHost(Array4D deviceArray, Array4D hostArray) {
     copyParams.kind = cudaMemcpyDeviceToHost;
 
     cudaMemcpy3D(&copyParams);
+}
+
+__host__ float getHostElement(Array4D hostArray, int i, int j1, int j2, int k) {
+    return hostArray.elements[k * hostArray.width * hostArray.height1 * hostArray.height2 +
+                              j2 * hostArray.width * hostArray.height1 + i * hostArray.width + j1];
+}
+
+__host__ void setHostElement(Array4D hostArray, int i, int j1, int j2, int k, float value) {
+    hostArray.elements[k * hostArray.width * hostArray.height1 * hostArray.height2 +
+                       j2 * hostArray.width * hostArray.height1 + i * hostArray.width + j1] = value;
+}
+
+__device__ float getDeviceElement(Array4D deviceArray, int i, int j1, int j2, int k) {
+    size_t pitch = deviceArray.pitch;
+    size_t slicePitch = pitch * deviceArray.height1 * deviceArray.height2;
+    int j = j2 * deviceArray.height1 + j1;
 }
 
 // Define the 5D array structure (stored in 3D structure on device) and related functions

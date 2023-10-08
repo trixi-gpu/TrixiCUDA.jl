@@ -310,6 +310,22 @@ __device__ float getDeviceElement(Array4D deviceArray, int i, int j1, int j2, in
     size_t pitch = deviceArray.pitch;
     size_t slicePitch = pitch * deviceArray.height1 * deviceArray.height2;
     int j = j2 * deviceArray.height1 + j1;
+
+    char *slice = (char *)deviceArray.elements + k * slicePitch;
+    float *row = (float *)(slice + i * pitch);
+    float element = row[j];
+
+    return element;
+}
+
+__device__ void setDevice(Array4D deviceArray, int i, int j1, int j2, int k, float value) {
+    size_t pitch = deviceArray.pitch;
+    size_t slicePitch = pitch * deviceArray.height1 * deviceArray.height2;
+    int j = j2 * deviceArray.height1 + j1;
+
+    char *slice = (char *)deviceArray.elements + k * slicePitch;
+    float *row = (float *)(slice + i * pitch);
+    row[j] = value;
 }
 
 // Define the 5D array structure (stored in 3D structure on device) and related functions
@@ -402,6 +418,43 @@ __host__ void copyToHost(Array5D deviceArray, Array5D hostArray) {
     copyParams.kind = cudaMemcpyDeviceToHost;
 
     cudaMemcpy3D(&copyParams);
+}
+
+__host__ float getHostElement(Array5D hostArray, int i, int j1, int j2, int j3, int k) {
+    return hostArray
+        .elements[k * hostArray.width * hostArray.height1 * hostArray.height2 * hostArray.height3 +
+                  j3 * hostArray.width * hostArray.height1 * hostArray.height2 +
+                  j2 * hostArray.width * hostArray.height1 + i * hostArray.width + j1];
+}
+
+__host__ void setHostElement(Array5D hostArray, int i, int j1, int j2, int j3, int k, float value) {
+    hostArray
+        .elements[k * hostArray.width * hostArray.height1 * hostArray.height2 * hostArray.height3 +
+                  j3 * hostArray.width * hostArray.height1 * hostArray.height2 +
+                  j2 * hostArray.width * hostArray.height1 + i * hostArray.width + j1] = value;
+}
+
+__device__ float getDeviceElement(Array5D deviceArray, int i, int j1, int j2, int j3, int k) {
+    size_t pitch = deviceArray.pitch;
+    size_t slicePitch = pitch * deviceArray.height1 * deviceArray.height2 * deviceArray.height3;
+    int j = j3 * deviceArray.height1 * deviceArray.height2 + j2 * deviceArray.height1 + j1;
+
+    char *slice = (char *)deviceArray.elements + k * slicePitch;
+    float *row = (float *)(slice + i * pitch);
+    float element = row[j];
+
+    return element;
+}
+
+__device__ void setDeviceElement(Array5D deviceArray, int i, int j1, int j2, int j3, int k,
+                                 float value) {
+    size_t pitch = deviceArray.pitch;
+    size_t slicePitch = pitch * deviceArray.height1 * deviceArray.height2 * deviceArray.height3;
+    int j = j3 * deviceArray.height1 * deviceArray.height2 + j2 * deviceArray.height1 + j1;
+
+    char *slice = (char *)deviceArray.elements + k * slicePitch;
+    float *row = (float *)(slice + i * pitch);
+    row[j] = value;
 }
 
 // Define more matrix structure and related functions if needed...

@@ -33,6 +33,7 @@ __host__ std::pair<Array3D, Array3D> copyToGPU(Array3D duHost, Array3D uHost) {
     copyToDevice(duHost, duDevice);
     copyToDevice(uHost, uDevice);
 
+    // Can also be reused, please compare the performance
     duHost.freeOnHost();
     uHost.freeOnHost();
 
@@ -52,7 +53,6 @@ __host__ std::pair<Array3D, Array3D> copyToCPU(Array3D duDevice, Array3D uDevice
     copyToCPU(duDevice, duHost);
     copyToCPU(uDevice, uHost);
 
-    // Can also be reused, please compare the performance
     duDevice.freeOnDevice();
     uDevice.freeOnDevice();
 

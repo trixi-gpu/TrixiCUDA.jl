@@ -7,6 +7,7 @@ with the DG method for 1D problems.
 // Include libraries and header files
 #include "arrays.h"
 #include "configurators.h"
+#include "functions.h"
 #include "header.h"
 
 /* CUDA kernels
@@ -158,8 +159,8 @@ __global__ void fluxKernel(Array3D fluxArray, Array3D uArray, AbstractEquations 
 
     if (j < uArray.height && k < uArray.depth) {
         Array uNode, fluxNode;
-        uNode.initOnDevice(equations.numVars, 1, 1);
-        fluxNode.initOnDevice(equations.numVars, 1, 1);
+        uNode.initOnDevice(equations.numVars);
+        fluxNode.initOnDevice(equations.numVars);
 
         Array uNode = getNodesVars(uArray, equations, j, k);
         Array fluxNode = flux(uNode, 1, equations);

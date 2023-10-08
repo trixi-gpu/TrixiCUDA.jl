@@ -6,8 +6,7 @@ that all arrays are stored in the row-major order and all indices are 0-based.
 #ifndef ARRAYS_H
 #define ARRAYS_H
 
-// Define the 1D array structure and related functions
-/*
+/* Define the 1D array structure and related functions
 ====================================================================================================
 Note that the 1D array can be directly store in 1D structure on device, so there is no need to
 provide any convertion formulas here.
@@ -53,8 +52,7 @@ __device__ float setDeviceElement(Array deviceArray, int i, float value) {
     deviceArray.elements[i] = value;
 }
 
-// Define the 2D array structure and related functions
-/*
+/* Define the 2D array structure and related functions
 ====================================================================================================
 Note that the 2D array can be directly store in 2D structure on device, so there is no need to
 provide any convertion formulas here.
@@ -116,8 +114,7 @@ __device__ void setDeviceElement(Array2D deviceArray, int i, int j, float value)
     row[j] = value;
 }
 
-// Define the 3D array structure and related functions
-/*
+/* Define the 3D array structure and related functions
 ====================================================================================================
 Note that the 3D array can be directly store in 3D structure on device, so there is no need to
 provide any convertion formulas here.
@@ -213,8 +210,7 @@ __device__ void setDeviceElement(Array3D deviceArray, int i, int j, int k, float
     row[j] = value;
 }
 
-// Define the 4D array structure (stored in 3D structure on device) and related functions
-/*
+/* Define the 4D array structure (stored in 3D structure on device) and related functions
 ====================================================================================================
 Suppose the 4D array is of dimension (a, b1, b2, c) and the corresponding 3D array is of
 dimension (a, b1 * b2, c), then we have the following convertion formulas, which are useful
@@ -328,8 +324,7 @@ __device__ void setDevice(Array4D deviceArray, int i, int j1, int j2, int k, flo
     row[j] = value;
 }
 
-// Define the 5D array structure (stored in 3D structure on device) and related functions
-/*
+/* Define the 5D array structure (stored in 3D structure on device) and related functions
 ====================================================================================================
 Suppose the 5D array is of dimension (a, b1, b2, b3, c) and the corresponding 3D array is of
 dimension (a, b1 * b2 * b3, c), then we have the following convertion formulas, which are useful

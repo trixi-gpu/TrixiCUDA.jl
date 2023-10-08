@@ -12,33 +12,11 @@ const int ARRAY_SIZE = 10;
 // Define the structure for AbstractEquations
 // Note: This is a stub. TODO: Define the actual structure
 struct AbstractEquations {
-    int someProperty = 0;
-    float anotherProperty = 0.0f;
+    int numVars; // Number of variables
 
-    // Default constructor
-    AbstractEquations() = default;
-
-    // Parameterized constructor
-    AbstractEquations(int someProp, float anotherProp)
-        : someProperty(someProp), anotherProperty(anotherProp) {}
-
-    // Example member function
-    float computeSomething() const { return someProperty * anotherProperty; }
-
-    // ... Add more member functions or properties as needed
+    // Define the constructor
+    AbstractEquations(int numVars) : numVars(numVars) {}
 };
-
-// Define the structure for ConditionTuple
-// Note: This is a stub. TODO: Define the actual structure
-/* struct ConditionTuple {
-    int someField = 0; // Replace with your actual field names and types
-    float anotherField = 0.0f;
-
-    ConditionTuple() = default;
-
-    NamedTuple(int someField, float anotherField)
-        : someField(someField), anotherField(anotherField) {}
-}; */
 
 // Define internal functions
 //----------------------------------------------
@@ -49,7 +27,7 @@ __device__ float *flux(float *u_node, int direction, AbstractEquations equations
     float *result = new float[ARRAY_SIZE];
 
     for (int i = 0; i < ARRAY_SIZE; ++i) {
-        result[i] = u_node[i] * direction * equations.someProperty;
+        result[i] = u_node[i] * direction;
     }
 
     return result;

@@ -152,24 +152,25 @@ void copy_to_cpu(float ***du_device, double ***&du_host, float ***u_device, doub
 } */
 
 // CUDA kernel for calculating fluxes along normal direction 1
-__global__ void flux_kernel(float *flux_arr, float *u, int u_dim1, int u_dim2, int u_dim3,
-                            AbstractEquations equations) { // TODO: `AbstractEquations`
-
+__global__ void fluxKernel(Array3D fluxArray, Array3D uArray, AbstractEquations equations) {
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if (j < u_dim2 && k < u_dim3) {
-        float *u_node = get_nodes_vars(u, equations, j, k); // TODO: `get_nodes_vars`
+    if (j < uArray.height && k < uArray.depth) {
+        Array uNode, fluxNode;
+        uNode.initOnDevice(equations.numVars, 1, 1);
+        fluxNode.initOnDevice(equations.numVars, 1, 1);
 
-        float *flux_node = flux(u_node, 1, equations); // TODO: `flux`
+        Array uNode = getNodesVars(uArray, equations, j, k);
+        Array fluxNode = flux(uNode, 1, equations);
 
-        for (int ii = 0; ii < u_dim1; ii++) {
-            flux_arr[ii * u_dim2 * u_dim3 + j * u_dim3 + k] = flux_node[ii];
+        for (int ii = 0; ii < uArray.width; ii++) {
+            float value = getDeviceElement(fluxNode, ii);
+            setDeviceElement(fluxArray, ii, j, k, value);
         }
 
-        // Make sure to deallocate any memory you dynamically allocated
-        delete[] u_node;
-        delete[] flux_node;
+        uNode.freeOnDevice();
+        fluxNode.freeOnDevice();
     }
 }
 
@@ -212,11 +213,6 @@ __global__ void volume_flux_kernel(float *volume_flux_arr, float *u, int u_dim1,
             volume_flux_arr[ii * u_dim2 * u_dim2 * u_dim3 + j1 * u_dim2 * u_dim3 + j2 * u_dim3 +
                             k] = volume_flux_node[ii];
         }
-
-        // Make sure to deallocate any memory you dynamically allocated
-        delete[] u_node;
-        delete[] u_node1;
-        delete[] volume_flux_node;
     }
 }
 
@@ -246,12 +242,6 @@ __global__ void symmetric_noncons_flux_kernel(float *symmetric_flux_arr, float *
             noncons_flux_arr[ii * u_dim2 * u_dim2 * u_dim3 + j1 * u_dim2 * u_dim3 + j2 * u_dim3 +
                              k] = noncons_flux_node[ii] * derivative_split[j1 * u_dim2 + j2];
         }
-
-        // Deallocate dynamically allocated memory
-        delete[] u_node;
-        delete[] u_node1;
-        delete[] symmetric_flux_node;
-        delete[] noncons_flux_node;
     }
 }
 

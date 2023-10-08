@@ -172,10 +172,6 @@ __global__ void flux_kernel(float *flux_arr, float *u, int u_dim1, int u_dim2, i
         for (int ii = 0; ii < u_dim1; ii++) {
             flux_arr[ii * u_dim2 * u_dim3 + j * u_dim3 + k] = flux_node[ii];
         }
-
-        // Make sure to deallocate any memory you dynamically allocated
-        delete[] u_node;
-        delete[] flux_node;
     }
 }
 
@@ -218,11 +214,6 @@ __global__ void volume_flux_kernel(float *volume_flux_arr, float *u, int u_dim1,
             volume_flux_arr[ii * u_dim2 * u_dim2 * u_dim3 + j1 * u_dim2 * u_dim3 + j2 * u_dim3 +
                             k] = volume_flux_node[ii];
         }
-
-        // Make sure to deallocate any memory you dynamically allocated
-        delete[] u_node;
-        delete[] u_node1;
-        delete[] volume_flux_node;
     }
 }
 
@@ -252,12 +243,6 @@ __global__ void symmetric_noncons_flux_kernel(float *symmetric_flux_arr, float *
             noncons_flux_arr[ii * u_dim2 * u_dim2 * u_dim3 + j1 * u_dim2 * u_dim3 + j2 * u_dim3 +
                              k] = noncons_flux_node[ii] * derivative_split[j1 * u_dim2 + j2];
         }
-
-        // Deallocate dynamically allocated memory
-        delete[] u_node;
-        delete[] u_node1;
-        delete[] symmetric_flux_node;
-        delete[] noncons_flux_node;
     }
 }
 

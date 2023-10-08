@@ -314,7 +314,7 @@ __device__ float getDeviceElement(Array4D deviceArray, int i, int j1, int j2, in
     return element;
 }
 
-__device__ void setDevice(Array4D deviceArray, int i, int j1, int j2, int k, float value) {
+__device__ void setDeviceElement(Array4D deviceArray, int i, int j1, int j2, int k, float value) {
     size_t pitch = deviceArray.pitch;
     size_t slicePitch = pitch * deviceArray.height1 * deviceArray.height2;
     int j = j2 * deviceArray.height1 + j1;

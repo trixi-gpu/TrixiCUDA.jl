@@ -13,11 +13,10 @@ with the DG method for 1D problems.
 /* CUDA kernels
 ====================================================================================================
 Optimization (Profile/Benchmark)
-- Data transfer between host and device
-- Memory allocation and freeup on device
-- Try to use shared memory
-- Compare linear memory and array memeory
-- Run on mutiple GPUs
+- Data transfer / Memory allocation / Memory access (Streaming)
+- Shared memory (Distributed shared memory)
+- Linear memory v.s. array memeory (texture memory)
+- Mutiple devices (GPUs)
 ====================================================================================================
 */
 
@@ -53,8 +52,8 @@ __host__ std::pair<Array3D, Array3D> copyToCPU(Array3D duDevice, Array3D uDevice
     duHost.initOnHost(width, height, depth);
     uHost.initOnHost(width, height, depth);
 
-    copyToCPU(duDevice, duHost);
-    copyToCPU(uDevice, uHost);
+    copyToHost(duDevice, duHost);
+    copyToHost(uDevice, uHost);
 
     duDevice.freeOnDevice();
     uDevice.freeOnDevice();
@@ -86,7 +85,7 @@ __global__ void fluxKernel(Array3D fluxArray, Array3D uArray, AbstractEquations 
 }
 
 // CUDA kernel for calculating weak form
-__global__ void weak_form_kernel(float *du, float *derivative_dhat, float *flux_arr, int du_dim1,
+/* __global__ void weak_form_kernel(float *du, float *derivative_dhat, float *flux_arr, int du_dim1,
                                  int du_dim2, int du_dim3) {
 
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -100,6 +99,23 @@ __global__ void weak_form_kernel(float *du, float *derivative_dhat, float *flux_
             int flux_idx = i * du_dim2 * du_dim3 + ii * du_dim3 + k;
 
             du[du_idx] += derivative_dhat[derivative_idx] * flux_arr[flux_idx];
+        }
+    }
+} */
+
+__global__ void weakFormKernel(Array3D duArray, Array2D derivativeDhat, Array3D fluxArray) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    int k = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (i < duArray.width && j < duArray.height && k < duArray.depth) {
+        for (int ii = 0; ii < duArray.height; ii++) {
+            float duValue = getDeviceElement(duArray, i, j, k);
+            float derivativeDhatValue = getDeviceElement(derivativeDhat, j, ii);
+            float fluxValue = getDeviceElement(fluxArray, i, ii, k);
+
+            duValue += derivativeDhatValue * fluxValue;
+            setDeviceElement(duArray, i, j, k, duValue);
         }
     }
 }

@@ -13,11 +13,10 @@ with the DG method for 3D problems.
 /* CUDA kernels
 ====================================================================================================
 Optimization (Profile/Benchmark)
-- Data transfer between host and device
-- Memory allocation and freeup on device
-- Try to use shared memory
-- Compare linear memory and array memeory
-- Run on mutiple GPUs
+- Data transfer / Memory allocation / Memory access (Streaming)
+- Shared memory (Distributed shared memory)
+- Linear memory v.s. array memeory (texture memory)
+- Mutiple devices (GPUs)
 ====================================================================================================
 */
 
@@ -57,8 +56,8 @@ __host__ std::pair<Array5D, Array5D> copyToCPU(Array5D duDevice, Array5D uDevice
     duHost.initOnHost(width, height1, height2, height3, depth);
     uHost.initOnHost(width, height1, height2, height3, depth);
 
-    copyToCPU(duDevice, duHost);
-    copyToCPU(uDevice, uHost);
+    copyToHost(duDevice, duHost);
+    copyToHost(uDevice, uHost);
 
     duDevice.freeOnDevice();
     uDevice.freeOnDevice();

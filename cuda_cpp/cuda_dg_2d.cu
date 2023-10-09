@@ -13,9 +13,10 @@ with the DG method for 2D problems.
 /* CUDA kernels
 ====================================================================================================
 Optimization (Profile/Benchmark)
+- Stride loop
 - Data transfer / Memory allocation / Memory access (Streaming)
 - Shared memory (Distributed shared memory)
-- Linear memory v.s. array memeory (texture memory)
+- Linear memory v.s. Array memeory (Texture memory)
 - Mutiple devices (GPUs)
 ====================================================================================================
 */

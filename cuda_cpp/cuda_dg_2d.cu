@@ -85,10 +85,10 @@ __global__ void fluxKernel(Array4D fluxArray1, Array4D fluxArray2, Array4D uArra
         fluxNode2 = flux(uNode, 2, equations);
 
         for (int ii = 0; ii < uArray.width; ii++) {
-            float value1 = getDeviceElement(fluxNode1, ii);
-            float value2 = getDeviceElement(fluxNode2, ii);
-            setDeviceElement(fluxArray1, ii, j1, j2, k, value1);
-            setDeviceElement(fluxArray2, ii, j1, j2, k, value2);
+            float fluxValue1 = getDeviceElement(fluxNode1, ii);
+            float fluxValue2 = getDeviceElement(fluxNode2, ii);
+            setDeviceElement(fluxArray1, ii, j1, j2, k, fluxValue1);
+            setDeviceElement(fluxArray2, ii, j1, j2, k, fluxValue2);
         }
 
         uNode.freeOnDevice();
@@ -98,20 +98,27 @@ __global__ void fluxKernel(Array4D fluxArray1, Array4D fluxArray2, Array4D uArra
 }
 
 // CUDA kernel for calculating weak form
-__global__ void weak_form_kernel(float *du, float *derivative_dhat, float *flux_arr, int du_dim1,
-                                 int du_dim2, int du_dim3) {
+__global__ void weakFormKernel(Array4D duArray, Array2D derivativeDhat, Array4D fluxArray1,
+                               Array4D fluxArray2) {
 
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (i < du_dim1 && j < du_dim2 && k < du_dim3) {
-        for (int ii = 0; ii < du_dim2; ii++) {
-            int du_idx = i * du_dim2 * du_dim3 + j * du_dim3 + k;
-            int derivative_idx = j * du_dim2 + ii;
-            int flux_idx = i * du_dim2 * du_dim3 + ii * du_dim3 + k;
+    if (i < duArray.width && j < duArray.height1 ^ 2 && k < duArray.depth) {
+        int j1 = j / duArray.height1;
+        int j2 = j % duArray.height1;
 
-            du[du_idx] += derivative_dhat[derivative_idx] * flux_arr[flux_idx];
+        for (int ii = 0; ii < duArray.height1; ii++) {
+            float derivativeDhatValue1 = getDeviceElement(derivativeDhat, j1, ii);
+            float derivativeDhatValue2 = getDeviceElement(derivativeDhat, j2, ii);
+            float fluxValue1 = getDeviceElement(fluxArray1, i, ii, j2, k);
+            float fluxValue2 = getDeviceElement(fluxArray2, i, j1, ii, k);
+
+            float duValue = getDeviceElement(duArray, i, j1, j2, k);
+            setDeviceElement(duArray, i, j1, j2, k,
+                             duValue + derivativeDhatValue1 * fluxValue1 +
+                                 derivativeDhatValue2 * fluxValue2);
         }
     }
 }
@@ -119,7 +126,6 @@ __global__ void weak_form_kernel(float *du, float *derivative_dhat, float *flux_
 // CUDA kernel for calculating volume fluxes in direction x
 __global__ void volume_flux_kernel(float *volume_flux_arr, float *u, int u_dim1, int u_dim2,
                                    int u_dim3, AbstractEquations equations) {
-
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -143,7 +149,6 @@ __global__ void volume_flux_kernel(float *volume_flux_arr, float *u, int u_dim1,
 __global__ void symmetric_noncons_flux_kernel(float *symmetric_flux_arr, float *noncons_flux_arr,
                                               float *u, float *derivative_split, int u_dim1,
                                               int u_dim2, int u_dim3, AbstractEquations equations) {
-
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -171,7 +176,6 @@ __global__ void symmetric_noncons_flux_kernel(float *symmetric_flux_arr, float *
 // CUDA kernel for calculating volume integrals
 __global__ void volume_integral_kernel(float *du, float *derivative_split, float *volume_flux_arr,
                                        int du_dim1, int du_dim2, int du_dim3) {
-
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
@@ -193,7 +197,6 @@ __global__ void volume_integral_kernel(float *du, float *derivative_split, float
 __global__ void volume_integral_kernel(float *du, float *derivative_split,
                                        float *symmetric_flux_arr, float *noncons_flux_arr,
                                        int du_dim1, int du_dim2, int du_dim3) {
-
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
@@ -223,7 +226,6 @@ __global__ void volume_integral_kernel(float *du, float *derivative_split,
 __global__ void prolong_interfaces_kernel(float *interfaces_u, float *u, int *neighbor_ids,
                                           int interfaces_u_dim2, int interfaces_u_dim3, int u_dim2,
                                           int u_dim3) {
-
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -246,7 +248,6 @@ __global__ void prolong_interfaces_kernel(float *interfaces_u, float *u, int *ne
 __global__ void surface_flux_kernel(float *surface_flux_arr, float *interfaces_u,
                                     int surface_flux_arr_dim2, int surface_flux_arr_dim3,
                                     AbstractEquations equations) {
-
     int k = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (k < surface_flux_arr_dim3) {
@@ -268,7 +269,6 @@ __global__ void surface_noncons_flux_kernel(float *surface_flux_arr, float *inte
                                             float *noncons_left_arr, float *noncons_right_arr,
                                             int surface_flux_arr_dim3,
                                             AbstractEquations equations) {
-
     int k = (blockIdx.x * blockDim.x) + threadIdx.x;
 
     if (k < surface_flux_arr_dim3) {
@@ -297,7 +297,6 @@ __global__ void surface_noncons_flux_kernel(float *surface_flux_arr, float *inte
 __global__ void interface_flux_kernel(float *surface_flux_values, float *surface_flux_arr,
                                       int *neighbor_ids, int surface_flux_values_dim1,
                                       int surface_flux_values_dim3, int surface_flux_arr_dim3) {
-
     int i = (blockIdx.x * blockDim.x) + threadIdx.x;
     int k = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -319,7 +318,6 @@ __global__ void interface_flux_kernel(float *surface_flux_values, float *surface
                                       float *noncons_left_arr, float *noncons_right_arr,
                                       int *neighbor_ids, int surface_flux_values_dim1,
                                       int surface_flux_values_dim3, int surface_flux_arr_dim3) {
-
     int i = (blockIdx.x * blockDim.x) + threadIdx.x;
     int k = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -344,7 +342,6 @@ __global__ void interface_flux_kernel(float *surface_flux_values, float *surface
 __global__ void prolong_boundaries_kernel(float *boundaries_u, float *u, int *neighbor_ids,
                                           int *neighbor_sides, int boundaries_u_dim2,
                                           int boundaries_u_dim3, int u_dim2, int u_dim3) {
-
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -368,7 +365,6 @@ __global__ void prolong_boundaries_kernel(float *boundaries_u, float *u, int *ne
 // CUDA kernel for getting last and first indices
 __global__ void last_first_indices_kernel(float *lasts, float *firsts,
                                           const float *n_boundaries_per_direction, int n) {
-
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (i < n) {
@@ -405,7 +401,8 @@ __global__ void last_first_indices_kernel(float *lasts, float *firsts,
         x = get_node_coords(node_coordinates, equations, boundary);
 
         float *boundary_flux_node = boundary_stable_helper(
-            boundary_conditions, u_inner, orientation, direction, x, t, surface_flux, equations);
+            boundary_conditions, u_inner, orientation, direction, x, t, surface_flux,
+equations);
 
         for (int ii = 0; ii < size_surface_flux_values; ++ii) {
             surface_flux_values[ii * direction + neighbor] = boundary_flux_node[ii];
@@ -417,7 +414,6 @@ __global__ void last_first_indices_kernel(float *lasts, float *firsts,
 
 __global__ void surface_integral_kernel(float *du, float *factor_arr, float *surface_flux_values,
                                         int du_dim1, int du_dim2, int du_dim3) {
-
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
@@ -440,7 +436,6 @@ __global__ void surface_integral_kernel(float *du, float *factor_arr, float *sur
 // CUDA kernel for applying inverse Jacobian
 __global__ void jacobian_kernel(float *du, float *inverse_jacobian, int du_dim1, int du_dim2,
                                 int du_dim3) {
-
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
@@ -459,7 +454,6 @@ __global__ void jacobian_kernel(float *du, float *inverse_jacobian, int du_dim1,
 __global__ void source_terms_kernel(float *du, float *u, float *node_coordinates, float t,
                                     int du_dim1, int du_dim2, int du_dim3,
                                     AbstractEquations equations) {
-
     int j = blockIdx.x * blockDim.x + threadIdx.x;
     int k = blockIdx.y * blockDim.y + threadIdx.y;
 

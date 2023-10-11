@@ -76,8 +76,8 @@ __global__ void fluxKernel(Array3D fluxArray, Array3D uArray, AbstractEquations 
         Array fluxNode = flux(uNode, 1, equations);
 
         for (int ii = 0; ii < uArray.width; ii++) {
-            float value = getDeviceElement(fluxNode, ii);
-            setDeviceElement(fluxArray, ii, j, k, value);
+            float fluxValue = getDeviceElement(fluxNode, ii);
+            setDeviceElement(fluxArray, ii, j, k, fluxValue);
         }
 
         uNode.freeOnDevice();
@@ -86,24 +86,6 @@ __global__ void fluxKernel(Array3D fluxArray, Array3D uArray, AbstractEquations 
 }
 
 // CUDA kernel for calculating weak form
-/* __global__ void weak_form_kernel(float *du, float *derivative_dhat, float *flux_arr, int du_dim1,
-                                 int du_dim2, int du_dim3) {
-
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
-    int k = blockIdx.z * blockDim.z + threadIdx.z;
-
-    if (i < du_dim1 && j < du_dim2 && k < du_dim3) {
-        for (int ii = 0; ii < du_dim2; ii++) {
-            int du_idx = i * du_dim2 * du_dim3 + j * du_dim3 + k;
-            int derivative_idx = j * du_dim2 + ii;
-            int flux_idx = i * du_dim2 * du_dim3 + ii * du_dim3 + k;
-
-            du[du_idx] += derivative_dhat[derivative_idx] * flux_arr[flux_idx];
-        }
-    }
-} */
-
 __global__ void weakFormKernel(Array3D duArray, Array2D derivativeDhat, Array3D fluxArray) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;

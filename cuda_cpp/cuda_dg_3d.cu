@@ -90,12 +90,12 @@ __global__ void fluxKernel(Array5D fluxArray1, Array5D fluxArray2, Array5D fluxA
         fluxNode3 = flux(uNode, 3, equations);
 
         for (int ii = 0; ii < uArray.width; ii++) {
-            float value1 = getDeviceElement(fluxNode1, ii);
-            float value2 = getDeviceElement(fluxNode2, ii);
-            float value3 = getDeviceElement(fluxNode3, ii);
-            setDeviceElement(fluxArray1, ii, j1, j2, j3, k, value1);
-            setDeviceElement(fluxArray2, ii, j1, j2, j3, k, value2);
-            setDeviceElement(fluxArray3, ii, j1, j2, j3, k, value3);
+            float fluxValue1 = getDeviceElement(fluxNode1, ii);
+            float fluxValue2 = getDeviceElement(fluxNode2, ii);
+            float fluxValue3 = getDeviceElement(fluxNode3, ii);
+            setDeviceElement(fluxArray1, ii, j1, j2, j3, k, fluxValue1);
+            setDeviceElement(fluxArray2, ii, j1, j2, j3, k, fluxValue2);
+            setDeviceElement(fluxArray3, ii, j1, j2, j3, k, fluxValue3);
         }
 
         uNode.freeOnDevice();
@@ -106,20 +106,30 @@ __global__ void fluxKernel(Array5D fluxArray1, Array5D fluxArray2, Array5D fluxA
 }
 
 // CUDA kernel for calculating weak form
-__global__ void weak_form_kernel(float *du, float *derivative_dhat, float *flux_arr, int du_dim1,
-                                 int du_dim2, int du_dim3) {
-
+__global__ void weakFormKernel(Array5D duArray, Array2D derivativeDhat, Array5D fluxArray1,
+                               Array5D fluxArray2, Array5D fluxArray3) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
 
-    if (i < du_dim1 && j < du_dim2 && k < du_dim3) {
-        for (int ii = 0; ii < du_dim2; ii++) {
-            int du_idx = i * du_dim2 * du_dim3 + j * du_dim3 + k;
-            int derivative_idx = j * du_dim2 + ii;
-            int flux_idx = i * du_dim2 * du_dim3 + ii * du_dim3 + k;
+    if (i < duArray.width && j < duArray.height1 ^ 3 && k < duArray.depth) {
+        int j1 = j / (duArray.height1 ^ 2);
+        int j2 = (j % (duArray.height1 ^ 2)) / duArray.height1;
+        int j3 = (j % (duArray.height1 ^ 2)) % duArray.height1;
 
-            du[du_idx] += derivative_dhat[derivative_idx] * flux_arr[flux_idx];
+        for (int ii = 0; ii < duArray.height1; ii++) {
+            float derivativeDhatValue1 = getDeviceElement(derivativeDhat, j1, ii);
+            float derivativeDhatValue2 = getDeviceElement(derivativeDhat, j2, ii);
+            float derivativeDhatValue3 = getDeviceElement(derivativeDhat, j3, ii);
+            float fluxValue1 = getDeviceElement(fluxArray1, i, ii, j2, j3, k);
+            float fluxValue2 = getDeviceElement(fluxArray2, i, j1, ii, j3, k);
+            float fluxValue3 = getDeviceElement(fluxArray3, i, j1, j2, ii, k);
+
+            float duValue = getDeviceElement(duArray, i, j1, j2, j3, k);
+            setDeviceElement(duArray, i, j1, j2, j3, k,
+                             duValue + derivativeDhatValue1 * fluxValue1 +
+                                 derivativeDhatValue2 * fluxValue2 +
+                                 derivativeDhatValue3 * fluxValue3);
         }
     }
 }

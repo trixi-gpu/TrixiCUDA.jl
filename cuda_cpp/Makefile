@@ -1,5 +1,5 @@
 # Specify the NVIDIA GPU architecture
-ARCH=sm_70
+ARCH=sm_75
 
 # The compiler
 NVCC=nvcc

@@ -1,4 +1,12 @@
-### About CPU
+# Project Environment Information
+This project are implemented and tested on AWS EC2 instances. So far, types of EC2 instances used in this project include: `p3.2xlarge` (single-GPU) and `g4dn.12xlarge` (multi-GPU). For more information about the EC2 instances, please refer to [AWS EC2 Instance Types](https://aws.amazon.com/ec2/instance-types/).
+
+The following information is about the environment of the EC2 instances used in this project.
+
+
+### `p3.2xlarge` Instance
+The following command shows the CPU information of the `p3.2xlarge` instance used in this project:
+
 ```Bash
 ubuntu@ip-172-31-7-163:~/trixi_cuda$ lscpu
 Architecture:            x86_64
@@ -48,7 +56,8 @@ Vulnerabilities:
   Tsx async abort:       Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
 ```
 
-### About GPU
+The following command shows the GPU information of the `p3.2xlarge` instance used in this project:
+
 ```Bash
 ubuntu@ip-172-31-7-163:~/trixi_cuda$ nvidia-smi
 Sat Aug 26 00:38:06 2023       
@@ -61,6 +70,102 @@ Sat Aug 26 00:38:06 2023
 |=========================================+======================+======================|
 |   0  Tesla V100-SXM2-16GB            On | 00000000:00:1E.0 Off |                    0 |
 | N/A   47C    P0               25W / 300W|      0MiB / 16384MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+                                                                                         
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|  No running processes found                                                           |
++---------------------------------------------------------------------------------------+
+```
+
+### `g4dn.12xlarge` Instance
+The following command shows the CPU information of the `g4dn.12xlarge` instance used in this project:
+
+```Bash
+ubuntu@ip-172-31-4-230:~/trixi_cuda$ lscpu
+Architecture:            x86_64
+  CPU op-mode(s):        32-bit, 64-bit
+  Address sizes:         46 bits physical, 48 bits virtual
+  Byte Order:            Little Endian
+CPU(s):                  48
+  On-line CPU(s) list:   0-47
+Vendor ID:               GenuineIntel
+  Model name:            Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz
+    CPU family:          6
+    Model:               85
+    Thread(s) per core:  2
+    Core(s) per socket:  24
+    Socket(s):           1
+    Stepping:            7
+    BogoMIPS:            4999.99
+    Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clf
+                         lush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc arch
+                         _perfmon rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_fre
+                         q pni pclmulqdq monitor ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popc
+                         nt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dno
+                         wprefetch invpcid_single pti fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms i
+                         nvpcid mpx avx512f avx512dq rdseed adx smap clflushopt clwb avx512cd avx512
+                         bw avx512vl xsaveopt xsavec xgetbv1 xsaves ida arat pku ospke avx512_vnni
+Virtualization features: 
+  Hypervisor vendor:     KVM
+  Virtualization type:   full
+Caches (sum of all):     
+  L1d:                   768 KiB (24 instances)
+  L1i:                   768 KiB (24 instances)
+  L2:                    24 MiB (24 instances)
+  L3:                    35.8 MiB (1 instance)
+NUMA:                    
+  NUMA node(s):          1
+  NUMA node0 CPU(s):     0-47
+Vulnerabilities:         
+  Gather data sampling:  Unknown: Dependent on hypervisor status
+  Itlb multihit:         KVM: Mitigation: VMX unsupported
+  L1tf:                  Mitigation; PTE Inversion
+  Mds:                   Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unkno
+                         wn
+  Meltdown:              Mitigation; PTI
+  Mmio stale data:       Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unkno
+                         wn
+  Retbleed:              Vulnerable
+  Spec rstack overflow:  Not affected
+  Spec store bypass:     Vulnerable
+  Spectre v1:            Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+  Spectre v2:            Mitigation; Retpolines, STIBP disabled, RSB filling, PBRSB-eIBRS Not affect
+                         ed
+  Srbds:                 Not affected
+  Tsx async abort:       Not affected
+```
+
+The following command shows the GPU information of the `g4dn.12xlarge` instance used in this project:
+
+```Bash
+ubuntu@ip-172-31-4-230:~/trixi_cuda$ nvidia-smi
+Sat Dec 30 20:19:54 2023       
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 545.23.08              Driver Version: 545.23.08    CUDA Version: 12.3     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  Tesla T4                       On  | 00000000:00:1B.0 Off |                    0 |
+| N/A   20C    P8               8W /  70W |      2MiB / 15360MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   1  Tesla T4                       On  | 00000000:00:1C.0 Off |                    0 |
+| N/A   20C    P8              10W /  70W |      2MiB / 15360MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   2  Tesla T4                       On  | 00000000:00:1D.0 Off |                    0 |
+| N/A   21C    P8               9W /  70W |      2MiB / 15360MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   3  Tesla T4                       On  | 00000000:00:1E.0 Off |                    0 |
+| N/A   20C    P8               9W /  70W |      2MiB / 15360MiB |      0%      Default |
 |                                         |                      |                  N/A |
 +-----------------------------------------+----------------------+----------------------+
                                                                                          

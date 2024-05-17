@@ -75,45 +75,9 @@ Then you should be able to run `julia` command successfully in your instance(s)'
 
 Like the former step, we assume that you have connected to your instance(s) and the commands are being executed in your instance(s)'s terminal.
 
-You can find the version of CUDA repository you want from https://developer.download.nvidia.com/compute/cuda/repos/. For illustration, we choose to use CUDA version 12.3 for Ubuntu 22.04 x86-64.
+Then you can easily download and configure the desired version of the CUDA Toolkit based on your selected platform through a set of commands available at https://developer.nvidia.com/cuda-downloads. After that, you may verify the version of the CUDA Toolkit you installed by running the `nvcc --version` command.
 
-Download the CUDA keyring package from remote URL:
-
-```Bash
-$ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
-```
-
-Install CUDA keyring package:
-
-```Bash
-$ sudo dpkg -i cuda-keyring_1.0-1_all.deb
-```
-
-Update package information and install CUDA:
-
-```Bash
-$ sudo apt-get update
-$ sudo apt-get -y install cuda
-```
-
-Then we have to set up environment variables for CUDA in system.
-
-Open `.bashrc` file in instance terminal:
-
-```Bash
-$ nano .bashrc
-```
-
-Add the following at the end of `.bashrc` file:
-
-```Bash
-export PATH="/usr/local/cuda-12.3/bin:$PATH"
-export LD_LIBRARY_PATH="/usr/local/cuda-12.3/lib64:$LD_LIBRARY_PATH"
-```
-
-Then you should save and exit the `.bashrc` file. After opening a new terminal, you can successfully check the version of the CUDA toolkit you installed by running `nvcc --version` command.
-
-## Add CUDA to Julia
+## Add CUDA Toolkit to Julia
 
 In this step, we are going to add CUDA package to Julia. Again, this is based on the fact that you have already connected to your insrance(s).
 

@@ -43,30 +43,30 @@ When prompted with the question `Are you sure you want to continue connecting (y
 
 In this step, we assume that you have already connected to your instance(s) and the commands are being executed in your instance(s)'s terminal.
 
-You can find the version of the Julia package you want from https://julialang.org/downloads/. For illustration, we are using Julia version 1.9.0 for Linux on x86 64-bit.
+You can find the version of the Julia package you want from https://julialang.org/downloads/. For illustration, we are using Julia version 1.10.0 for Linux on x86 64-bit.
 
 Copy the address of the Julia package and download it to your instance(s):
 
 ```Bash
-$ wget https://julialang-s3.julialang.org/bin/linux/x64/1.9/julia-1.9.0-linux-x86_64.tar.gz
+$ wget https://julialang-s3.julialang.org/bin/linux/x64/1.10/julia-1.10.0-linux-x86_64.tar.gz
 ```
 
 Extract your downloaded package:
 
 ```Bash
-$ tar -xvf julia-1.9.0-linux-x86_64.tar.gz
+$ tar -xvf julia-1.10.0-linux-x86_64.tar.gz
 ```
 
 Create a symbolic link to the Julia:
 
 ```Bash
-$ sudo ln -s ~/julia-1.9.0/bin/julia /usr/local/bin/julia
+$ sudo ln -s ~/julia-1.10.0/bin/julia /usr/local/bin/julia
 ```
 
 Remove the original Julia package (optional):
 
 ```Bash
-$ rm julia-1.9.0-linux-x86_64.tar.gz
+$ rm julia-1.10.0-linux-x86_64.tar.gz
 ```
 
 Then you should be able to run `julia` command successfully in your instance(s)'s root directory.
@@ -75,64 +75,9 @@ Then you should be able to run `julia` command successfully in your instance(s)'
 
 Like the former step, we assume that you have connected to your instance(s) and the commands are being executed in your instance(s)'s terminal.
 
-You can find the version of CUDA repository you want from https://developer.download.nvidia.com/compute/cuda/repos/. For illustration, we choose to use CUDA version 12.1 for Ubuntu 22.04 x86-64.
+Then you can easily download and configure the desired version of the CUDA Toolkit based on your selected platform through a set of commands available at https://developer.nvidia.com/cuda-downloads. After that, you may verify the version of the CUDA Toolkit you installed by running the `nvcc --version` command.
 
-Update available packages and download `build-essential` and `dkms` packages:
-
-```Bash
-$ sudo apt-get update
-$ sudo apt-get install -y build-essential dkms
-```
-
-Download the CUDA repository public key:
-
-```Bash
-$ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
-```
-
-Give the CUDA packages a higher priority:
-
-```Bash
-$ sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
-```
-
-Fetch the GPG key for the CUDA repository and add it to the system
-
-```Bash
-$ sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
-```
-
-Add the CUDA repository to the system:
-
-```Bash
-$ sudo sh -c 'echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
-```
-
-Update available packages again and install CUDA toolkit:
-
-```Bash
-$ sudo apt-get update
-$ sudo apt-get install -y cuda
-```
-
-Then we have to set up environment variables for cuda in system.
-
-Open `.bashrc` file in instance terminal:
-
-```Bash
-$ nano .bashrc
-```
-
-Add the following at the end of `.bashrc` file:
-
-```Bash
-export PATH="/usr/local/cuda-12.1/bin:$PATH"
-export LD_LIBRARY_PATH="/usr/local/cuda-12.1/lib64:$LD_LIBRARY_PATH"
-```
-
-Then you should save and exit the `.bashrc` file. After opening a new terminal, you can successfully check the version of the CUDA toolkit you installed by running `nvcc --version` command.
-
-## Add CUDA to Julia
+## Add CUDA Toolkit to Julia
 
 In this step, we are going to add CUDA package to Julia. Again, this is based on the fact that you have already connected to your insrance(s).
 

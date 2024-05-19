@@ -5,18 +5,30 @@ equations = IdealGlmMhdEquations3D(gamma)
 initial_condition = initial_condition_convergence_test
 
 volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
-solver = DGSEM(polydeg=3, surface_flux=(flux_lax_friedrichs, flux_nonconservative_powell),
-    volume_integral=VolumeIntegralFluxDifferencing(volume_flux))
+solver = DGSEM(
+    polydeg = 3,
+    surface_flux = (flux_lax_friedrichs, flux_nonconservative_powell),
+    volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
+)
 
 coordinates_min = (-1.0f0, -1.0f0, -1.0f0)
 coordinates_max = (1.0f0, 1.0f0, 1.0f0)
-mesh = TreeMesh(coordinates_min, coordinates_max,
-    initial_refinement_level=2,
-    n_cells_max=10_000)
+mesh = TreeMesh(
+    coordinates_min,
+    coordinates_max,
+    initial_refinement_level = 2,
+    n_cells_max = 10_000,
+)
 
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
-@unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
+@unpack mesh,
+equations,
+initial_condition,
+boundary_conditions,
+source_terms,
+solver,
+cache = semi
 
 t = 0.0f0
 tspan = (0.0f0, 1.0f0)

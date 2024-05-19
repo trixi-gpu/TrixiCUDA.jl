@@ -1,34 +1,50 @@
 # TRIXICUDA: Special import and using statements
-using Trixi, CUDA
+using Trixi
+using CUDA
 import Trixi: eachnode, nnodes
 using SciMLBase
 using OrdinaryDiffEq
 using ChangePrecision
+using BenchmarkTools
 
 # Import and using statements from Trixi.jl
-using LinearAlgebra: LinearAlgebra, Diagonal, diag, dot, mul!, norm, cross, normalize, I,
-                     UniformScaling, det
+using LinearAlgebra:
+    LinearAlgebra, Diagonal, diag, dot, mul!, norm, cross, normalize, I, UniformScaling, det
 using Printf: @printf, @sprintf, println
-using SparseArrays: AbstractSparseMatrix, AbstractSparseMatrixCSC, sparse, droptol!,
-                    rowvals, nzrange, nonzeros
+using SparseArrays:
+    AbstractSparseMatrix,
+    AbstractSparseMatrixCSC,
+    sparse,
+    droptol!,
+    rowvals,
+    nzrange,
+    nonzeros
 
 using Reexport: @reexport
 
 using MPI: MPI
 
-using SciMLBase: CallbackSet, DiscreteCallback,
-    ODEProblem, ODESolution,
-    SplitODEProblem
-import SciMLBase: get_du, get_tmp_cache, u_modified!,
-    init, step!, check_error,
-    get_proposed_dt, set_proposed_dt!,
-    terminate!, remake, add_tstop!, has_tstop, first_tstop
+using SciMLBase: CallbackSet, DiscreteCallback, ODEProblem, ODESolution, SplitODEProblem
+import SciMLBase:
+    get_du,
+    get_tmp_cache,
+    u_modified!,
+    init,
+    step!,
+    check_error,
+    get_proposed_dt,
+    set_proposed_dt!,
+    terminate!,
+    remake,
+    add_tstop!,
+    has_tstop,
+    first_tstop
 
 using Downloads: Downloads
 using CodeTracking: CodeTracking
 using ConstructionBase: ConstructionBase
 using DiffEqCallbacks: PeriodicCallback, PeriodicCallbackAffect
-@reexport using EllipsisNotation 
+@reexport using EllipsisNotation
 using FillArrays: Ones, Zeros
 using ForwardDiff: ForwardDiff
 using HDF5: HDF5, h5open, attributes, create_dataset, datatype, dataspace
@@ -38,7 +54,7 @@ using LoopVectorization: LoopVectorization, @turbo, indices
 using StaticArrayInterface: static_length
 using MuladdMacro: @muladd
 using Octavian: Octavian, matmul!
-using Polyester: Polyester, @batch 
+using Polyester: Polyester, @batch
 using OffsetArrays: OffsetArray, OffsetVector
 using P4est
 using T8code
@@ -51,7 +67,7 @@ using StrideArrays: PtrArray, StrideArray, StaticInt
 @reexport using StructArrays: StructArrays, StructArray
 using TimerOutputs: TimerOutputs, @notimeit, TimerOutput, print_timer, reset_timer!
 using Triangulate: Triangulate, TriangulateIO
-export TriangulateIO 
+export TriangulateIO
 using TriplotBase: TriplotBase
 using TriplotRecipes: DGTriPseudocolor
 @reexport using TrixiBase: trixi_include
@@ -67,19 +83,26 @@ using Preferences: @load_preference, set_preferences!
 # const _PREFERENCE_SQRT = @load_preference("sqrt", "sqrt_Trixi_NaN")
 # const _PREFERENCE_LOG = @load_preference("log", "log_Trixi_NaN")
 
-using SummationByPartsOperators: AbstractDerivativeOperator,
+using SummationByPartsOperators:
+    AbstractDerivativeOperator,
     AbstractNonperiodicDerivativeOperator,
     AbstractPeriodicDerivativeOperator,
     grid
-import SummationByPartsOperators: integrate, semidiscretize,
-    compute_coefficients, compute_coefficients!,
-    left_boundary_weight, right_boundary_weight
-@reexport using SummationByPartsOperators: SummationByPartsOperators, derivative_operator,
+import SummationByPartsOperators:
+    integrate,
+    semidiscretize,
+    compute_coefficients,
+    compute_coefficients!,
+    left_boundary_weight,
+    right_boundary_weight
+@reexport using SummationByPartsOperators:
+    SummationByPartsOperators,
+    derivative_operator,
     periodic_derivative_operator,
     upwind_operators
 
-@reexport using StartUpDG: StartUpDG, Polynomial, Gauss, TensorProductWedge, SBP, Line, Tri,
-    Quad, Hex, Tet, Wedge
+@reexport using StartUpDG:
+    StartUpDG, Polynomial, Gauss, TensorProductWedge, SBP, Line, Tri, Quad, Hex, Tet, Wedge
 using StartUpDG: RefElemData, MeshData, AbstractElemShape
 
 include("../trixi/src/basic_types.jl")

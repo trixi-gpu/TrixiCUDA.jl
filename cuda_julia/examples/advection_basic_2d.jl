@@ -53,7 +53,7 @@ tspan = (0.0f0, 1.0f0)
 
 ode_gpu = semidiscretize_gpu(semi, tspan)
 
-sol_gpu = OrdinaryDiffEq.solve(ode_gpu, BS3(), adaptive=false, dt=0.01;
+sol_gpu = OrdinaryDiffEq.solve(ode_gpu, BS3(), adaptive=false, dt=0.01; # ???
     abstol=1.0e-6, reltol=1.0e-6, ode_default_options()...)
 
 # Compare results

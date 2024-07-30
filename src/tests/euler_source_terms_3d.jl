@@ -3,28 +3,22 @@ equations = CompressibleEulerEquations3D(1.4f0)
 
 initial_condition = initial_condition_convergence_test
 
-solver = DGSEM(
-    polydeg = 3,
-    surface_flux = flux_lax_friedrichs,
-    volume_integral = VolumeIntegralWeakForm(),
-)
+solver = DGSEM(polydeg = 3,
+               surface_flux = flux_lax_friedrichs,
+               volume_integral = VolumeIntegralWeakForm())
 
 coordinates_min = (0.0f0, 0.0f0, 0.0f0)
 coordinates_max = (2.0f0, 2.0f0, 2.0f0)
-mesh = TreeMesh(
-    coordinates_min,
-    coordinates_max,
-    initial_refinement_level = 2,
-    n_cells_max = 10_000,
-)
+mesh = TreeMesh(coordinates_min,
+                coordinates_max,
+                initial_refinement_level = 2,
+                n_cells_max = 10_000)
 
-semi = SemidiscretizationHyperbolic(
-    mesh,
-    equations,
-    initial_condition,
-    solver,
-    source_terms = source_terms_convergence_test,
-)
+semi = SemidiscretizationHyperbolic(mesh,
+                                    equations,
+                                    initial_condition,
+                                    solver,
+                                    source_terms = source_terms_convergence_test)
 
 @unpack mesh,
 equations,

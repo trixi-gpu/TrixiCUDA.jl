@@ -14,7 +14,7 @@ function gpu_add1!(y, x)
     index = threadIdx().x
     stride = blockDim().x
 
-    for i ∈ index:stride:length(y)
+    for i in index:stride:length(y)
         @inbounds y[i] += x[i]
     end
 
@@ -24,7 +24,7 @@ end
 N = 2^20
 x = CUDA.fill(1.0f0, N)
 y = CUDA.fill(2.0f0, N)
-@cuda threads = 256 gpu_add1!(y, x)
+@cuda threads=256 gpu_add1!(y, x)
 @test all(Array(y) .== 3.0f0)
 
 # 1D grid
@@ -32,7 +32,7 @@ function gpu_add2!(y, x)
     index = blockIdx().x
     stride = gridDim().x
 
-    for i ∈ index:stride:length(y)
+    for i in index:stride:length(y)
         @inbounds y[i] += x[i]
     end
 
@@ -42,7 +42,7 @@ end
 N = 2^20
 x = CUDA.fill(1.0f0, N)
 y = CUDA.fill(2.0f0, N)
-@cuda blocks = 256 gpu_add2!(y, x)
+@cuda blocks=256 gpu_add2!(y, x)
 @test all(Array(y) .== 3.0f0)
 
 # 1D block, 1D grid
@@ -50,7 +50,7 @@ function gpu_add3!(y, x)
     index = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     stride = gridDim().x * blockDim().x
 
-    for i ∈ index:stride:length(y)
+    for i in index:stride:length(y)
         @inbounds y[i] += x[i]
     end
 
@@ -61,7 +61,7 @@ N = 2^20
 x = CUDA.fill(1.0f0, N)
 y = CUDA.fill(2.0f0, N)
 numblocks = ceil(Int, N / 256)
-@cuda threads = 256 blocks = numblocks gpu_add3!(y, x)
+@cuda threads=256 blocks=numblocks gpu_add3!(y, x)
 @test all(Array(y) .== 3.0f0)
 
 #--------------------------------------------------------------------- Kernels for 2D array
@@ -76,8 +76,8 @@ function gpu_add4!(y, x)
     stride_i = blockDim().x
     stride_j = blockDim().y
 
-    for i ∈ index_i:stride_i:size(y, 1)
-        for j ∈ index_j:stride_j:size(y, 2)
+    for i in index_i:stride_i:size(y, 1)
+        for j in index_j:stride_j:size(y, 2)
             @inbounds y[i, j] += x[i, j]
         end
     end
@@ -88,7 +88,7 @@ end
 N = 2^10
 x = CUDA.ones(N, N)
 y = CUDA.zeros(N, N)
-@cuda threads = (16, 16) gpu_add4!(y, x)
+@cuda threads=(16, 16) gpu_add4!(y, x)
 @test all(Array(y) .== 1.0f0)
 
 # 2D block, 1D grid
@@ -99,8 +99,8 @@ function gpu_add5!(y, x)
     stride_i = gridDim().x * blockDim().x
     stride_j = blockDim().y
 
-    for i ∈ index_i:stride_i:size(y, 1)
-        for j ∈ index_j:stride_j:size(y, 2)
+    for i in index_i:stride_i:size(y, 1)
+        for j in index_j:stride_j:size(y, 2)
             @inbounds y[i, j] += x[i, j]
         end
     end
@@ -112,7 +112,7 @@ N = 2^10
 x = CUDA.ones(N, N)
 y = CUDA.zeros(N, N)
 numblocks = ceil(Int, N / 256)
-@cuda threads = (16, 16) blocks = numblocks gpu_add5!(y, x)
+@cuda threads=(16, 16) blocks=numblocks gpu_add5!(y, x)
 @test all(Array(y) .== 1.0f0)
 
 # 2D block, 2D grid
@@ -123,8 +123,8 @@ function gpu_add6!(y, x)
     stride_i = gridDim().x * blockDim().x
     stride_j = gridDim().y * blockDim().y
 
-    for i ∈ index_i:stride_i:size(y, 1)
-        for j ∈ index_j:stride_j:size(y, 2)
+    for i in index_i:stride_i:size(y, 1)
+        for j in index_j:stride_j:size(y, 2)
             @inbounds y[i, j] += x[i, j]
         end
     end
@@ -136,7 +136,7 @@ N = 2^10
 x = CUDA.ones(N, N)
 y = CUDA.zeros(N, N)
 numblocks = ceil(Int, N / 256)
-@cuda threads = (16, 16) blocks = (numblocks, numblocks) gpu_add6!(y, x)
+@cuda threads=(16, 16) blocks=(numblocks, numblocks) gpu_add6!(y, x)
 @test all(Array(y) .== 1.0f0)
 
 #--------------------------------------------------------------------- Kernels for 3D array
@@ -154,9 +154,9 @@ function gpu_add7!(y, x)
     stride_j = blockDim().y
     stride_k = blockDim().z
 
-    for i ∈ index_i:stride_i:size(y, 1)
-        for j ∈ index_j:stride_j:size(y, 2)
-            for k ∈ index_k:stride_k:size(y, 3)
+    for i in index_i:stride_i:size(y, 1)
+        for j in index_j:stride_j:size(y, 2)
+            for k in index_k:stride_k:size(y, 3)
                 @inbounds y[i, j, k] += x[i, j, k]
             end
         end
@@ -168,7 +168,7 @@ end
 N = 2^8
 x = CUDA.ones(N, N, N)
 y = CUDA.zeros(N, N, N)
-@cuda threads = (8, 8, 8) gpu_add7!(y, x)
+@cuda threads=(8, 8, 8) gpu_add7!(y, x)
 @test all(Array(y) .== 1.0f0)
 
 # 3D block, 1D grid
@@ -181,9 +181,9 @@ function gpu_add8!(y, x)
     stride_j = blockDim().y
     stride_k = blockDim().z
 
-    for i ∈ index_i:stride_i:size(y, 1)
-        for j ∈ index_j:stride_j:size(y, 2)
-            for k ∈ index_k:stride_k:size(y, 3)
+    for i in index_i:stride_i:size(y, 1)
+        for j in index_j:stride_j:size(y, 2)
+            for k in index_k:stride_k:size(y, 3)
                 @inbounds y[i, j, k] += x[i, j, k]
             end
         end
@@ -195,7 +195,7 @@ end
 N = 2^8
 x = CUDA.ones(N, N, N)
 y = CUDA.zeros(N, N, N)
-@cuda threads = (8, 8, 8) blocks = 4 gpu_add8!(y, x)
+@cuda threads=(8, 8, 8) blocks=4 gpu_add8!(y, x)
 @test all(Array(y) .== 1.0f0)
 
 # 3D block, 2D grid
@@ -208,9 +208,9 @@ function gpu_add9!(y, x)
     stride_j = gridDim().y * blockDim().y
     stride_k = blockDim().z
 
-    for i ∈ index_i:stride_i:size(y, 1)
-        for j ∈ index_j:stride_j:size(y, 2)
-            for k ∈ index_k:stride_k:size(y, 3)
+    for i in index_i:stride_i:size(y, 1)
+        for j in index_j:stride_j:size(y, 2)
+            for k in index_k:stride_k:size(y, 3)
                 @inbounds y[i, j, k] += x[i, j, k]
             end
         end
@@ -222,7 +222,7 @@ end
 N = 2^8
 x = CUDA.ones(N, N, N)
 y = CUDA.zeros(N, N, N)
-@cuda threads = (8, 8, 8) blocks = (4, 4) gpu_add9!(y, x)
+@cuda threads=(8, 8, 8) blocks=(4, 4) gpu_add9!(y, x)
 @test all(Array(y) .== 1.0f0)
 
 # 3D block, 3D grid
@@ -235,9 +235,9 @@ function gpu_add10!(y, x)
     stride_j = gridDim().y * blockDim().y
     stride_k = gridDim().z * blockDim().z
 
-    for i ∈ index_i:stride_i:size(y, 1)
-        for j ∈ index_j:stride_j:size(y, 2)
-            for k ∈ index_k:stride_k:size(y, 3)
+    for i in index_i:stride_i:size(y, 1)
+        for j in index_j:stride_j:size(y, 2)
+            for k in index_k:stride_k:size(y, 3)
                 @inbounds y[i, j, k] += x[i, j, k]
             end
         end
@@ -249,5 +249,5 @@ end
 N = 2^8
 x = CUDA.ones(N, N, N)
 y = CUDA.zeros(N, N, N)
-@cuda threads = (8, 8, 8) blocks = (4, 4, 4) gpu_add10!(y, x)
+@cuda threads=(8, 8, 8) blocks=(4, 4, 4) gpu_add10!(y, x)
 @test all(Array(y) .== 1.0f0)

@@ -4,20 +4,16 @@ equations = LinearScalarAdvectionEquation2D(advection_velocity)
 
 coordinates_min = (-1.0f0, -1.0f0)
 coordinates_max = (1.0f0, 1.0f0)
-mesh = TreeMesh(
-    coordinates_min,
-    coordinates_max,
-    initial_refinement_level = 4,
-    n_cells_max = 30_000,
-)
+mesh = TreeMesh(coordinates_min,
+                coordinates_max,
+                initial_refinement_level = 4,
+                n_cells_max = 30_000)
 solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-semi = SemidiscretizationHyperbolic(
-    mesh,
-    equations,
-    initial_condition_convergence_test,
-    solver,
-)
+semi = SemidiscretizationHyperbolic(mesh,
+                                    equations,
+                                    initial_condition_convergence_test,
+                                    solver)
 
 @unpack mesh,
 equations,

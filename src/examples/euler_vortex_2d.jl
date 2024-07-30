@@ -5,7 +5,6 @@
 equations = CompressibleEulerEquations2D(1.4)
 
 function initial_condition_isentropic_vortex(x, t, equations::CompressibleEulerEquations2D)
-
     inicenter = SVector(0.0, 0.0)
 
     iniamplitude = 5.0
@@ -38,12 +37,10 @@ solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
 coordinates_min = (-10.0, -10.0)
 coordinates_max = (10.0, 10.0)
-mesh = TreeMesh(
-    coordinates_min,
-    coordinates_max,
-    initial_refinement_level = 4,
-    n_cells_max = 10_000,
-)
+mesh = TreeMesh(coordinates_min,
+                coordinates_max,
+                initial_refinement_level = 4,
+                n_cells_max = 10_000)
 
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
@@ -51,28 +48,22 @@ tspan = (0.0, 20.0)
 
 ode_cpu = semidiscretize_cpu(semi, tspan)
 
-sol_cpu = OrdinaryDiffEq.solve(
-    ode_cpu,
-    BS3(),
-    adaptive = false,
-    dt = 0.01;
-    abstol = 1.0e-6,
-    reltol = 1.0e-6,
-    ode_default_options()...,
-)
+sol_cpu = OrdinaryDiffEq.solve(ode_cpu,
+                               BS3(),
+                               adaptive = false,
+                               dt = 0.01;
+                               abstol = 1.0e-6,
+                               reltol = 1.0e-6,
+                               ode_default_options()...,)
 
 # Run on GPU
 #################################################################################
 equations = CompressibleEulerEquations2D(1.4f0)
 
 @changeprecision Float32 begin
-
-    function initial_condition_isentropic_vortex(
-        x,
-        t,
-        equations::CompressibleEulerEquations2D,
-    )
-
+    function initial_condition_isentropic_vortex(x,
+                                                 t,
+                                                 equations::CompressibleEulerEquations2D)
         inicenter = SVector(0.0, 0.0)
 
         iniamplitude = 5.0
@@ -99,7 +90,6 @@ equations = CompressibleEulerEquations2D(1.4f0)
         prim = SVector(rho, v1, v2, p)
         return prim2cons(prim, equations)
     end
-
 end
 
 initial_condition = initial_condition_isentropic_vortex
@@ -107,12 +97,10 @@ solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
 coordinates_min = (-10.0f0, -10.0f0)
 coordinates_max = (10.0f0, 10.0f0)
-mesh = TreeMesh(
-    coordinates_min,
-    coordinates_max,
-    initial_refinement_level = 4,
-    n_cells_max = 10_000,
-)
+mesh = TreeMesh(coordinates_min,
+                coordinates_max,
+                initial_refinement_level = 4,
+                n_cells_max = 10_000)
 
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
@@ -120,15 +108,13 @@ tspan = (0.0f0, 20.0f0)
 
 ode_gpu = semidiscretize_gpu(semi, tspan)
 
-sol_gpu = OrdinaryDiffEq.solve(
-    ode_gpu,
-    BS3(),
-    adaptive = false,
-    dt = 0.01;
-    abstol = 1.0e-6,
-    reltol = 1.0e-6,
-    ode_default_options()...,
-)
+sol_gpu = OrdinaryDiffEq.solve(ode_gpu,
+                               BS3(),
+                               adaptive = false,
+                               dt = 0.01;
+                               abstol = 1.0e-6,
+                               reltol = 1.0e-6,
+                               ode_default_options()...,)
 
 # Compare results
 ################################################################################

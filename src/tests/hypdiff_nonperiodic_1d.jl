@@ -9,22 +9,18 @@ solver = DGSEM(polydeg = 4, surface_flux = flux_lax_friedrichs)
 
 coordinates_min = 0.0f0
 coordinates_max = 1.0f0
-mesh = TreeMesh(
-    coordinates_min,
-    coordinates_max,
-    initial_refinement_level = 3,
-    n_cells_max = 30_000,
-    periodicity = false,
-)
+mesh = TreeMesh(coordinates_min,
+                coordinates_max,
+                initial_refinement_level = 3,
+                n_cells_max = 30_000,
+                periodicity = false)
 
-semi = SemidiscretizationHyperbolic(
-    mesh,
-    equations,
-    initial_condition,
-    solver,
-    boundary_conditions = boundary_conditions,
-    source_terms = source_terms_poisson_nonperiodic,
-)
+semi = SemidiscretizationHyperbolic(mesh,
+                                    equations,
+                                    initial_condition,
+                                    solver,
+                                    boundary_conditions = boundary_conditions,
+                                    source_terms = source_terms_poisson_nonperiodic)
 
 @unpack mesh,
 equations,

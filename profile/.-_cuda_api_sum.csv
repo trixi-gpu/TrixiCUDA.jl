@@ -1,5 +1,0 @@
-Time (%),Total Time (ns),Num Calls,Avg (ns),Med (ns),Min (ns),Max (ns),StdDev (ns),Name
-57.9,113105,1,113105.0,113105.0,113105,113105,0.0,cuModuleLoadDataEx
-19.5,38083,1,38083.0,38083.0,38083,38083,0.0,cuLaunchKernel
-13.1,25566,3,8522.0,10416.0,3166,11984,4704.2,cuCtxSynchronize
-9.5,18632,1,18632.0,18632.0,18632,18632,0.0,cuMemHostAlloc

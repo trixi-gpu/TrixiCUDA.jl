@@ -1,18 +1,3 @@
-# Ignore the .vscode configuration folder
-.vscode/
+/Manifest.toml
 
-# Ignore executable files
-*.exe
-*.out
-
-# Ignore build folders
-build/
-Debug/
-Release/
-x64/
-x86/
-bin/
-obj/
-
-
-
+.DS_Store

@@ -1,0 +1,6 @@
+# Use SciML style https://github.com/SciML/SciMLStyle
+style = "sciml"
+
+# Additional Options
+yas_style_nesting = true
+align_struct_field = true

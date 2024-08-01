@@ -4,7 +4,7 @@ Welcome to this tutorial! If you're looking to use GPUs in the cloud for running
 
 ## Prerequisite
 
-Before the tutorial begins, you should launch P type EC2 instance(s) on your own in AWS. Here are some links for you to quickly get to know key concepts and suceessfully launch your instance(s).
+Before the tutorial begins, you should launch P type EC2 instance(s) on your own in AWS. Here are some links for you to quickly get to know key concepts and successfully launch your instance(s).
 
 - What is Amazon EC2? https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html
 - Which type of EC2 should I use?
@@ -17,7 +17,7 @@ The last two resources are optional if the cost isn't a concern for you, and you
 
 ## Connect to Instance(s)
 
-Up to this step, we assume that you have already launched your EC2 instance(s). Now, you can connect to your instance(s) via your local termial or any IDE with an SSH extension.
+Up to this step, we assume that you have already launched your EC2 instance(s). Now, you can connect to your instance(s) via your local terminal or any IDE with an SSH extension.
 
 Move your key pair file (.pem) to the `.ssh` folder:
 

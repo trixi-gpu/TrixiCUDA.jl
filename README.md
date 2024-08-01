@@ -1,10 +1,10 @@
-# TrixiCUDA.jl
+# TrixiGPU.jl
 
 [![Build Status](https://github.com/huiyuxie/TrixiGPU.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/huiyuxie/TrixiGPU.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/huiyuxie/TrixiCUDA.jl.svg?style=social&label=Star&maxAge=2592000)](https://GitHub.com/huiyuxie/TrixiCUDA.jl/stargazers)
 
-Provide CUDA support for [Trixi.jl](https://github.com/trixi-framework/Trixi.jl), a high-order numerical simulation framework for hyperbolic PDEs.
+Provide GPU support for [Trixi.jl](https://github.com/trixi-framework/Trixi.jl), a high-order numerical simulation framework for hyperbolic PDEs.
 
 This project is undertaken as part of the [Google Summer of Code 2023](https://summerofcode.withgoogle.com/) program and is in the developing and testing phase.
 

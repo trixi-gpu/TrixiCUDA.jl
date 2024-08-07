@@ -1,1 +1,2 @@
-include("configurator.jl")
+include("configurators.jl")
+include("methods.jl")

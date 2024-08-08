@@ -1,3 +1,6 @@
 /Manifest.toml
 
 .DS_Store
+
+# For developer use only
+/test/trixi

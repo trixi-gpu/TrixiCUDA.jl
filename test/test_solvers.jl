@@ -1,22 +1,39 @@
 using Trixi, TrixiGPU
-using CUDA: @cuda, CuArray
 using Test
 
 # @testset "Test solver functions" begin
 
-#     weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr)
-# end
-
+# The header part for testing basic kernels in 1D
 advection_velocity = 1.0f0
 equations = LinearScalarAdvectionEquation1D(advection_velocity)
 
-du = CuArray{Float64}(undef, 10, 10, 10)
-derivative_dhat = CuArray{Float64}(undef, 10, 10)
-flux_arr = CuArray{Float64}(undef, 10, 10, 10)
+coordinates_min = -1.0f0
+coordinates_max = 1.0f0
+mesh = TreeMesh(coordinates_min,
+                coordinates_max,
+                initial_refinement_level = 4,
+                n_cells_max = 30_000)
+solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-weak_form_kernel = @cuda launch=false TrixiGPU.weak_form_kernel!(du, derivative_dhat,
-                                                                 flux_arr, equations)
-weak_form_kernel(du,
-                 derivative_dhat,
-                 flux_arr, equations;
-                 TrixiGPU.configurator_3d(weak_form_kernel, du)...,)
+function initial_condition_sine_wave(x, t, equations)
+    SVector(1.0f0 + 0.5f0 * sinpi(sum(x - equations.advection_velocity * t)))
+end
+
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_sine_wave, solver)
+
+@unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
+
+t = 0.0f0
+tspan = (0.0f0, 1.0f0)
+
+ode = semidiscretize(semi, tspan)
+u_ode = copy(ode.u0)
+du_ode = similar(u_ode)
+u = Trixi.wrap_array(u_ode, mesh, equations, solver, cache)
+du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
+
+du, u = TrixiGPU.copy_to_device!(du, u)
+
+TrixiGPU.cuda_volume_integral!(du, u, mesh,
+                               Trixi.have_nonconservative_terms(equations), equations,
+                               solver.volume_integral, solver)

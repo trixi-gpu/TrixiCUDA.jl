@@ -2,7 +2,6 @@
 
 [![Build Status](https://github.com/huiyuxie/TrixiGPU.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/huiyuxie/TrixiGPU.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/huiyuxie/TrixiCUDA.jl.svg?style=social&label=Star&maxAge=2592000)](https://GitHub.com/huiyuxie/TrixiCUDA.jl/stargazers)
 
 Provide GPU support for [Trixi.jl](https://github.com/trixi-framework/Trixi.jl), a high-order numerical simulation framework for hyperbolic PDEs.
 

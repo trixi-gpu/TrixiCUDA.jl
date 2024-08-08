@@ -8,7 +8,7 @@ using Trixi: AbstractEquations
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars
 
-using StrideArrays: StrideArray
+using StrideArrays: PtrArray
 
 # Include other source files
 include("function.jl")

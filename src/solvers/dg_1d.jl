@@ -1,6 +1,6 @@
 # Everything related to a DG semidiscretization in 1D
 
-# TODO: Please check whether `equations::AbstractEquations{1}` is needed for each funtion here!!
+# TODO: Please check whether `equations::AbstractEquations{1}` is needed for each function here!!
 # Functions end with `_kernel` are CUDA kernels that are going to be launed by the `@cuda` macro.
 
 # Kernel for calculating fluxes along normal direction

@@ -7,7 +7,8 @@ using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, similar,
             launch_configuration
 using Trixi: AbstractEquations, TreeMesh, VolumeIntegralWeakForm, DGSEM,
-             flux, ntuple, nvariables
+             flux, ntuple, nvariables,
+             True, False
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars
 

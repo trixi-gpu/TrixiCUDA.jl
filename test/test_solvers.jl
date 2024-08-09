@@ -37,3 +37,8 @@ du, u = TrixiGPU.copy_to_device!(du, u)
 TrixiGPU.cuda_volume_integral!(du, u, mesh,
                                Trixi.have_nonconservative_terms(equations), equations,
                                solver.volume_integral, solver)
+
+TrixiGPU.cuda_prolong2interfaces!(u, mesh, cache)
+
+TrixiGPU.cuda_interface_flux!(mesh, Trixi.have_nonconservative_terms(equations), equations,
+                              solver, cache)

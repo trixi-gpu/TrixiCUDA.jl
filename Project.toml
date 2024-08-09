@@ -14,6 +14,7 @@ TrixiBase = "9a0f1c46-06d5-4909-a5a3-ce25d3fa3284"
 [compat]
 BenchmarkTools = "1"
 CUDA = "5"
+StrideArrays = "0.1"
 Trixi = "0.8"
 TrixiBase = "0.1"
 julia = "1.10"

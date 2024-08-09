@@ -6,15 +6,23 @@ module TrixiGPU
 using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, similar,
             launch_configuration
-using Trixi: AbstractEquations, TreeMesh, VolumeIntegralWeakForm, DGSEM,
+
+using Trixi: AbstractEquations, TreeMesh, VolumeIntegralWeakForm,
+             SemidiscretizationHyperbolic,
+             BoundaryConditionPeriodic, DGSEM,
              flux, ntuple, nvariables,
-             True, False
+             True, False,
+             compute_coefficients, wrap_array, have_nonconservative_terms
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars
 
 using StrideArrays: PtrArray
 
 using StaticArrays: SVector
+
+using SimpleUnPack: @unpack
+
+using SciMLBase: ODEProblem, FullSpecialize
 
 # Include other source files
 include("function.jl")

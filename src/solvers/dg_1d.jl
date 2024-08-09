@@ -1,5 +1,8 @@
-# Solver functions for 1D DG methods
+# Everything related to a DG semidiscretization in 1D
 
+# Functions end with `_kernel` are CUDA kernels that are going to be launed by the `@cuda` macro.
+
+# Kernel for calculating flux along normal direction
 function flux_kernel!(flux_arr, u, flux::Function, equations::AbstractEquations{1})
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -19,6 +22,7 @@ function flux_kernel!(flux_arr, u, flux::Function, equations::AbstractEquations{
     return nothing
 end
 
+# kernel for calculating weak form
 function weak_form_kernel!(du, derivative_dhat, flux_arr, equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -35,30 +39,10 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr, equations::AbstractEqu
     return nothing
 end
 
-function volume_flux_kernel!(volume_flux_arr, u, volume_flux::Function,
-                             equations::AbstractEquations{1})
-    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+# Functions begin with `cuda_` are the functions that pack CUDA kernels together, 
+# calling Tthem from the host (i.e., CPU) and running them on the device (i.e., GPU).
 
-    if (j <= size(u, 2)^2 && k <= size(u, 3))
-        j1 = div(j - 1, size(u, 2)) + 1
-        j2 = rem(j - 1, size(u, 2)) + 1
-
-        u_node = get_node_vars(u, equations, j1, k)
-        u_node1 = get_node_vars(u, equations, j2, k)
-
-        volume_flux_node = volume_flux(u_node, u_node1, 1, equations)
-
-        @inbounds begin
-            for ii in axes(u, 1)
-                volume_flux_arr[ii, j1, j2, k] = volume_flux_node[ii]
-            end
-        end
-    end
-
-    return nothing
-end
-
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms, equations,
                                volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
     derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)

@@ -22,8 +22,6 @@ using StrideArrays: PtrArray
 
 using StaticArrays: SVector
 
-using SimpleUnPack: @unpack
-
 # Include other source files
 include("function.jl")
 include("auxiliary/auxiliary.jl")

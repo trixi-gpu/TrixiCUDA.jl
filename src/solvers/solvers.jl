@@ -4,7 +4,7 @@ include("dg_2d.jl")
 
 # Ref: `rhs!` function in Trixi.jl
 function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
-    @unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
+    (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
     u = wrap_array(u_ode, mesh, equations, solver, cache)
     du = wrap_array(du_ode, mesh, equations, solver, cache)

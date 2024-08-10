@@ -75,13 +75,7 @@ semi = SemidiscretizationHyperbolic(mesh,
                                     initial_condition_convergence_test,
                                     solver)
 
-@unpack mesh,
-equations,
-initial_condition,
-boundary_conditions,
-source_terms,
-solver,
-cache = semi
+(; initial_condition, boundary_conditions, source_terms, cache) = semi
 
 t = 0.0f0
 tspan = (0.0f0, 1.0f0)

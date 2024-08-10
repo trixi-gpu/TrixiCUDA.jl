@@ -1,6 +1,7 @@
 include("common.jl")
 include("dg_1d.jl")
 include("dg_2d.jl")
+include("dg_3d.jl")
 
 # Ref: `rhs!` function in Trixi.jl
 function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)

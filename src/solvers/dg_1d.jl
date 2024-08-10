@@ -44,7 +44,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr)
 end
 
 # Kernel for prolonging two interfaces
-function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids)
+function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids,
+                                    equations::AbstractEquations{1})
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -82,7 +83,8 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u,
 end
 
 # Kernel for setting interface fluxes
-function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids)
+function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids,
+                                equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -153,7 +155,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms, 
 end
 
 # Pack kernels for prolonging solution to interfaces
-function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, cache)
+function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, equations, cache)
     neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
     interfaces_u = CuArray{Float32}(cache.interfaces.u)
 
@@ -161,8 +163,9 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, cache)
 
     prolong_interfaces_kernel = @cuda launch=false prolong_interfaces_kernel!(interfaces_u,
                                                                               u,
-                                                                              neighbor_ids)
-    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids;
+                                                                              neighbor_ids,
+                                                                              equations)
+    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, equations;
                               configurator_2d(prolong_interfaces_kernel, size_arr)...,)
 
     cache.interfaces.u = interfaces_u  # copy back to host automatically
@@ -192,8 +195,9 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
 
     interface_flux_kernel = @cuda launch=false interface_flux_kernel!(surface_flux_values,
                                                                       surface_flux_arr,
-                                                                      neighbor_ids)
-    interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids;
+                                                                      neighbor_ids,
+                                                                      equations)
+    interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids, equations;
                           configurator_2d(interface_flux_kernel, size_arr)...,)
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
@@ -216,7 +220,7 @@ end
 
 # Pack kernels for calculating surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DGSEM, cache)
-    # FIXME: `surface_integral`
+    # FIXME: Check `surface_integral`
     factor_arr = CuArray{Float32}([
                                       dg.basis.boundary_interpolation[1, 1],
                                       dg.basis.boundary_interpolation[size(du, 2), 2]
@@ -262,7 +266,7 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, initial_condit
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg)
 
-    cuda_prolong2interfaces!(u, mesh, cache)
+    cuda_prolong2interfaces!(u, mesh, equations, cache)
 
     cuda_interface_flux!(mesh, have_nonconservative_terms(equations), equations, dg, cache)
 

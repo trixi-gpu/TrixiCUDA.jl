@@ -1,7 +1,10 @@
 # Everything related to a DG semidiscretization in 1D
 
-# TODO: Please check whether `equations::AbstractEquations{1}` is needed for each function here!!
-# Functions end with `_kernel` are CUDA kernels that are going to be launed by the `@cuda` macro.
+# TODO: Check whether `equations::AbstractEquations{1}` is needed for each function here
+
+# Functions that end with `_kernel` are CUDA kernels that are going to be launched by 
+# the @cuda macro with parameters from the kernel configurator. They are purely run on 
+# the device (i.e., GPU).
 
 # Kernel for calculating fluxes along normal direction
 function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Function)
@@ -97,7 +100,8 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
 end
 
 # Kernel for calculating surface integrals
-function surface_integral_kernel!(du, factor_arr, surface_flux_values)
+function surface_integral_kernel!(du, factor_arr, surface_flux_values,
+                                  equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -114,7 +118,7 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values)
 end
 
 # Kernel for applying inverse Jacobian 
-function jacobian_kernel!(du, inverse_jacobian)
+function jacobian_kernel!(du, inverse_jacobian, equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -126,8 +130,9 @@ function jacobian_kernel!(du, inverse_jacobian)
     return nothing
 end
 
-# Functions begin with `cuda_` are the functions that pack CUDA kernels together, 
-# calling them from the host (i.e., CPU) and running them on the device (i.e., GPU).
+# Functions that begin with `cuda_` are the functions that pack CUDA kernels together to do 
+# partial work in semidiscretization. They are used to invoke kernels from the host (i.e., CPU) 
+# and run them on the device (i.e., GPU).
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms, equations,
@@ -203,17 +208,15 @@ function cuda_prolong2boundaries!(u, mesh::TreeMesh{1},
 end
 
 # Dummy function for asserting boundary fluxes
-function cuda_boundary_flux!(t,
-                             mesh::TreeMesh{1},
-                             boundary_condition::BoundaryConditionPeriodic,
-                             equations,
-                             dg::DGSEM,
-                             cache)
+function cuda_boundary_flux!(t, mesh::TreeMesh{1},
+                             boundary_condition::BoundaryConditionPeriodic, equations,
+                             dg::DGSEM, cache)
     @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Pack kernels for calculating surface integrals
-function cuda_surface_integral!(du, mesh::TreeMesh{1}, dg::DGSEM, cache)
+function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DGSEM, cache)
+    # FIXME: `surface_integral`
     factor_arr = CuArray{Float32}([
                                       dg.basis.boundary_interpolation[1, 1],
                                       dg.basis.boundary_interpolation[size(du, 2), 2]
@@ -223,21 +226,21 @@ function cuda_surface_integral!(du, mesh::TreeMesh{1}, dg::DGSEM, cache)
     size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2), size(du, 3))
 
     surface_integral_kernel = @cuda launch=false surface_integral_kernel!(du, factor_arr,
-                                                                          surface_flux_values)
-    surface_integral_kernel(du,
-                            factor_arr,
-                            surface_flux_values;
+                                                                          surface_flux_values,
+                                                                          equations)
+    surface_integral_kernel(du, factor_arr, surface_flux_values, equations;
                             configurator_3d(surface_integral_kernel, size_arr)...,)
 
     return nothing
 end
 
 # Pack kernels for applying Jacobian to reference element
-function cuda_jacobian!(du, mesh::TreeMesh{1}, cache)
+function cuda_jacobian!(du, mesh::TreeMesh{1}, equations, cache)
     inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
 
-    jacobian_kernel = @cuda launch=false jacobian_kernel!(du, inverse_jacobian)
-    jacobian_kernel(du, inverse_jacobian; configurator_3d(jacobian_kernel, du)...)
+    jacobian_kernel = @cuda launch=false jacobian_kernel!(du, inverse_jacobian, equations)
+    jacobian_kernel(du, inverse_jacobian, equations;
+                    configurator_3d(jacobian_kernel, du)...)
 
     return nothing
 end
@@ -248,7 +251,7 @@ function cuda_sources!(du, u, t, source_terms::Nothing, equations::AbstractEquat
     return nothing
 end
 
-# Put everything together in single function 
+# Put everything together into a single function 
 # Ref: `rhs!` function in Trixi.jl
 
 function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, initial_condition,
@@ -267,9 +270,9 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, initial_condit
 
     cuda_boundary_flux!(t, mesh, boundary_conditions, equations, dg, cache)
 
-    cuda_surface_integral!(du, mesh, dg, cache)
+    cuda_surface_integral!(du, mesh, equations, dg, cache)
 
-    cuda_jacobian!(du, mesh, cache)
+    cuda_jacobian!(du, mesh, equations, cache)
 
     cuda_sources!(du, u, t, source_terms, equations, cache)
 
@@ -277,24 +280,4 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, initial_condit
     du_cpu .= du_computed
 
     return nothing
-end
-
-function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
-    @unpack mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache = semi
-
-    u = wrap_array(u_ode, mesh, equations, solver, cache)
-    du = wrap_array(du_ode, mesh, equations, solver, cache)
-
-    rhs_gpu!(du, u, t, mesh, equations, initial_condition, boundary_conditions,
-             source_terms, solver, cache)
-
-    return nothing
-end
-
-function semidiscretize_gpu(semi::SemidiscretizationHyperbolic, tspan)
-    u0_ode = compute_coefficients(first(tspan), semi)
-
-    iip = true
-    specialize = FullSpecialize
-    return ODEProblem{iip, specialize}(rhs_gpu!, u0_ode, tspan, semi)
 end

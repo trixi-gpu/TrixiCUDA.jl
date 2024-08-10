@@ -1,28 +1,28 @@
 module TrixiGPU
 
-# Include other packages that are used in TrixiGPU.jl (? reorder)
+# Include other packages that are used in TrixiGPU.jl (# FIXME: Remember to reorder)
 # using Reexport: @reexport
 
 using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, similar,
             launch_configuration
 
-using Trixi: AbstractEquations, TreeMesh, VolumeIntegralWeakForm,
-             SemidiscretizationHyperbolic,
-             BoundaryConditionPeriodic, DGSEM,
+using Trixi: AbstractEquations, TreeMesh, DGSEM,
+             BoundaryConditionPeriodic, SemidiscretizationHyperbolic,
+             VolumeIntegralWeakForm,
              flux, ntuple, nvariables,
              True, False,
-             compute_coefficients, wrap_array, have_nonconservative_terms
+             wrap_array, compute_coefficients, have_nonconservative_terms
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars
+
+using SciMLBase: ODEProblem, FullSpecialize
 
 using StrideArrays: PtrArray
 
 using StaticArrays: SVector
 
 using SimpleUnPack: @unpack
-
-using SciMLBase: ODEProblem, FullSpecialize
 
 # Include other source files
 include("function.jl")

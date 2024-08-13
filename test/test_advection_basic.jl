@@ -18,6 +18,8 @@ isdir(outdir) && rm(outdir, recursive = true)
 # it is further relaxed) is satisfied. Any new methods and optimizations introduced later 
 # should at least satisfy this error bound.
 
+# FIXME: Maybe use `Float64` thoughout the tests to avoid the relaxed error bound issue
+
 # Test precision of the semidiscretization process
 @testset "Test Linear Advection Equation" begin
     @testset "Linear Advection 1D" begin

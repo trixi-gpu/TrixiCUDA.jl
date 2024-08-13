@@ -3,21 +3,64 @@
 [![Build Status](https://github.com/huiyuxie/TrixiGPU.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/huiyuxie/TrixiGPU.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Provide GPU support for [Trixi.jl](https://github.com/trixi-framework/Trixi.jl), a high-order numerical simulation framework for hyperbolic PDEs.
+**TrixiGPU.jl** is a component package of the [**Trixi.jl**](https://github.com/trixi-framework/Trixi.jl) ecosystem and provides GPU acceleration support for solving hyperbolic partial differential equations (PDEs). This package was initialized through the [**Google Summer of Code**](https://summerofcode.withgoogle.com/archive/2023/projects/upstR7K2) program in 2023 and is still under development.
 
-This project is undertaken as part of the [Google Summer of Code 2023](https://summerofcode.withgoogle.com/) program and is in the developing and testing phase.
+The acceleration focus of this package is currently on the semidiscretization part (with plans to extend to other parts) of the PDE solvers (with plans to extend to other areas), and [**CUDA.jl**](https://github.com/JuliaGPU/CUDA.jl) is our primary support (will expand to more types of GPUs in the future). Please check the progress of our development [**here**](https://github.com/users/huiyuxie/projects/2).
 
-## GPU Strategy Overview
-At present, two primary strategies are being explored for leveraging GPU capabilities:
+# Example of Semidiscretization on GPU
+```julia
+# 1D Linear Advection Equation
+using Trixi, TrixiGPU
+using OrdinaryDiffEq
 
-**Utilizing CUDA.jl (Julia):** This approach employs CUDA.jl, which is a Julia package providing an interface to NVIDIA's CUDA APIs. CUDA.jl is effectively a high-level abstraction over the CUDA toolkit, allowing developers to write GPU code using Julia's intuitive syntax. It abstracts away many of the complexities of direct CUDA programming and makes it easier to integrate GPU acceleration into Julia programs. By using CUDA.jl, we're able to directly tap into the power of the GPU without leaving the Julia environment.
+advection_velocity = 1.0f0
+equations = LinearScalarAdvectionEquation1D(advection_velocity)
 
-**Direct CUDA through C++:** This strategy involves writing GPU code using the native CUDA toolkit in C++. The advantage of this method is the potential for finer control over GPU operations, possibly leading to optimizations that might be more challenging to achieve with a higher-level API. To bridge the gap between Julia and C++, Julia's C and C++ FFI (Foreign Function Interface) is employed. This interface allows data and structures to be transferred seamlessly between Julia and C++. Hence, with this approach, GPU operations are coded and executed in C++, with Julia serving as the orchestrating layer, managing data exchange and other high-level tasks.  
+solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-## Kernels to be Implemented
+coordinates_min = -1.0f0
+coordinates_max = 1.0f0
+
+mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 4,
+                n_cells_max = 30_000)
+
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_convergence_test,
+                                    solver)
+
+tspan = (0.0f0, 1.0f0)
+
+ode = TrixiGPU.semidiscretize_gpu(semi, tspan)
+
+summary_callback = SummaryCallback()
+
+analysis_interval = 100
+analysis_callback = AnalysisCallback(semi, interval = analysis_interval,
+                                     extra_analysis_errors = (:l2_error_primitive,
+                                                              :linf_error_primitive))
+
+alive_callback = AliveCallback(analysis_interval = analysis_interval)
+
+save_solution = SaveSolutionCallback(interval = 100,
+                                     save_initial_solution = true,
+                                     save_final_solution = true,
+                                     solution_variables = cons2prim)
+
+stepsize_callback = StepsizeCallback(cfl = 0.8)
+
+callbacks = CallbackSet(summary_callback,
+                        analysis_callback, alive_callback,
+                        save_solution,
+                        stepsize_callback)
+
+sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false),
+            dt = 1.0, save_everystep = false, callback = callbacks);
+summary_callback()
+```
+
+# GPU Kernels to be Implemented
 - 1D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`
 - 2D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!()`
 - 3D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `prolong2mortars!()`, 3) `calc_mortar_flux!()` 
 
-## How to Show Your Support
-If you found this project interesting and inspiring, kindly give it a star. Your support means a lot to us!
+# Show Your Support!
+We always welcome new people to join us, please feel free to contribute. Also, if you find this package interesting and inspiring, please give it a star. Thanks!

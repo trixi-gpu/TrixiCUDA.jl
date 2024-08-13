@@ -1,7 +1,6 @@
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
 using Test, CUDA
-using Cthulhu
 
 equations = CompressibleEulerEquations1D(1.4f0)
 
@@ -21,13 +20,7 @@ mesh = TreeMesh(coordinates_min,
 
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
-@unpack mesh,
-equations,
-initial_condition,
-boundary_conditions,
-source_terms,
-solver,
-cache = semi
+(; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
 t = 0.0f0
 tspan = (0.0f0, 0.4f0)
@@ -39,8 +32,5 @@ u = Trixi.wrap_array(u_ode, mesh, equations, solver, cache)
 du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
 du, u = TrixiGPU.copy_to_device!(du, u)
-TrixiGPU.cuda_volume_integral!(du, u, mesh,
-                               Trixi.have_nonconservative_terms(equations),
-                               equations,
-                               solver.volume_integral,
-                               solver)
+TrixiGPU.cuda_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
+                               equations, solver.volume_integral, solver)

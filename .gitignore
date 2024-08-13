@@ -2,6 +2,3 @@
 out*/
 
 .DS_Store
-
-# For developer use only (will be removed)
-/test/trixi

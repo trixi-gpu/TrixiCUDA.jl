@@ -212,8 +212,8 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, equations, cache)
                                                                               u,
                                                                               neighbor_ids,
                                                                               orientations,
-                                                                              euqations)
-    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations, euqations;
+                                                                              equations)
+    prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations, equations;
                               configurator_2d(prolong_interfaces_kernel, size_arr)...,)
 
     cache.interfaces.u = interfaces_u  # copy back to host automatically

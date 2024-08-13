@@ -23,7 +23,6 @@ using StrideArrays: PtrArray
 using StaticArrays: SVector
 
 # Include other source files
-include("function.jl")
 include("auxiliary/auxiliary.jl")
 include("solvers/solvers.jl")
 

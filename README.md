@@ -5,11 +5,13 @@
 
 **TrixiGPU.jl** is a component package of the [**Trixi.jl**](https://github.com/trixi-framework/Trixi.jl) ecosystem and provides GPU acceleration support for solving hyperbolic partial differential equations (PDEs). This package was initialized through the [**Google Summer of Code**](https://summerofcode.withgoogle.com/archive/2023/projects/upstR7K2) program in 2023 and is still under development.
 
-The acceleration focus of this package is currently on the semidiscretization part (with plans to extend to other parts) of the PDE solvers (with plans to extend to other areas), and [**CUDA.jl**](https://github.com/JuliaGPU/CUDA.jl) is our primary support (will expand to more types of GPUs in the future). Please check the progress of our development [**here**](https://github.com/users/huiyuxie/projects/2).
+The acceleration focus of this package is currently on the semidiscretization part (with plans to extend to other parts) of the PDE solvers (with plans to extend to other areas), and [**CUDA.jl**](https://github.com/JuliaGPU/CUDA.jl) is our primary support (will expand to more types of GPUs in the future). 
+
+Please check the progress of our development [**here**](https://github.com/users/huiyuxie/projects/2).
 
 # Example of Semidiscretization on GPU
 ```julia
-# 1D Linear Advection Equation
+# Take 1D Linear Advection Equation as an example
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
 

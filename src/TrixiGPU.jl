@@ -9,7 +9,7 @@ using CUDA: @cuda, CuArray, HostKernel,
 
 using Trixi: AbstractEquations, TreeMesh, DGSEM,
              BoundaryConditionPeriodic, SemidiscretizationHyperbolic,
-             VolumeIntegralWeakForm,
+             VolumeIntegralWeakForm, VolumeIntegralFluxDifferencing,
              flux, ntuple, nvariables,
              True, False,
              wrap_array, compute_coefficients, have_nonconservative_terms

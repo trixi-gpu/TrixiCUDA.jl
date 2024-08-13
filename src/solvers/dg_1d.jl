@@ -1,7 +1,5 @@
 # Everything related to a DG semidiscretization in 1D
 
-# TODO: Check whether `equations::AbstractEquations{1}` is needed for each function here
-
 # Functions that end with `_kernel` are CUDA kernels that are going to be launched by 
 # the @cuda macro with parameters from the kernel configurator. They are purely run on 
 # the device (i.e., GPU).
@@ -36,6 +34,48 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr)
         @inbounds begin
             for ii in axes(du, 2)
                 du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for calculating volume fluxes
+function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1},
+                             volume_flux::Function)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(u, 2)^2 && k <= size(u, 3))
+        j1 = div(j - 1, size(u, 2)) + 1
+        j2 = rem(j - 1, size(u, 2)) + 1
+
+        u_node = get_node_vars(u, equations, j1, k)
+        u_node1 = get_node_vars(u, equations, j2, k)
+
+        volume_flux_node = volume_flux(u_node, u_node1, 1, equations)
+
+        @inbounds begin
+            for ii in axes(u, 1)
+                volume_flux_arr[ii, j1, j2, k] = volume_flux_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for calculating volume integrals
+function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds begin
+            for ii in axes(du, 2)
+                du[i, j, k] += derivative_split[j, ii] * volume_flux_arr[i, j, ii, k]
             end
         end
     end
@@ -150,6 +190,31 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms, 
     weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr)
     weak_form_kernel(du, derivative_dhat, flux_arr;
                      configurator_3d(weak_form_kernel, du)...,)
+
+    return nothing
+end
+
+function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False,
+                               equations, volume_integral::VolumeIntegralFluxDifferencing,
+                               dg::DGSEM)
+    volume_flux = volume_integral.volume_flux
+
+    derivative_split = CuArray{Float32}(dg.basis.derivative_split)
+    volume_flux_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2),
+                                       size(u, 3))
+
+    size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 3))
+
+    volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr, u,
+                                                                equations, volume_flux)
+    volume_flux_kernel(volume_flux_arr, u, equations, volume_flux;
+                       configurator_2d(volume_flux_kernel, size_arr)...,)
+
+    volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du,
+                                                                        derivative_split,
+                                                                        volume_flux_arr)
+    volume_integral_kernel(du, derivative_split, volume_flux_arr;
+                           configurator_3d(volume_integral_kernel, du)...,)
 
     return nothing
 end

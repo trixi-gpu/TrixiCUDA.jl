@@ -18,8 +18,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_convergen
 
 tspan = (0.0, 1.0)
 
-# FIXME: Remember to export
-ode = TrixiGPU.semidiscretize_gpu(semi, tspan)
+ode = semidiscretize_gpu(semi, tspan) # from TrixiGPU.jl
 
 summary_callback = SummaryCallback()
 

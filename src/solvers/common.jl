@@ -1,4 +1,4 @@
-# Define common functions for solvers
+# Here are some common functions that are shared between the solvers.
 
 # Copy data from host to device
 function copy_to_device!(du::PtrArray, u::PtrArray)

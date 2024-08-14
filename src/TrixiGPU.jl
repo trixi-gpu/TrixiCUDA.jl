@@ -27,6 +27,6 @@ include("auxiliary/auxiliary.jl")
 include("solvers/solvers.jl")
 
 # Export the public APIs
-# export configurator_1d, configurator_2d, configurator_3d
+export semidiscretize_gpu
 
 end

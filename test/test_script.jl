@@ -1,6 +1,6 @@
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
-using Test, CUDA
+using CUDA
 
 equations = CompressibleEulerEquations1D(1.4)
 

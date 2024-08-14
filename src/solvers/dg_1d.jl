@@ -179,10 +179,10 @@ end
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms, equations,
                                volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
-    derivative_dhat = CuArray{Float32}(dg.basis.derivative_dhat)
+    derivative_dhat = CuArray{Float64}(dg.basis.derivative_dhat)
     flux_arr = similar(u)
 
-    size_arr = CuArray{Float32}(undef, size(u, 2), size(u, 3))
+    size_arr = CuArray{Float64}(undef, size(u, 2), size(u, 3))
 
     flux_kernel = @cuda launch=false flux_kernel!(flux_arr, u, equations, flux)
     flux_kernel(flux_arr, u, equations, flux; configurator_2d(flux_kernel, size_arr)...)
@@ -199,11 +199,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                dg::DGSEM)
     volume_flux = volume_integral.volume_flux
 
-    derivative_split = CuArray{Float32}(dg.basis.derivative_split)
-    volume_flux_arr = CuArray{Float32}(undef, size(u, 1), size(u, 2), size(u, 2),
+    derivative_split = CuArray{Float64}(dg.basis.derivative_split)
+    volume_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2),
                                        size(u, 3))
 
-    size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 3))
+    size_arr = CuArray{Float64}(undef, size(u, 2)^2, size(u, 3))
 
     volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr, u,
                                                                 equations, volume_flux)
@@ -222,9 +222,9 @@ end
 # Pack kernels for prolonging solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, equations, cache)
     neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    interfaces_u = CuArray{Float32}(cache.interfaces.u)
+    interfaces_u = CuArray{Float64}(cache.interfaces.u)
 
-    size_arr = CuArray{Float32}(undef, size(interfaces_u, 2), size(interfaces_u, 3))
+    size_arr = CuArray{Float64}(undef, size(interfaces_u, 2), size(interfaces_u, 3))
 
     prolong_interfaces_kernel = @cuda launch=false prolong_interfaces_kernel!(interfaces_u,
                                                                               u,
@@ -244,11 +244,11 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
     surface_flux = dg.surface_integral.surface_flux
 
     neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    interfaces_u = CuArray{Float32}(cache.interfaces.u)
-    surface_flux_arr = CuArray{Float32}(undef, 1, size(interfaces_u)[2:end]...)
-    surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
+    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    surface_flux_arr = CuArray{Float64}(undef, 1, size(interfaces_u)[2:end]...)
+    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
 
-    size_arr = CuArray{Float32}(undef, size(interfaces_u, 3))
+    size_arr = CuArray{Float64}(undef, size(interfaces_u, 3))
 
     surface_flux_kernel = @cuda launch=false surface_flux_kernel!(surface_flux_arr,
                                                                   interfaces_u, equations,
@@ -256,7 +256,7 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
     surface_flux_kernel(surface_flux_arr, interfaces_u, equations, surface_flux;
                         configurator_1d(surface_flux_kernel, size_arr)...,)
 
-    size_arr = CuArray{Float32}(undef, size(surface_flux_values, 1), size(interfaces_u, 3))
+    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 1), size(interfaces_u, 3))
 
     interface_flux_kernel = @cuda launch=false interface_flux_kernel!(surface_flux_values,
                                                                       surface_flux_arr,
@@ -286,13 +286,13 @@ end
 # Pack kernels for calculating surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DGSEM, cache)
     # FIXME: Check `surface_integral`
-    factor_arr = CuArray{Float32}([
+    factor_arr = CuArray{Float64}([
                                       dg.basis.boundary_interpolation[1, 1],
                                       dg.basis.boundary_interpolation[size(du, 2), 2]
                                   ])
-    surface_flux_values = CuArray{Float32}(cache.elements.surface_flux_values)
+    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
 
-    size_arr = CuArray{Float32}(undef, size(du, 1), size(du, 2), size(du, 3))
+    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2), size(du, 3))
 
     surface_integral_kernel = @cuda launch=false surface_integral_kernel!(du, factor_arr,
                                                                           surface_flux_values,
@@ -305,7 +305,7 @@ end
 
 # Pack kernels for applying Jacobian to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{1}, equations, cache)
-    inverse_jacobian = CuArray{Float32}(cache.elements.inverse_jacobian)
+    inverse_jacobian = CuArray{Float64}(cache.elements.inverse_jacobian)
 
     jacobian_kernel = @cuda launch=false jacobian_kernel!(du, inverse_jacobian, equations)
     jacobian_kernel(du, inverse_jacobian, equations;

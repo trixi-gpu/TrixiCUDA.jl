@@ -2,8 +2,8 @@
 
 # Copy data from host to device
 function copy_to_device!(du::PtrArray, u::PtrArray)
-    du = CuArray{Float32}(zero(du))
-    u = CuArray{Float32}(u)
+    du = CuArray{Float64}(zero(du))
+    u = CuArray{Float64}(u)
 
     return (du, u)
 end

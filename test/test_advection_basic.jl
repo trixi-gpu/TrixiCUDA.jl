@@ -10,26 +10,24 @@ isdir(outdir) && rm(outdir, recursive = true)
 
 # Note that it is complicated to get tight error bounds for GPU kernels, so here we adopt 
 # a relaxed error bound for the tests. Specifically, we use `isapprox` with the default mode, 
-# i.e., `rtol = eps(Float32)^(1/2)`, to validate the precision by comparing the `Float32` 
-# results from GPU kernels and `Float64` results from CPU kernels, which corresponds to 
-# requiring equality of about half of the significant digits (see https://docs.julialang.org/en/v1/base/math/#Base.isapprox).
+# i.e., `rtol = eps(Float64)^(1/2)`, to validate the precision by comparing the `Float64` 
+# results from GPU kernels CPU kernels, which corresponds to requiring equality of about 
+# half of the significant digits (see https://docs.julialang.org/en/v1/base/math/#Base.isapprox).
 
 # Basically, this heuristic method first checks whether the relaxed error bound (sometimes 
 # it is further relaxed) is satisfied. Any new methods and optimizations introduced later 
 # should at least satisfy this error bound.
 
-# FIXME: Maybe use `Float64` throughout the tests to avoid the relaxed error bound issue
-
 # Test precision of the semidiscretization process
 @testset "Test Linear Advection Equation" begin
     @testset "Linear Advection 1D" begin
-        advection_velocity = 1.0f0
+        advection_velocity = 1.0
         equations = LinearScalarAdvectionEquation1D(advection_velocity)
 
         solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = -1.0f0
-        coordinates_max = 1.0f0
+        coordinates_min = -1.0
+        coordinates_max = 1.0
 
         mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 4,
                         n_cells_max = 30_000)
@@ -44,8 +42,8 @@ isdir(outdir) && rm(outdir, recursive = true)
                                                          boundary_conditions
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
-        t = 0.0f0
-        tspan = (0.0f0, 1.0f0)
+        t = 0.0
+        tspan = (0.0, 1.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
@@ -127,13 +125,13 @@ isdir(outdir) && rm(outdir, recursive = true)
     end
 
     @testset "Linear Advection 2D" begin
-        advection_velocity = (0.2f0, -0.7f0)
+        advection_velocity = (0.2, -0.7)
         equations = LinearScalarAdvectionEquation2D(advection_velocity)
 
         solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = (-1.0f0, -1.0f0)
-        coordinates_max = (1.0f0, 1.0f0)
+        coordinates_min = (-1.0, -1.0)
+        coordinates_max = (1.0, 1.0)
 
         mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 4,
                         n_cells_max = 30_000)
@@ -148,8 +146,8 @@ isdir(outdir) && rm(outdir, recursive = true)
                                                          boundary_conditions
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
-        t = 0.0f0
-        tspan = (0.0f0, 1.0f0)
+        t = 0.0
+        tspan = (0.0, 1.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
@@ -231,13 +229,13 @@ isdir(outdir) && rm(outdir, recursive = true)
     end
 
     @testset "Linear AdVection 3D" begin
-        advection_velocity = (0.2f0, -0.7f0, 0.5f0)
+        advection_velocity = (0.2, -0.7, 0.5)
         equations = LinearScalarAdvectionEquation3D(advection_velocity)
 
         solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = (-1.0f0, -1.0f0, -1.0f0)
-        coordinates_max = (1.0f0, 1.0f0, 1.0f0)
+        coordinates_min = (-1.0, -1.0, -1.0)
+        coordinates_max = (1.0, 1.0, 1.0)
 
         mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 3,
                         n_cells_max = 30_000)
@@ -252,8 +250,8 @@ isdir(outdir) && rm(outdir, recursive = true)
                                                          boundary_conditions
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
-        t = 0.0f0
-        tspan = (0.0f0, 1.0f0)
+        t = 0.0
+        tspan = (0.0, 1.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
@@ -315,19 +313,19 @@ isdir(outdir) && rm(outdir, recursive = true)
                                         cache_gpu)
         Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral,
                                      solver, cache)
-        @test CUDA.@allowscalar isapprox(du, du_gpu, rtol = eps(Float32)^(1 / 2.2)) # further relaxed error bound
+        @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_jacobian!`
         TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
         Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
-        @test CUDA.@allowscalar isapprox(du, du_gpu, rtol = eps(Float32)^(1 / 2.2)) # further relaxed error bound
+        @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_sources!`
         TrixiGPU.cuda_sources!(du_gpu, u_gpu, t, source_terms_gpu, equations_gpu, cache_gpu)
         Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
-        @test CUDA.@allowscalar isapprox(du, du_gpu, rtol = eps(Float32)^(1 / 2.2)) # further relaxed error bound
+        @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Copy data back to host

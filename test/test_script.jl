@@ -2,7 +2,7 @@ using Trixi, TrixiGPU
 using OrdinaryDiffEq
 using Test, CUDA
 
-equations = CompressibleEulerEquations1D(1.4f0)
+equations = CompressibleEulerEquations1D(1.4)
 
 initial_condition = initial_condition_weak_blast_wave
 
@@ -11,8 +11,8 @@ solver = DGSEM(polydeg = 3,
                surface_flux = flux_ranocha,
                volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
-coordinates_min = (-2.0f0,)
-coordinates_max = (2.0f0,)
+coordinates_min = (-2.0,)
+coordinates_max = (2.0,)
 mesh = TreeMesh(coordinates_min,
                 coordinates_max,
                 initial_refinement_level = 5,
@@ -22,8 +22,8 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
 (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
-t = 0.0f0
-tspan = (0.0f0, 0.4f0)
+t = 0.0
+tspan = (0.0, 0.4)
 
 ode = semidiscretize(semi, tspan)
 u_ode = copy(ode.u0)

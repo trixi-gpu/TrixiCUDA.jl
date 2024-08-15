@@ -1,4 +1,3 @@
-# 1D Compressible Euler Equation
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
 

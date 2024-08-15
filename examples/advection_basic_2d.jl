@@ -1,4 +1,3 @@
-# 2D Linear Advection Equation
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
 

@@ -1,9 +1,12 @@
 #!/usr/bin/env julia
 
 using Pkg
-Pkg.activate(; temp = true, io = devnull)
-Pkg.add(PackageSpec(name = "JuliaFormatter", version = "1.0.56"); preserve = PRESERVE_ALL,
-        io = devnull)
+Pkg.activate(; temp=true, io=devnull)
+Pkg.add(
+    PackageSpec(; name="JuliaFormatter", version="1.0.56");
+    preserve=PRESERVE_ALL,
+    io=devnull,
+)
 
 using JuliaFormatter: format
 

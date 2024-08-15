@@ -1,5 +1,5 @@
-# Use SciML style https://github.com/SciML/SciMLStyle
-style = "sciml"
+# Use Blue style 
+style = "blue"
 
 # Additional Options
 yas_style_nesting = true

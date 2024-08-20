@@ -1,5 +1,5 @@
-# Use Blue style 
-style = "blue"
+# Use SciML style 
+style = "sciml"
 
 # Additional Options
 yas_style_nesting = true

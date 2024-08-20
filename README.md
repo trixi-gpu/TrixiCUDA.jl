@@ -55,7 +55,7 @@ callbacks = CallbackSet(summary_callback,
                         stepsize_callback)
 
 sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false),
-            dt = 1.0, save_everystep = false, callback = callbacks);
+            dt = 1.0, save_everystep = false, callback = callbacks)
 summary_callback()
 ```
 

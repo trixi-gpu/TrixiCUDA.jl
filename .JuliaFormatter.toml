@@ -2,6 +2,6 @@
 style = "sciml"
 
 # Additional Options
-margin = 150
+margin = 100
 yas_style_nesting = true
 align_struct_field = true

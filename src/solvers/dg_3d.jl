@@ -251,6 +251,32 @@ function jacobian_kernel!(du, inverse_jacobian, equations::AbstractEquations{3})
     return nothing
 end
 
+# Kernel for calculating source terms
+function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{3},
+                              source_terms::Function)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(du, 2)^3 && k <= size(du, 5))
+        j1 = div(j - 1, size(du, 2)^2) + 1
+        j2 = div(rem(j - 1, size(du, 2)^2), size(du, 2)) + 1
+        j3 = rem(rem(j - 1, size(du, 2)^2), size(du, 2)) + 1
+
+        u_local = get_node_vars(u, equations, j1, j2, j3, k)
+        x_local = get_node_coords(node_coordinates, equations, j1, j2, j3, k)
+
+        source_terms_node = source_terms(u_local, x_local, t, equations)
+
+        @inbounds begin
+            for ii in axes(du, 1)
+                du[ii, j1, j2, j3, k] += source_terms_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Functions that begin with `cuda_` are the functions that pack CUDA kernels together to do 
 # partial work in semidiscretization. They are used to invoke kernels from the host (i.e., CPU) 
 # and run them on the device (i.e., GPU).
@@ -418,6 +444,20 @@ end
 
 # Dummy function returning nothing            
 function cuda_sources!(du, u, t, source_terms::Nothing, equations::AbstractEquations{3}, cache)
+    return nothing
+end
+
+# Pack kernels for calculating source terms 
+function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{3}, cache)
+    node_coordinates = CuArray{Float32}(cache.elements.node_coordinates)
+
+    size_arr = CuArray{Float32}(undef, size(u, 2)^3, size(u, 5))
+
+    source_terms_kernel = @cuda launch=false source_terms_kernel!(du, u, node_coordinates, t,
+                                                                  equations, source_terms)
+    source_terms_kernel(du, u, node_coordinates, t, equations, source_terms;
+                        configurator_2d(source_terms_kernel, size_arr)...,)
+
     return nothing
 end
 

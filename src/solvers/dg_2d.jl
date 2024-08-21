@@ -201,7 +201,7 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values,
     return nothing
 end
 
-# CUDA kernel for applying inverse Jacobian 
+# Kernel for applying inverse Jacobian 
 function jacobian_kernel!(du, inverse_jacobian, equations::AbstractEquations{2})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -212,6 +212,31 @@ function jacobian_kernel!(du, inverse_jacobian, equations::AbstractEquations{2})
         j2 = rem(j - 1, size(du, 2)) + 1
 
         @inbounds du[i, j1, j2, k] *= -inverse_jacobian[k]
+    end
+
+    return nothing
+end
+
+# CUDA kernel for calculating source terms
+function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{2},
+                              source_terms::Function)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(du, 2)^2 && k <= size(du, 4))
+        j1 = div(j - 1, size(du, 2)) + 1
+        j2 = rem(j - 1, size(du, 2)) + 1
+
+        u_local = get_node_vars(u, equations, j1, j2, k)
+        x_local = get_node_coords(node_coordinates, equations, j1, j2, k)
+
+        source_terms_node = source_terms(u_local, x_local, t, equations)
+
+        @inbounds begin
+            for ii in axes(du, 1)
+                du[ii, j1, j2, k] += source_terms_node[ii]
+            end
+        end
     end
 
     return nothing
@@ -373,6 +398,20 @@ end
 
 # Dummy function returning nothing              
 function cuda_sources!(du, u, t, source_terms::Nothing, equations::AbstractEquations{2}, cache)
+    return nothing
+end
+
+# Pack kernels for calculating source terms 
+function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{2}, cache)
+    node_coordinates = CuArray{Float32}(cache.elements.node_coordinates)
+
+    size_arr = CuArray{Float32}(undef, size(u, 2)^2, size(u, 4))
+
+    source_terms_kernel = @cuda launch=false source_terms_kernel!(du, u, node_coordinates, t,
+                                                                  equations, source_terms)
+    source_terms_kernel(du, u, node_coordinates, t, equations, source_terms;
+                        configurator_2d(source_terms_kernel, size_arr)...,)
+
     return nothing
 end
 

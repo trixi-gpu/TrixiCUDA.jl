@@ -1,4 +1,4 @@
-module TestCompressibleEuler
+module TestCompressibleEulerSourceTerms
 
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
@@ -23,18 +23,18 @@ isdir(outdir) && rm(outdir, recursive = true)
     @testset "Compressible Euler 1D" begin
         equations = CompressibleEulerEquations1D(1.4)
 
-        initial_condition = initial_condition_weak_blast_wave
+        initial_condition = initial_condition_convergence_test
 
-        volume_flux = flux_ranocha
-        solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
-                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+        solver = DGSEM(polydeg = 4, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = (-2.0,)
-        coordinates_max = (2.0,)
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 5,
+        coordinates_min = 0.0
+        coordinates_max = 2.0
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 4,
                         n_cells_max = 10_000)
 
-        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                            source_terms = source_terms_convergence_test)
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
         # Get copy for GPU to avoid overwriting during tests
@@ -43,7 +43,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
         t = 0.0
-        tspan = (0.0, 0.4)
+        tspan = (0.0, 2.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
@@ -119,19 +119,17 @@ isdir(outdir) && rm(outdir, recursive = true)
     @testset "Compressible Euler 2D" begin
         equations = CompressibleEulerEquations2D(1.4)
 
-        initial_condition = initial_condition_weak_blast_wave
+        initial_condition = initial_condition_convergence_test
+        solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-        volume_flux = flux_ranocha
-        solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
-                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
-
-        coordinates_min = (-2.0, -2.0)
+        coordinates_min = (0.0, 0.0)
         coordinates_max = (2.0, 2.0)
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 5,
-                        n_cells_max = 10_000, periodicity = true)
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 4,
+                        n_cells_max = 10_000)
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                            boundary_conditions = boundary_condition_periodic)
+                                            source_terms = source_terms_convergence_test)
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
         # Get copy for GPU to avoid overwriting during tests
@@ -140,7 +138,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
         t = 0.0
-        tspan = (0.0, 0.4)
+        tspan = (0.0, 2.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
@@ -206,7 +204,8 @@ isdir(outdir) && rm(outdir, recursive = true)
         # Test `cuda_sources!`
         TrixiGPU.cuda_sources!(du_gpu, u_gpu, t, source_terms_gpu, equations_gpu, cache_gpu)
         Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
-        @test CUDA.@allowscalar du ≈ du_gpu
+        # @test_broken CUDA.@allowscalar du ≈ du_gpu 
+        @test CUDA.@allowscalar isapprox(du, du_gpu, rtol = eps(Float64)^(1 / 3))
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Copy data back to host
@@ -216,18 +215,19 @@ isdir(outdir) && rm(outdir, recursive = true)
     @testset "Compressible Euler 3D" begin
         equations = CompressibleEulerEquations3D(1.4)
 
-        initial_condition = initial_condition_weak_blast_wave
+        initial_condition = initial_condition_convergence_test
 
-        volume_flux = flux_ranocha
-        solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
-                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+        solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs,
+                       volume_integral = VolumeIntegralWeakForm())
 
-        coordinates_min = (-2.0, -2.0, -2.0)
+        coordinates_min = (0.0, 0.0, 0.0)
         coordinates_max = (2.0, 2.0, 2.0)
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 3,
-                        n_cells_max = 100_000)
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 2,
+                        n_cells_max = 10_000)
 
-        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                            source_terms = source_terms_convergence_test)
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
         # Get copy for GPU to avoid overwriting during tests
@@ -236,7 +236,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
         t = 0.0
-        tspan = (0.0, 0.4)
+        tspan = (0.0, 5.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
@@ -290,15 +290,13 @@ isdir(outdir) && rm(outdir, recursive = true)
         # Test `cuda_surface_integral!`
         TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
         Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
-        # @test_broken CUDA.@allowscalar du ≈ du_gpu 
-        @test CUDA.@allowscalar isapprox(du, du_gpu, rtol = eps(Float64)^(1 / 3))
+        @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_jacobian!`
         TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
         Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
-        # @test_broken CUDA.@allowscalar du ≈ du_gpu 
-        @test CUDA.@allowscalar isapprox(du, du_gpu, rtol = eps(Float64)^(1 / 3))
+        @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_sources!`

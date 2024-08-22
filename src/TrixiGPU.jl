@@ -1,6 +1,6 @@
 module TrixiGPU
 
-# Include other packages that are used in TrixiGPU.jl (# FIXME: Remember to reorder)
+# Include other packages that are used in TrixiGPU.jl
 # using Reexport: @reexport
 
 using CUDA: @cuda, CuArray, HostKernel,
@@ -11,8 +11,8 @@ using Trixi: AbstractEquations, TreeMesh, DGSEM,
              VolumeIntegralWeakForm, VolumeIntegralFluxDifferencing,
              flux, ntuple, nvariables,
              True, False,
-             wrap_array, compute_coefficients,
-             have_nonconservative_terms,
+             wrap_array, compute_coefficients, have_nonconservative_terms,
+             boundary_condition_periodic,
              set_log_type, set_sqrt_type
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars

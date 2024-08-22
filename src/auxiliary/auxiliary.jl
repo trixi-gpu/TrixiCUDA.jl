@@ -1,5 +1,5 @@
 include("configurators.jl")
-include("methods.jl")
+include("helpers.jl")
 
 # Some default settings for the package
 function load_default_settings()

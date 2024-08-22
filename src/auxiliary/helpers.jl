@@ -1,4 +1,4 @@
-# Extend common helper methods from Trixi.jl
+# Some helper functions and function extensions from Trixi.jl.
 
 # Ref: `get_node_vars(u, equations, solver::DG, indices...)` in Trixi.jl
 @inline function get_node_vars(u, equations, indices...)
@@ -20,4 +20,10 @@ end
                           Val(nvariables(equations))))
 
     return u_ll, u_rr
+end
+
+# Callable function to replace the `boundary_condition_periodic` from Trixi.jl
+@inline function boundary_condition_periodic_callable(u_inner, orientation,
+                                                      direction, x, t, surface_flux, equations)
+    return nothing
 end

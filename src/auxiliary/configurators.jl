@@ -1,5 +1,5 @@
-# Kernel configurators are used for determining the number of 
-# threads and blocks to be used in the kernel, which optimizes the use of GPU resources.
+# Kernel configurators are used for determining the number of threads and 
+# blocks to be used in the kernel, which optimizes the use of GPU resources.
 
 # Kernel configurator for 1D CUDA array
 function configurator_1d(kernel::HostKernel, array::CuArray{<:Any, 1})

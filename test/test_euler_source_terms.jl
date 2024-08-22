@@ -19,7 +19,7 @@ isdir(outdir) && rm(outdir, recursive = true)
 # should at least satisfy this error bound.
 
 # Test precision of the semidiscretization process
-@testset "Test Compressible Euler Equation" begin
+@testset "Test Compressible Euler Source Terms" begin
     @testset "Compressible Euler 1D" begin
         equations = CompressibleEulerEquations1D(1.4)
 
@@ -42,7 +42,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         initial_condition_gpu, boundary_conditions_gpu = initial_condition, boundary_conditions
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
-        t = 0.0
+        t = t_gpu = 0.0
         tspan = (0.0, 2.0)
 
         ode = semidiscretize(semi, tspan)
@@ -81,13 +81,14 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_prolong2boundaries!`
-        TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, cache_gpu)
+        TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+                                          cache_gpu)
         Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
         @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_boundary_flux!`
-        TrixiGPU.cuda_boundary_flux!(t, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
                                      solver_gpu, cache_gpu)
         Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                   solver.surface_integral, solver)
@@ -107,7 +108,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_sources!`
-        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t, source_terms_gpu, equations_gpu, cache_gpu)
+        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
         Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
         @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
@@ -137,7 +138,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         initial_condition_gpu, boundary_conditions_gpu = initial_condition, boundary_conditions
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
-        t = 0.0
+        t = t_gpu = 0.0
         tspan = (0.0, 2.0)
 
         ode = semidiscretize(semi, tspan)
@@ -176,13 +177,14 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_prolong2boundaries!`
-        TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, cache_gpu)
+        TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+                                          cache_gpu)
         Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
         @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_boundary_flux!`
-        TrixiGPU.cuda_boundary_flux!(t, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
                                      solver_gpu, cache_gpu)
         Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                   solver.surface_integral, solver)
@@ -202,10 +204,9 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_sources!`
-        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t, source_terms_gpu, equations_gpu, cache_gpu)
+        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
         Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
-        # @test_broken CUDA.@allowscalar du ≈ du_gpu 
-        @test CUDA.@allowscalar isapprox(du, du_gpu, rtol = eps(Float64)^(1 / 3))
+        @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Copy data back to host
@@ -235,7 +236,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         initial_condition_gpu, boundary_conditions_gpu = initial_condition, boundary_conditions
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
-        t = 0.0
+        t = t_gpu = 0.0
         tspan = (0.0, 5.0)
 
         ode = semidiscretize(semi, tspan)
@@ -274,13 +275,14 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_prolong2boundaries!`
-        TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, cache_gpu)
+        TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+                                          cache_gpu)
         Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
         @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_boundary_flux!`
-        TrixiGPU.cuda_boundary_flux!(t, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
                                      solver_gpu, cache_gpu)
         Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                   solver.surface_integral, solver)
@@ -300,10 +302,9 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Test `cuda_sources!`
-        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t, source_terms_gpu, equations_gpu, cache_gpu)
+        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
         Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
-        # @test_broken CUDA.@allowscalar du ≈ du_gpu 
-        @test CUDA.@allowscalar isapprox(du, du_gpu, rtol = eps(Float64)^(1 / 3))
+        @test CUDA.@allowscalar du ≈ du_gpu
         @test CUDA.@allowscalar u ≈ u_gpu
 
         # Copy data back to host

@@ -1,4 +1,4 @@
-module TestCompressibleEulerFluxDifferencing
+module TestHyperbolicDiffusionBoundaryConditions
 
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
@@ -19,22 +19,26 @@ isdir(outdir) && rm(outdir, recursive = true)
 # should at least satisfy this error bound.
 
 # Test precision of the semidiscretization process
-@testset "Test Compressible Euler Flux Differencing" begin
+@testset "Test Hyperbolic Diffusion Boundary Conditions" begin
     @testset "Compressible Euler 1D" begin
-        equations = CompressibleEulerEquations1D(1.4)
+        equations = HyperbolicDiffusionEquations1D()
 
-        initial_condition = initial_condition_weak_blast_wave
+        initial_condition = initial_condition_poisson_nonperiodic
 
-        volume_flux = flux_ranocha
-        solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
-                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+        boundary_conditions = boundary_condition_poisson_nonperiodic
 
-        coordinates_min = (-2.0,)
-        coordinates_max = (2.0,)
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 5,
-                        n_cells_max = 10_000)
+        solver = DGSEM(polydeg = 4, surface_flux = flux_lax_friedrichs)
 
-        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+        coordinates_min = 0.0
+        coordinates_max = 1.0
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 3,
+                        n_cells_max = 30_000,
+                        periodicity = false)
+
+        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                            boundary_conditions = boundary_conditions,
+                                            source_terms = source_terms_poisson_nonperiodic)
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
         # Get copy for GPU to avoid overwriting during tests
@@ -43,7 +47,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
         t = t_gpu = 0.0
-        tspan = (0.0, 0.4)
+        tspan = (0.0, 5.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
@@ -118,21 +122,27 @@ isdir(outdir) && rm(outdir, recursive = true)
     end
 
     @testset "Compressible Euler 2D" begin
-        equations = CompressibleEulerEquations2D(1.4)
+        equations = HyperbolicDiffusionEquations2D()
 
-        initial_condition = initial_condition_weak_blast_wave
+        initial_condition = initial_condition_poisson_nonperiodic
 
-        volume_flux = flux_ranocha
-        solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
-                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+        boundary_conditions = (x_neg = boundary_condition_poisson_nonperiodic,
+                               x_pos = boundary_condition_poisson_nonperiodic,
+                               y_neg = boundary_condition_periodic,
+                               y_pos = boundary_condition_periodic)
 
-        coordinates_min = (-2.0, -2.0)
-        coordinates_max = (2.0, 2.0)
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 5,
-                        n_cells_max = 10_000, periodicity = true)
+        solver = DGSEM(polydeg = 4, surface_flux = flux_lax_friedrichs)
+
+        coordinates_min = (0.0, 0.0)
+        coordinates_max = (1.0, 1.0)
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 3,
+                        n_cells_max = 30_000,
+                        periodicity = (false, true))
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                            boundary_conditions = boundary_condition_periodic)
+                                            boundary_conditions = boundary_conditions,
+                                            source_terms = source_terms_poisson_nonperiodic)
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
         # Get copy for GPU to avoid overwriting during tests
@@ -141,7 +151,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
         t = t_gpu = 0.0
-        tspan = (0.0, 0.4)
+        tspan = (0.0, 5.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
@@ -216,20 +226,28 @@ isdir(outdir) && rm(outdir, recursive = true)
     end
 
     @testset "Compressible Euler 3D" begin
-        equations = CompressibleEulerEquations3D(1.4)
+        equations = HyperbolicDiffusionEquations3D()
 
-        initial_condition = initial_condition_weak_blast_wave
+        initial_condition = initial_condition_poisson_nonperiodic
+        boundary_conditions = (x_neg = boundary_condition_poisson_nonperiodic,
+                               x_pos = boundary_condition_poisson_nonperiodic,
+                               y_neg = boundary_condition_periodic,
+                               y_pos = boundary_condition_periodic,
+                               z_neg = boundary_condition_periodic,
+                               z_pos = boundary_condition_periodic)
 
-        volume_flux = flux_ranocha
-        solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
-                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+        solver = DGSEM(polydeg = 4, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = (-2.0, -2.0, -2.0)
-        coordinates_max = (2.0, 2.0, 2.0)
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 3,
-                        n_cells_max = 100_000)
+        coordinates_min = (0.0, 0.0, 0.0)
+        coordinates_max = (1.0, 1.0, 1.0)
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 2,
+                        n_cells_max = 30_000,
+                        periodicity = (false, true, true))
 
-        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                            source_terms = source_terms_poisson_nonperiodic,
+                                            boundary_conditions = boundary_conditions)
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
         # Get copy for GPU to avoid overwriting during tests
@@ -238,7 +256,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         source_terms_gpu, solver_gpu, cache_gpu = source_terms, solver, cache
 
         t = t_gpu = 0.0
-        tspan = (0.0, 0.4)
+        tspan = (0.0, 5.0)
 
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)

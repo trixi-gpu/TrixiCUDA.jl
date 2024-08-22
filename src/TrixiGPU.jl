@@ -27,10 +27,6 @@ using StaticArrays: SVector
 include("auxiliary/auxiliary.jl")
 include("solvers/solvers.jl")
 
-# Default settings (will be removed in the future, currently used for testing)
-const DEFAULT_SETTING = true
-load_default_settings() # TODO: Change to using Preferences
-
 # Export the public APIs
 export semidiscretize_gpu
 

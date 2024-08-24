@@ -27,6 +27,9 @@ using StaticArrays: SVector
 include("auxiliary/auxiliary.jl")
 include("solvers/solvers.jl")
 
+set_log_type("log_Base")
+set_sqrt_type("sqrt_Base")
+
 # Export the public APIs
 export semidiscretize_gpu
 

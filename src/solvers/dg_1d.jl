@@ -373,7 +373,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     volume_flux = volume_integral.volume_flux
 
     derivative_split = dg.basis.derivative_split
-    set_diagonal_to_zero!(derivative_split) # temperarily set here, maybe move outside `rhs!`
+    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
 
     derivative_split = CuArray{Float64}(derivative_split)
     volume_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
@@ -399,7 +399,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
 
     derivative_split = dg.basis.derivative_split
-    set_diagonal_to_zero!(derivative_split) # temperarily set here, maybe move outside `rhs!`
+    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
 
     derivative_split = CuArray{Float64}(derivative_split)
     symmetric_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))

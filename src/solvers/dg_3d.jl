@@ -91,7 +91,7 @@ end
 
 # Kernel for calculating volume integrals
 function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_flux_arr2,
-                                 volume_flux_arr3)
+                                 volume_flux_arr3, equations::AbstractEquations{3})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -262,7 +262,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         u_inner = isequal(side, 1) * u_ll + (1 - isequal(side, 1)) * u_rr
         x = get_node_coords(node_coordinates, equations, j1, j2, boundary)
 
-        # TODO: Optimize flow controls as they are not recommended on GPUs
+        # TODO: Improve this part
         if direction == 1
             boundary_flux_node = boundary_conditions[1](u_inner, orientation,
                                                         direction, x, t, surface_flux, equations)
@@ -427,9 +427,9 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
                                                                         volume_flux_arr1,
                                                                         volume_flux_arr2,
-                                                                        volume_flux_arr3)
+                                                                        volume_flux_arr3, equations)
     volume_integral_kernel(du, derivative_split, volume_flux_arr1, volume_flux_arr2,
-                           volume_flux_arr3;
+                           volume_flux_arr3, equations;
                            configurator_3d(volume_integral_kernel, size_arr)...)
 
     return nothing
@@ -576,7 +576,6 @@ end
 
 # Pack kernels for calculating surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{3}, equations, dg::DGSEM, cache)
-    # FIXME: Check `surface_integral`
     factor_arr = CuArray{Float64}([
                                       dg.basis.boundary_interpolation[1, 1],
                                       dg.basis.boundary_interpolation[size(du, 2), 2]

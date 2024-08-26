@@ -66,8 +66,37 @@ function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1}
     return nothing
 end
 
+# Kernel for calculating symmetric and nonconservative fluxes
+function symmetric_noncons_flux_kernel!(symmetric_flux_arr, noncons_flux_arr, u, derivative_split,
+                                        equations::AbstractEquations{1}, symmetric_flux::Function,
+                                        nonconservative_flux::Function)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(u, 2)^2 && k <= size(u, 3))
+        j1 = div(j - 1, size(u, 2)) + 1
+        j2 = rem(j - 1, size(u, 2)) + 1
+
+        u_node = get_node_vars(u, equations, j1, k)
+        u_node1 = get_node_vars(u, equations, j2, k)
+
+        symmetric_flux_node = symmetric_flux(u_node, u_node1, 1, equations)
+        noncons_flux_node = nonconservative_flux(u_node, u_node1, 1, equations)
+
+        @inbounds begin
+            for ii in axes(u, 1)
+                symmetric_flux_arr[ii, j1, j2, k] = symmetric_flux_node[ii]
+                noncons_flux_arr[ii, j1, j2, k] = noncons_flux_node[ii] * derivative_split[j1, j2]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for calculating volume integrals
-function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
+function volume_integral_kernel!(du, derivative_split, volume_flux_arr,
+                                 equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -77,6 +106,28 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr)
             for ii in axes(du, 2)
                 du[i, j, k] += derivative_split[j, ii] * volume_flux_arr[i, j, ii, k]
             end
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for calculating symmetric and nonconservative volume integrals
+function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, noncons_flux_arr)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds begin
+            integral_contribution = 0.0 # change back to `Float32`
+
+            for ii in axes(du, 2)
+                du[i, j, k] += derivative_split[j, ii] * symmetric_flux_arr[i, j, ii, k]
+                integral_contribution += noncons_flux_arr[i, j, ii, k]
+            end
+
+            du[i, j, k] += 0.5 * integral_contribution # change back to `Float32`
         end
     end
 
@@ -121,6 +172,31 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, equations::Abstrac
     return nothing
 end
 
+# Kernel for calculating surface and both nonconservative fluxes 
+function surface_noncons_flux_kernel!(surface_flux_arr, interfaces_u, noncons_left_arr,
+                                      noncons_right_arr, equations::AbstractEquations{1},
+                                      surface_flux::Any, nonconservative_flux::Any)
+    k = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+
+    if (k <= size(surface_flux_arr, 3))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, k)
+
+        surface_flux_node = surface_flux(u_ll, u_rr, 1, equations)
+        noncons_left_node = nonconservative_flux(u_ll, u_rr, 1, equations)
+        noncons_right_node = nonconservative_flux(u_rr, u_ll, 1, equations)
+
+        @inbounds begin
+            for jj in axes(surface_flux_arr, 2)
+                surface_flux_arr[1, jj, k] = surface_flux_node[jj]
+                noncons_left_arr[1, jj, k] = noncons_left_node[jj]
+                noncons_right_arr[1, jj, k] = noncons_right_node[jj]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for setting interface fluxes
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -133,6 +209,26 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
         @inbounds begin
             surface_flux_values[i, 2, left_id] = surface_flux_arr[1, i, k]
             surface_flux_values[i, 1, right_id] = surface_flux_arr[1, i, k]
+        end
+    end
+
+    return nothing
+end
+
+function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
+                                noncons_right_arr, neighbor_ids)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (i <= size(surface_flux_values, 1) && k <= size(surface_flux_arr, 3))
+        left_id = neighbor_ids[1, k]
+        right_id = neighbor_ids[2, k]
+
+        @inbounds begin
+            surface_flux_values[i, 2, left_id] = surface_flux_arr[1, i, k] +
+                                                 0.5 * noncons_left_arr[1, i, k] # change back to `Float32`
+            surface_flux_values[i, 1, right_id] = surface_flux_arr[1, i, k] +
+                                                  0.5 * noncons_right_arr[1, i, k] # change back to `Float32`
         end
     end
 
@@ -176,7 +272,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         u_inner = isequal(side, 1) * u_ll + (1 - isequal(side, 1)) * u_rr
         x = get_node_coords(node_coordinates, equations, boundary)
 
-        # TODO: Optimize flow controls as they are not recommended on GPUs
+        # TODO: Improve this part
         if direction == 1
             boundary_flux_node = boundary_conditions[1](u_inner, orientation,
                                                         direction, x, t, surface_flux, equations)
@@ -276,7 +372,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                dg::DGSEM)
     volume_flux = volume_integral.volume_flux
 
-    derivative_split = CuArray{Float64}(dg.basis.derivative_split)
+    derivative_split = dg.basis.derivative_split
+    set_diagonal_to_zero!(derivative_split) # temperarily set here, maybe move outside `rhs!`
+
+    derivative_split = CuArray{Float64}(derivative_split)
     volume_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^2, size(u, 3))
@@ -287,8 +386,44 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                        configurator_2d(volume_flux_kernel, size_arr)...)
 
     volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
-                                                                        volume_flux_arr)
-    volume_integral_kernel(du, derivative_split, volume_flux_arr;
+                                                                        volume_flux_arr, equations)
+    volume_integral_kernel(du, derivative_split, volume_flux_arr, equations;
+                           configurator_3d(volume_integral_kernel, du)...)
+
+    return nothing
+end
+
+# Pack kernels to calculate volume integrals
+function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::True, equations,
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
+    symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
+
+    derivative_split = dg.basis.derivative_split
+    set_diagonal_to_zero!(derivative_split) # temperarily set here, maybe move outside `rhs!`
+
+    derivative_split = CuArray{Float64}(derivative_split)
+    symmetric_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
+    noncons_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
+
+    size_arr = CuArray{Float64}(undef, size(u, 2)^2, size(u, 3))
+
+    symmetric_noncons_flux_kernel = @cuda launch=false symmetric_noncons_flux_kernel!(symmetric_flux_arr,
+                                                                                      noncons_flux_arr,
+                                                                                      u,
+                                                                                      derivative_split,
+                                                                                      equations,
+                                                                                      symmetric_flux,
+                                                                                      nonconservative_flux)
+    symmetric_noncons_flux_kernel(symmetric_flux_arr, noncons_flux_arr, u, derivative_split,
+                                  equations, symmetric_flux, nonconservative_flux;
+                                  configurator_2d(symmetric_noncons_flux_kernel, size_arr)...)
+
+    derivative_split = CuArray{Float64}(dg.basis.derivative_split) # use original `derivative_split`
+
+    volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
+                                                                        symmetric_flux_arr,
+                                                                        noncons_flux_arr)
+    volume_integral_kernel(du, derivative_split, symmetric_flux_arr, noncons_flux_arr;
                            configurator_3d(volume_integral_kernel, du)...)
 
     return nothing
@@ -334,6 +469,46 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
                                                                       surface_flux_arr,
                                                                       neighbor_ids)
     interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids;
+                          configurator_2d(interface_flux_kernel, size_arr)...)
+
+    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+
+    return nothing
+end
+
+function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, equations, dg::DGSEM,
+                              cache)
+    surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
+
+    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
+    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    surface_flux_arr = CuArray{Float64}(undef, 1, size(interfaces_u)[2:end]...)
+    noncons_left_arr = CuArray{Float64}(undef, 1, size(interfaces_u)[2:end]...)
+    noncons_right_arr = CuArray{Float64}(undef, 1, size(interfaces_u)[2:end]...)
+    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+
+    size_arr = CuArray{Float64}(undef, size(interfaces_u, 3))
+
+    surface_noncons_flux_kernel = @cuda launch=false surface_noncons_flux_kernel!(surface_flux_arr,
+                                                                                  interfaces_u,
+                                                                                  noncons_left_arr,
+                                                                                  noncons_right_arr,
+                                                                                  equations,
+                                                                                  surface_flux,
+                                                                                  nonconservative_flux)
+    surface_noncons_flux_kernel(surface_flux_arr, interfaces_u, noncons_left_arr, noncons_right_arr,
+                                equations, surface_flux, nonconservative_flux;
+                                configurator_1d(surface_noncons_flux_kernel, size_arr)...)
+
+    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 1), size(interfaces_u, 3))
+
+    interface_flux_kernel = @cuda launch=false interface_flux_kernel!(surface_flux_values,
+                                                                      surface_flux_arr,
+                                                                      noncons_left_arr,
+                                                                      noncons_right_arr,
+                                                                      neighbor_ids)
+    interface_flux_kernel(surface_flux_values, surface_flux_arr, noncons_left_arr,
+                          noncons_right_arr, neighbor_ids;
                           configurator_2d(interface_flux_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
@@ -421,7 +596,6 @@ end
 
 # Pack kernels for calculating surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DGSEM, cache)
-    # FIXME: Check `surface_integral`
     factor_arr = CuArray{Float64}([
                                       dg.basis.boundary_interpolation[1, 1],
                                       dg.basis.boundary_interpolation[size(du, 2), 2]

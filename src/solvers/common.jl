@@ -18,11 +18,20 @@ end
 
 # Copy data from device to host 
 function copy_to_host!(du::CuArray, u::CuArray)
-    # FIXME: Maybe direct CuArray to PtrArray conversion is possible (in the future)
+    # TODO: Direct CuArray to PtrArray
     du = PtrArray(Array{Float64}(du))
     u = PtrArray(Array{Float64}(u))
 
     return (du, u)
+end
+
+# Set diagonal entries of a matrix to zeros
+function set_diagonal_to_zero!(A::Array{Float64})
+    n = min(size(A)...)
+    for i in 1:n
+        A[i, i] = 0.0 # change back to `Float32`
+    end
+    return nothing
 end
 
 # Kernel for getting last and first indices

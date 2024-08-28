@@ -59,7 +59,19 @@ sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false),
 summary_callback()
 ```
 
+# Supported Mesh and Solver Types
+Our current focus is on the semidiscretization of PDEs. The table below shows the status of this work across different mesh types and solvers. Looking ahead, we plan to extend parallelization to include mesh initialization and callbacks on the GPU. 
+
+| Mesh Type          | Spatial Dimension | Solver Type | Status         |
+|--------------------|-------------------|-------------|----------------|
+| `TreeMesh`         | 1D, 2D, 3D        | `DGSEM`     | ✅ Supported    |
+| `StructuredMesh`   | 1D, 2D, 3D        | `DGSEM`     | 🛠️ In Development|
+| `UnstructuredMesh` | 2D                | `DGSEM`     | 🟡 Planned      |
+| `P4estMesh`        | 2D, 3D            | `DGSEM`     | 🟡 Planned      |
+| `DGMultiMesh`      | 1D, 2D, 3D        | `DGMulti`   | 🟡 Planned      |
+
 # GPU Kernels to be Implemented
+Kernels left to be implemented on `TreeMesh` with `DGSEM`:
 - 1D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`
 - 2D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!()`
 - 3D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `prolong2mortars!()`, 3) `calc_mortar_flux!()` 

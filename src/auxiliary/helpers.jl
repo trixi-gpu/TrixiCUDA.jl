@@ -22,8 +22,25 @@ end
     return u_ll, u_rr
 end
 
+# Helper function for checking `cache.mortars`
+@inline function check_cache_mortars(cache)
+    if iszero(length(cache.mortars.orientations))
+        return True()
+    else
+        return False()
+    end
+end
+
 # Callable function to replace the `boundary_condition_periodic` from Trixi.jl
 @inline function boundary_condition_periodic_callable(u_inner, orientation,
                                                       direction, x, t, surface_flux, equations)
     return nothing
+end
+
+# Replace the `boundary_condition_periodic` from Trixi.jl with a callable one
+function replace_boundary_conditions(boundary_conditions::NamedTuple)
+    keys_ = keys(boundary_conditions)
+    values_ = (func == boundary_condition_periodic ? boundary_condition_periodic_callable : func
+               for func in values(boundary_conditions))
+    return NamedTuple{keys_}(values_)
 end

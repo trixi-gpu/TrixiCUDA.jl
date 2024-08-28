@@ -1,13 +1,5 @@
 # Some common functions that are shared between the solvers.
 
-# Replace the `boundary_condition_periodic` from Trixi.jl with a callable one
-function replace_boundary_conditions(boundary_conditions::NamedTuple)
-    keys_ = keys(boundary_conditions)
-    values_ = (func == boundary_condition_periodic ? boundary_condition_periodic_callable : func
-               for func in values(boundary_conditions))
-    return NamedTuple{keys_}(values_)
-end
-
 # Copy data from host to device
 function copy_to_device!(du::PtrArray, u::PtrArray)
     du = CuArray{Float64}(zero(du))

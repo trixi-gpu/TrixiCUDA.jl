@@ -384,6 +384,95 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
     return nothing
 end
 
+# Kernel for copying data small to small on mortars
+function prolong_mortars_small2small_kernel!(u_upper, u_lower, u, neighbor_ids, large_sides,
+                                             orientations)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper, 2) && j <= size(u_upper, 3) && k <= size(u_upper, 4))
+        large_side = large_sides[k]
+        orientation = orientations[k]
+
+        lower_element = neighbor_ids[1, k]
+        upper_element = neighbor_ids[2, k]
+
+        u2 = size(u, 2)
+
+        @inbounds begin
+            u_upper[2, i, j, k] = u[i,
+                                    isequal(orientation, 1) * 1 + isequal(orientation, 2) * j,
+                                    isequal(orientation, 1) * j + isequal(orientation, 2) * 1,
+                                    upper_element] * isequal(large_side, 1)
+
+            u_lower[2, i, j, k] = u[i,
+                                    isequal(orientation, 1) * 1 + isequal(orientation, 2) * j,
+                                    isequal(orientation, 1) * j + isequal(orientation, 2) * 1,
+                                    lower_element] * isequal(large_side, 1)
+
+            u_upper[1, i, j, k] = u[i,
+                                    isequal(orientation, 1) * u2 + isequal(orientation, 2) * j,
+                                    isequal(orientation, 1) * j + isequal(orientation, 2) * u2,
+                                    upper_element] * isequal(large_side, 2)
+
+            u_lower[1, i, j, k] = u[i,
+                                    isequal(orientation, 1) * u2 + isequal(orientation, 2) * j,
+                                    isequal(orientation, 1) * j + isequal(orientation, 2) * u2,
+                                    lower_element] * isequal(large_side, 2)
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for interpolating data large to small on mortars
+function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper, forward_lower,
+                                             neighbor_ids, large_sides, orientations)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper, 2) && j <= size(u_upper, 3) && k <= size(u_upper, 4))
+        large_side = large_sides[k]
+        orientation = orientations[k]
+        large_element = neighbor_ids[3, k]
+
+        leftright = large_side
+        u2 = size(u, 2)
+
+        @inbounds begin
+            for ii in axes(forward_upper, 2)
+                u_upper[leftright, i, j, k] += forward_upper[j, ii] *
+                                               u[i,
+                                                 isequal(orientation, 1) * u2 + isequal(orientation, 2) * ii,
+                                                 isequal(orientation, 1) * ii + isequal(orientation, 2) * u2,
+                                                 large_element] * isequal(large_side, 1)
+                u_lower[leftright, i, j, k] += forward_lower[j, ii] *
+                                               u[i,
+                                                 isequal(orientation, 1) * u2 + isequal(orientation, 2) * ii,
+                                                 isequal(orientation, 1) * ii + isequal(orientation, 2) * u2,
+                                                 large_element] * isequal(large_side, 1)
+            end
+
+            for ii in axes(forward_lower, 2)
+                u_upper[leftright, i, j, k] += forward_upper[j, ii] *
+                                               u[i,
+                                                 isequal(orientation, 1) * 1 + isequal(orientation, 2) * ii,
+                                                 isequal(orientation, 1) * ii + isequal(orientation, 2) * 1,
+                                                 large_element] * isequal(large_side, 2)
+                u_lower[leftright, i, j, k] += forward_lower[j, ii] *
+                                               u[i,
+                                                 isequal(orientation, 1) * 1 + isequal(orientation, 2) * ii,
+                                                 isequal(orientation, 1) * ii + isequal(orientation, 2) * 1,
+                                                 large_element] * isequal(large_side, 2)
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for calculating surface integrals
 function surface_integral_kernel!(du, factor_arr, surface_flux_values,
                                   equations::AbstractEquations{2})
@@ -735,6 +824,52 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     return nothing
 end
 
+# Dummy function for asserting mortars
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DGSEM, cache)
+    @assert iszero(length(cache.mortars.orientations))
+end
+
+# Pack kernels for prolonging solution to mortars
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::False, dg::DGSEM, cache)
+    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
+    large_sides = CuArray{Int64}(cache.mortars.large_sides)
+    orientations = CuArray{Int64}(cache.mortars.orientations)
+    u_upper = CuArray{Float64}(cache.mortars.u_upper)
+    u_lower = CuArray{Float64}(cache.mortars.u_lower)
+    forward_upper = CuArray{Float64}(dg.mortar.forward_upper)
+    forward_lower = CuArray{Float64}(dg.mortar.forward_lower)
+
+    size_arr = CuArray{Float64}(undef, size(u_upper, 2), size(u_upper, 3), size(u_upper, 4))
+
+    prolong_mortars_small2small_kernel = @cuda launch=false prolong_mortars_small2small_kernel!(u_upper,
+                                                                                                u_lower,
+                                                                                                u,
+                                                                                                neighbor_ids,
+                                                                                                large_sides,
+                                                                                                orientations)
+    prolong_mortars_small2small_kernel(u_upper, u_lower, u, neighbor_ids, large_sides, orientations;
+                                       configurator_3d(prolong_mortars_small2small_kernel,
+                                                       size_arr)...)
+
+    prolong_mortars_large2small_kernel = @cuda launch=false prolong_mortars_large2small_kernel!(u_upper,
+                                                                                                u_lower,
+                                                                                                u,
+                                                                                                forward_upper,
+                                                                                                forward_lower,
+                                                                                                neighbor_ids,
+                                                                                                large_sides,
+                                                                                                orientations)
+    prolong_mortars_large2small_kernel(u_upper, u_lower, u, forward_upper, forward_lower,
+                                       neighbor_ids, large_sides, orientations;
+                                       configurator_3d(prolong_mortars_large2small_kernel,
+                                                       size_arr)...)
+
+    cache.mortars.u_upper = u_upper # copy back to host automatically
+    cache.mortars.u_lower = u_lower # copy back to host automatically
+
+    return nothing
+end
+
 # Pack kernels for calculating surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{2}, equations, dg::DGSEM, cache)
     factor_arr = CuArray{Float64}([
@@ -802,6 +937,8 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, initial_condit
     cuda_prolong2boundaries!(u, mesh, boundary_conditions, equations, cache)
 
     cuda_boundary_flux!(t, mesh, boundary_conditions, equations, dg, cache)
+
+    cuda_prolong2mortars!(u, mesh, check_cache_mortars(cache), dg, cache)
 
     cuda_surface_integral!(du, mesh, equations, dg, cache)
 

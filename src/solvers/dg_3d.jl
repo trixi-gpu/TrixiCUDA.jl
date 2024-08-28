@@ -299,6 +299,185 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
     return nothing
 end
 
+# Kernel for copying data small to small on mortars
+function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lower_left,
+                                             u_lower_right, u, neighbor_ids, large_sides,
+                                             orientations)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper_left, 2) && j <= size(u_upper_left, 3)^2 && k <= size(u_upper_left, 5))
+        j1 = div(j - 1, size(u_upper_left, 3)) + 1
+        j2 = rem(j - 1, size(u_upper_left, 3)) + 1
+
+        large_side = large_sides[k]
+        orientation = orientations[k]
+
+        lower_left_element = neighbor_ids[1, k]
+        lower_right_element = neighbor_ids[2, k]
+        upper_left_element = neighbor_ids[3, k]
+        upper_right_element = neighbor_ids[4, k]
+
+        u2 = size(u, 2)
+
+        @inbounds begin
+            u_upper_left[2, i, j1, j2, k] = u[i,
+                                              isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                              isequal(orientation, 1) * j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
+                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
+                                              upper_left_element] * isequal(large_side, 1)
+
+            u_upper_right[2, i, j1, j2, k] = u[i,
+                                               isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
+                                               upper_right_element] * isequal(large_side, 1)
+
+            u_lower_left[2, i, j1, j2, k] = u[i,
+                                              isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                              isequal(orientation, 1) * j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
+                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
+                                              lower_left_element] * isequal(large_side, 1)
+
+            u_lower_right[2, i, j1, j2, k] = u[i,
+                                               isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
+                                               lower_right_element] * isequal(large_side, 1)
+
+            u_upper_left[1, i, j1, j2, k] = u[i,
+                                              isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                              isequal(orientation, 1) * j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                              upper_left_element] * isequal(large_side, 2)
+
+            u_upper_right[1, i, j1, j2, k] = u[i,
+                                               isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                               upper_right_element] * isequal(large_side, 2)
+
+            u_lower_left[1, i, j1, j2, k] = u[i,
+                                              isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                              isequal(orientation, 1) * j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                              lower_left_element] * isequal(large_side, 2)
+
+            u_lower_right[1, i, j1, j2, k] = u[i,
+                                               isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                               lower_right_element] * isequal(large_side, 2)
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for interpolating data large to small on mortars
+function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lower_left,
+                                             u_lower_right, tmp_upper_left, tmp_upper_right,
+                                             tmp_lower_left, tmp_lower_right, u, forward_upper,
+                                             forward_lower, neighbor_ids, large_sides, orientations)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper_left, 2) && j <= size(u_upper_left, 3)^2 && k <= size(u_upper_left, 5))
+        j1 = div(j - 1, size(u_upper_left, 3)) + 1
+        j2 = rem(j - 1, size(u_upper_left, 3)) + 1
+
+        large_side = large_sides[k]
+        orientation = orientations[k]
+        large_element = neighbor_ids[5, k]
+
+        leftright = large_side
+        u2 = size(u, 2)
+
+        @inbounds begin
+            for j1j1 in axes(forward_lower, 2)
+                tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                           u[i,
+                                                             isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                                             large_element] * isequal(large_side, 1)
+
+                tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                            u[i,
+                                                              isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                                              large_element] *
+                                                            isequal(large_side, 1)
+
+                tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                           u[i,
+                                                             isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                                             large_element] * isequal(large_side, 1)
+
+                tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                            u[i,
+                                                              isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                                              large_element] *
+                                                            isequal(large_side, 1)
+            end
+
+            for j1j1 in axes(forward_lower, 2)
+                tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                           u[i,
+                                                             isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
+                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
+                                                             large_element] * isequal(large_side, 2)
+                tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                            u[i,
+                                                              isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
+                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
+                                                              large_element] *
+                                                            isequal(large_side, 2)
+
+                tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                           u[i,
+                                                             isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
+                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
+                                                             large_element] * isequal(large_side, 2)
+
+                tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                            u[i,
+                                                              isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
+                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
+                                                              large_element] *
+                                                            isequal(large_side, 2)
+            end
+
+            for j2j2 in axes(forward_upper, 2)
+                u_upper_left[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
+                                                         tmp_upper_left[leftright, i, j1, j2j2, k]
+
+                u_upper_right[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
+                                                          tmp_upper_right[leftright, i, j1, j2j2, k]
+
+                u_lower_left[leftright, i, j1, j2, k] += forward_lower[j2, j2j2] *
+                                                         tmp_lower_left[leftright, i, j1, j2j2, k]
+
+                u_lower_right[leftright, i, j1, j2, k] += forward_lower[j2, j2j2] *
+                                                          tmp_lower_right[leftright, i, j1, j2j2, k]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for calculating surface integrals
 function surface_integral_kernel!(du, factor_arr, surface_flux_values,
                                   equations::AbstractEquations{3})
@@ -574,6 +753,77 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
     return nothing
 end
 
+# Dummy function for asserting mortars 
+function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DGSEM, cache)
+    @assert iszero(length(cache.mortars.orientations))
+end
+
+# Pack kernels for prolonging solution to mortars
+function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::False, dg::DGSEM, cache)
+    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
+    large_sides = CuArray{Int64}(cache.mortars.large_sides)
+    orientations = CuArray{Int64}(cache.mortars.orientations)
+    u_upper_left = CuArray{Float64}(cache.mortars.u_upper_left)
+    u_upper_right = CuArray{Float64}(cache.mortars.u_upper_right)
+    u_lower_left = CuArray{Float64}(cache.mortars.u_lower_left)
+    u_lower_right = CuArray{Float64}(cache.mortars.u_lower_right)
+
+    forward_upper = CuArray{Float64}(dg.mortar.forward_upper)
+    forward_lower = CuArray{Float64}(dg.mortar.forward_lower)
+
+    size_arr = CuArray{Float64}(undef, size(u_upper_left, 2), size(u_upper_left, 3)^2,
+                                size(u_upper_left, 5))
+
+    prolong_mortars_small2small_kernel = @cuda launch=false prolong_mortars_small2small_kernel!(u_upper_left,
+                                                                                                u_upper_right,
+                                                                                                u_lower_left,
+                                                                                                u_lower_right,
+                                                                                                u,
+                                                                                                neighbor_ids,
+                                                                                                large_sides,
+                                                                                                orientations)
+    prolong_mortars_small2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u,
+                                       neighbor_ids, large_sides, orientations;
+                                       configurator_3d(prolong_mortars_small2small_kernel,
+                                                       size_arr)...)
+    tmp_upper_left = similar(u_upper_left)
+    tmp_upper_right = similar(u_upper_right)
+    tmp_lower_left = similar(u_lower_left)
+    tmp_lower_right = similar(u_lower_right)
+
+    size_arr = CuArray{Float64}(undef, size(u_upper_left, 2), size(u_upper_left, 3)^2,
+                                size(u_upper_left, 5))
+
+    prolong_mortars_large2small_kernel = @cuda launch=false prolong_mortars_large2small_kernel!(u_upper_left,
+                                                                                                u_upper_right,
+                                                                                                u_lower_left,
+                                                                                                u_lower_right,
+                                                                                                tmp_upper_left,
+                                                                                                tmp_upper_right,
+                                                                                                tmp_lower_left,
+                                                                                                tmp_lower_right,
+                                                                                                u,
+                                                                                                forward_upper,
+                                                                                                forward_lower,
+                                                                                                neighbor_ids,
+                                                                                                large_sides,
+                                                                                                orientations)
+    prolong_mortars_large2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right,
+                                       tmp_upper_left, tmp_upper_right, tmp_lower_left,
+                                       tmp_lower_right, u,
+                                       forward_upper, forward_lower, neighbor_ids, large_sides,
+                                       orientations;
+                                       configurator_3d(prolong_mortars_large2small_kernel,
+                                                       size_arr)...)
+
+    cache.mortars.u_upper_left = u_upper_left # copy back to host automatically
+    cache.mortars.u_upper_right = u_upper_right # copy back to host automatically
+    cache.mortars.u_lower_left = u_lower_left # copy back to host automatically
+    cache.mortars.u_lower_right = u_lower_right # copy back to host automatically
+
+    return nothing
+end
+
 # Pack kernels for calculating surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{3}, equations, dg::DGSEM, cache)
     factor_arr = CuArray{Float64}([
@@ -641,6 +891,8 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, initial_condit
     cuda_prolong2boundaries!(u, mesh, boundary_conditions, equations, cache)
 
     cuda_boundary_flux!(t, mesh, boundary_conditions, equations, dg, cache)
+
+    cuda_prolong2mortars!(u, mesh, cache.mortars, dg, cache)
 
     cuda_surface_integral!(du, mesh, equations, dg, cache)
 

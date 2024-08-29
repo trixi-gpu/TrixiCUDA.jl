@@ -834,8 +834,9 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::False, dg::D
     neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
     large_sides = CuArray{Int64}(cache.mortars.large_sides)
     orientations = CuArray{Int64}(cache.mortars.orientations)
-    u_upper = CuArray{Float64}(cache.mortars.u_upper)
-    u_lower = CuArray{Float64}(cache.mortars.u_lower)
+    u_upper = zero(CuArray{Float64}(cache.mortars.u_upper))
+    u_lower = zero(CuArray{Float64}(cache.mortars.u_lower))
+
     forward_upper = CuArray{Float64}(dg.mortar.forward_upper)
     forward_lower = CuArray{Float64}(dg.mortar.forward_lower)
 

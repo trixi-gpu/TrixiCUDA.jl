@@ -435,6 +435,7 @@ function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lowe
                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
                                                              large_element] * isequal(large_side, 2)
+
                 tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
                                                             u[i,
                                                               isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
@@ -763,10 +764,10 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::False, dg::D
     neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
     large_sides = CuArray{Int64}(cache.mortars.large_sides)
     orientations = CuArray{Int64}(cache.mortars.orientations)
-    u_upper_left = CuArray{Float64}(cache.mortars.u_upper_left)
-    u_upper_right = CuArray{Float64}(cache.mortars.u_upper_right)
-    u_lower_left = CuArray{Float64}(cache.mortars.u_lower_left)
-    u_lower_right = CuArray{Float64}(cache.mortars.u_lower_right)
+    u_upper_left = zero(CuArray{Float64}(cache.mortars.u_upper_left))
+    u_upper_right = zero(CuArray{Float64}(cache.mortars.u_upper_right))
+    u_lower_left = zero(CuArray{Float64}(cache.mortars.u_lower_left))
+    u_lower_right = zero(CuArray{Float64}(cache.mortars.u_lower_right))
 
     forward_upper = CuArray{Float64}(dg.mortar.forward_upper)
     forward_lower = CuArray{Float64}(dg.mortar.forward_lower)
@@ -786,10 +787,10 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::False, dg::D
                                        neighbor_ids, large_sides, orientations;
                                        configurator_3d(prolong_mortars_small2small_kernel,
                                                        size_arr)...)
-    tmp_upper_left = similar(u_upper_left)
-    tmp_upper_right = similar(u_upper_right)
-    tmp_lower_left = similar(u_lower_left)
-    tmp_lower_right = similar(u_lower_right)
+    tmp_upper_left = zero(similar(u_upper_left))
+    tmp_upper_right = zero(similar(u_upper_right))
+    tmp_lower_left = zero(similar(u_lower_left))
+    tmp_lower_right = zero(similar(u_lower_right))
 
     size_arr = CuArray{Float64}(undef, size(u_upper_left, 2), size(u_upper_left, 3)^2,
                                 size(u_upper_left, 5))

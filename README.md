@@ -74,7 +74,7 @@ Our current focus is on the semidiscretization of PDEs. The table below shows th
 Kernels left to be implemented on `TreeMesh` with `DGSEM`:
 - 1D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`
 - 2D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!()`
-- 3D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `prolong2mortars!()`, 3) `calc_mortar_flux!()` 
+- 3D Kernels: 1) `calc_volume_integral!()` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!()`
 
 # Show Your Support!
 We always welcome new people to join us, please feel free to contribute. Also, if you find this package interesting and inspiring, please give it a star. Thanks!

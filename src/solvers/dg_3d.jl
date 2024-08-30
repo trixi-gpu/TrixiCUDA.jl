@@ -1128,9 +1128,9 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, initial_condit
 
     cuda_boundary_flux!(t, mesh, boundary_conditions, equations, dg, cache)
 
-    cuda_prolong2mortars!(u, mesh, cache.mortars, dg, cache)
+    cuda_prolong2mortars!(u, mesh, check_cache_mortars(cache), dg, cache)
 
-    cuda_mortar_flux!(mesh, cache.mortars, have_nonconservative_terms(equations),
+    cuda_mortar_flux!(mesh, check_cache_mortars(cache), have_nonconservative_terms(equations),
                       equations, dg, cache)
 
     cuda_surface_integral!(du, mesh, equations, dg, cache)

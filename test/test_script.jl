@@ -3,16 +3,18 @@ using OrdinaryDiffEq
 using CUDA
 using Test
 
-advection_velocity = (0.2, -0.7)
-equations = LinearScalarAdvectionEquation2D(advection_velocity)
+advection_velocity = (0.2, -0.7, 0.5)
+equations = LinearScalarAdvectionEquation3D(advection_velocity)
 
 initial_condition = initial_condition_convergence_test
 solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-coordinates_min = (-1.0, -1.0)
-coordinates_max = (1.0, 1.0)
-refinement_patches = ((type = "box", coordinates_min = (0.0, -1.0),
-                       coordinates_max = (1.0, 1.0)),)
+coordinates_min = (-1.0, -1.0, -1.0)
+coordinates_max = (1.0, 1.0, 1.0)
+refinement_patches = ((type = "box", coordinates_min = (0.0, -1.0, -1.0),
+                       coordinates_max = (1.0, 1.0, 1.0)),
+                      (type = "box", coordinates_min = (0.0, -0.5, -0.5),
+                       coordinates_max = (0.5, 0.5, 0.5)))
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 2,
                 refinement_patches = refinement_patches,
@@ -29,7 +31,7 @@ initial_condition_gpu, boundary_conditions_gpu, source_terms_gpu = deepcopy(init
 solver_gpu, cache_gpu = deepcopy(solver), deepcopy(cache)
 
 t = t_gpu = 0.0
-tspan = (0.0, 1.0)
+tspan = (0.0, 5.0)
 
 ode = semidiscretize(semi, tspan)
 u_ode = copy(ode.u0)

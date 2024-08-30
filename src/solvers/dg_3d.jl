@@ -755,19 +755,20 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
 end
 
 # Dummy function for asserting mortars 
-function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DGSEM, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::False, dg::DGSEM, cache)
     @assert iszero(length(cache.mortars.orientations))
 end
 
 # Pack kernels for prolonging solution to mortars
-function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::False, dg::DGSEM, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DGSEM, cache)
     neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
     large_sides = CuArray{Int64}(cache.mortars.large_sides)
     orientations = CuArray{Int64}(cache.mortars.orientations)
-    u_upper_left = zero(CuArray{Float64}(cache.mortars.u_upper_left))
-    u_upper_right = zero(CuArray{Float64}(cache.mortars.u_upper_right))
-    u_lower_left = zero(CuArray{Float64}(cache.mortars.u_lower_left))
-    u_lower_right = zero(CuArray{Float64}(cache.mortars.u_lower_right))
+
+    u_upper_left = zero(CuArray{Float64}(cache.mortars.u_upper_left)) # NaN to zero
+    u_upper_right = zero(CuArray{Float64}(cache.mortars.u_upper_right)) # NaN to zero
+    u_lower_left = zero(CuArray{Float64}(cache.mortars.u_lower_left)) # NaN to zero
+    u_lower_right = zero(CuArray{Float64}(cache.mortars.u_lower_right)) # NaN to zero
 
     forward_upper = CuArray{Float64}(dg.mortar.forward_upper)
     forward_lower = CuArray{Float64}(dg.mortar.forward_lower)
@@ -787,10 +788,10 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::False, dg::D
                                        neighbor_ids, large_sides, orientations;
                                        configurator_3d(prolong_mortars_small2small_kernel,
                                                        size_arr)...)
-    tmp_upper_left = zero(similar(u_upper_left))
-    tmp_upper_right = zero(similar(u_upper_right))
-    tmp_lower_left = zero(similar(u_lower_left))
-    tmp_lower_right = zero(similar(u_lower_right))
+    tmp_upper_left = zero(similar(u_upper_left)) # undef to zero
+    tmp_upper_right = zero(similar(u_upper_right)) # undef to zero
+    tmp_lower_left = zero(similar(u_lower_left)) # undef to zero
+    tmp_lower_right = zero(similar(u_lower_right)) # undef to zero
 
     size_arr = CuArray{Float64}(undef, size(u_upper_left, 2), size(u_upper_left, 3)^2,
                                 size(u_upper_left, 5))
@@ -823,6 +824,21 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::False, dg::D
     cache.mortars.u_lower_right = u_lower_right # copy back to host automatically
 
     return nothing
+end
+
+# Dummy function for asserting mortar fluxes
+function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::False, nonconservative_terms,
+                           equations, dg::DGSEM, cache)
+    @assert iszero(length(cache.mortars.orientations))
+end
+
+# Pack kernels for calculating mortar fluxes
+function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::False,
+                           equations, dg::DGSEM, cache)
+end
+
+function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::True,
+                           equations, dg::DGSEM, cache)
 end
 
 # Pack kernels for calculating surface integrals

@@ -221,6 +221,17 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test u_upper_gpu ≈ u_upper
         @test u_lower_gpu ≈ u_lower
 
+        # Test `cuda_mortar_flux!`
+        TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
+                                   Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+                                   solver_gpu, cache_gpu)
+        Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+                                Trixi.have_nonconservative_terms(equations), equations,
+                                solver.mortar, solver.surface_integral, solver, cache)
+        surface_flux_values_gpu = replace(cache_gpu.elements.surface_flux_values, NaN => 0.0)
+        surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
+        @test surface_flux_values_gpu ≈ surface_flux_values
+
         # Test `cuda_surface_integral!`
         TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
         Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
@@ -345,6 +356,17 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test u_upper_right_gpu ≈ u_upper_right
         @test u_lower_left_gpu ≈ u_lower_left
         @test u_lower_right_gpu ≈ u_lower_right
+
+        # Test `cuda_mortar_flux!`
+        TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
+                                   Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+                                   solver_gpu, cache_gpu)
+        Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+                                Trixi.have_nonconservative_terms(equations), equations,
+                                solver.mortar, solver.surface_integral, solver, cache)
+        surface_flux_values_gpu = replace(cache_gpu.elements.surface_flux_values, NaN => 0.0)
+        surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
+        @test surface_flux_values_gpu ≈ surface_flux_values
 
         # Test `cuda_surface_integral!`
         TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)

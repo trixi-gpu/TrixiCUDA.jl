@@ -25,9 +25,9 @@ end
 # Helper function for checking `cache.mortars`
 @inline function check_cache_mortars(cache)
     if iszero(length(cache.mortars.orientations))
-        return True()
-    else
         return False()
+    else
+        return True()
     end
 end
 

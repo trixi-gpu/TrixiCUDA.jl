@@ -7,7 +7,7 @@
 
 The acceleration focus of this package is currently on the semidiscretization part (with plans to extend to other parts) of the PDE solvers, and [**CUDA.jl**](https://github.com/JuliaGPU/CUDA.jl) is our primary support (will expand to more types of GPUs using [**AMDGPU.jl**](https://github.com/JuliaGPU/AMDGPU.jl), [**OneAPI.jl**](https://github.com/JuliaGPU/oneAPI.jl), and [**Metal.jl**](https://github.com/JuliaGPU/Metal.jl) in the future). 
 
-The complete documentation for this project (and now is available as a package) can be accessed here [**GSoC**](https://huiyuxie.github.io/gsoc23/). Please note that this package is intended to be part of the [**trixi-framework**](https://github.com/trixi-framework) orgnization in the end. Due to constrained GPU resources and ease of development, it is now under a temporary organization. 
+The complete documentation for this project (and now is available as a package) can be accessed here [**GSoC**](https://huiyuxie.github.io/gsoc23/). Please note that this package is intended to be part of the [**trixi-framework**](https://github.com/trixi-framework) organization in the end. Due to constrained GPU resources and ease of development, it is now under a temporary organization. 
 
 # Package Installation
 The package is now in pre-release status and will be registered once the initial release version is published. We want to make sure most key features are ready and optimizations are done before we roll out the first release.

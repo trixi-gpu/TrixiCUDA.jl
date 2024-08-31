@@ -5,7 +5,7 @@
 # the device (i.e., GPU).
 
 # Kernel for calculating fluxes along normal direction
-function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Function)
+function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -43,7 +43,7 @@ end
 
 # Kernel for calculating volume fluxes
 function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1},
-                             volume_flux::Function)
+                             volume_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -68,8 +68,8 @@ end
 
 # Kernel for calculating symmetric and nonconservative fluxes
 function symmetric_noncons_flux_kernel!(symmetric_flux_arr, noncons_flux_arr, u, derivative_split,
-                                        equations::AbstractEquations{1}, symmetric_flux::Function,
-                                        nonconservative_flux::Function)
+                                        equations::AbstractEquations{1}, symmetric_flux::Any,
+                                        nonconservative_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 

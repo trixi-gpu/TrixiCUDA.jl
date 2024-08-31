@@ -6,7 +6,7 @@
 
 # Kernel for calculating fluxes along normal directions
 function flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u, equations::AbstractEquations{3},
-                      flux::Function)
+                      flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -58,7 +58,7 @@ end
 
 # CUDA kernel for calculating volume fluxes
 function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3, u,
-                             equations::AbstractEquations{3}, volume_flux::Function)
+                             equations::AbstractEquations{3}, volume_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -679,7 +679,7 @@ end
 
 # Kernel for calculating source terms
 function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{3},
-                              source_terms::Function)
+                              source_terms::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 

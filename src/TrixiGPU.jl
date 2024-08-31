@@ -13,7 +13,7 @@ using Trixi: AbstractEquations, TreeMesh, DGSEM,
              True, False,
              wrap_array, compute_coefficients, have_nonconservative_terms,
              boundary_condition_periodic,
-             set_log_type, set_sqrt_type
+             set_log_type!, set_sqrt_type!
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars
 
@@ -27,8 +27,8 @@ using StaticArrays: SVector
 include("auxiliary/auxiliary.jl")
 include("solvers/solvers.jl")
 
-set_log_type("log_Base")
-set_sqrt_type("sqrt_Base")
+set_log_type!("log_Base")
+set_sqrt_type!("sqrt_Base")
 
 # Export the public APIs
 export semidiscretize_gpu

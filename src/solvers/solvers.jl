@@ -10,8 +10,7 @@ function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
     u = wrap_array(u_ode, mesh, equations, solver, cache)
     du = wrap_array(du_ode, mesh, equations, solver, cache)
 
-    rhs_gpu!(du, u, t, mesh, equations, initial_condition, boundary_conditions, source_terms,
-             solver, cache)
+    rhs_gpu!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
 
     return nothing
 end

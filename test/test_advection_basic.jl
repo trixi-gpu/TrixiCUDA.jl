@@ -13,10 +13,6 @@ isdir(outdir) && rm(outdir, recursive = true)
 # CPU kernels, which corresponds to requiring equality of about half of the significant digits 
 # (see https://docs.julialang.org/en/v1/base/math/#Base.isapprox).
 
-# Basically, this heuristic method first checks whether this error bound (sometimes it is further 
-# relaxed) is satisfied. Any new methods and optimizations introduced later should at least satisfy 
-# this error bound.
-
 # Test precision of the semidiscretization process
 @testset "Test Linear Advection Basic" begin
     @testset "Linear Advection 1D" begin

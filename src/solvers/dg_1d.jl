@@ -645,8 +645,8 @@ end
 # Put everything together into a single function 
 # Ref: `rhs!` function in Trixi.jl
 
-function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, initial_condition,
-                  boundary_conditions, source_terms::Source, dg::DGSEM, cache) where {Source}
+function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, boundary_conditions,
+                  source_terms::Source, dg::DGSEM, cache) where {Source}
     du, u = copy_to_device!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,

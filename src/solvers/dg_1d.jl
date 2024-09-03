@@ -5,7 +5,7 @@
 # the device (i.e., GPU).
 
 # Kernel for calculating fluxes along normal direction
-function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Function)
+function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -43,7 +43,7 @@ end
 
 # Kernel for calculating volume fluxes
 function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1},
-                             volume_flux::Function)
+                             volume_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -68,8 +68,8 @@ end
 
 # Kernel for calculating symmetric and nonconservative fluxes
 function symmetric_noncons_flux_kernel!(symmetric_flux_arr, noncons_flux_arr, u, derivative_split,
-                                        equations::AbstractEquations{1}, symmetric_flux::Function,
-                                        nonconservative_flux::Function)
+                                        equations::AbstractEquations{1}, symmetric_flux::Any,
+                                        nonconservative_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -574,8 +574,6 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
     indices_arr = CuArray{Int64}([firsts[1], firsts[2]])
     boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
 
-    size_arr = CuArray{Float64}(undef, length(boundary_arr))
-
     boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,
                                                                     boundaries_u, node_coordinates,
                                                                     t, boundary_arr, indices_arr,
@@ -587,7 +585,7 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
     boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                          indices_arr, neighbor_ids, neighbor_sides, orientations,
                          boundary_conditions_callable, equations, surface_flux;
-                         configurator_1d(boundary_flux_kernel, size_arr)...)
+                         configurator_1d(boundary_flux_kernel, boundary_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
 
@@ -602,13 +600,11 @@ function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DGSEM, cac
                                   ])
     surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
 
-    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2), size(du, 3))
-
     surface_integral_kernel = @cuda launch=false surface_integral_kernel!(du, factor_arr,
                                                                           surface_flux_values,
                                                                           equations)
     surface_integral_kernel(du, factor_arr, surface_flux_values, equations;
-                            configurator_3d(surface_integral_kernel, size_arr)...)
+                            configurator_3d(surface_integral_kernel, du)...)
 
     return nothing
 end
@@ -645,8 +641,8 @@ end
 # Put everything together into a single function 
 # Ref: `rhs!` function in Trixi.jl
 
-function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, initial_condition,
-                  boundary_conditions, source_terms::Source, dg::DGSEM, cache) where {Source}
+function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, boundary_conditions,
+                  source_terms::Source, dg::DGSEM, cache) where {Source}
     du, u = copy_to_device!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,

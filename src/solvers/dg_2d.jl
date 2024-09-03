@@ -5,7 +5,7 @@
 # the device (i.e., GPU).
 
 # Kernel for calculating fluxes along normal directions
-function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, flux::Function)
+function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -52,7 +52,7 @@ end
 
 # Kernel for calculating volume fluxes
 function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, u, equations::AbstractEquations{2},
-                             volume_flux::Function)
+                             volume_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -82,8 +82,8 @@ end
 # Kernel for calculating symmetric and nonconservative fluxes
 function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2, noncons_flux_arr1,
                                         noncons_flux_arr2, u, derivative_split,
-                                        equations::AbstractEquations{2}, symmetric_flux::Function,
-                                        nonconservative_flux::Function)
+                                        equations::AbstractEquations{2}, symmetric_flux::Any,
+                                        nonconservative_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -590,7 +590,7 @@ end
 
 # CUDA kernel for calculating source terms
 function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEquations{2},
-                              source_terms::Function)
+                              source_terms::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -1061,8 +1061,8 @@ end
 # Put everything together into a single function 
 # Ref: `rhs!` function in Trixi.jl
 
-function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, initial_condition,
-                  boundary_conditions, source_terms::Source, dg::DGSEM, cache) where {Source}
+function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, boundary_conditions,
+                  source_terms::Source, dg::DGSEM, cache) where {Source}
     du, u = copy_to_device!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,

@@ -245,9 +245,6 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
         side = neighbor_sides[k]
 
         @inbounds begin
-            # boundaries_u[1, j, k] = u[j, size(u, 2), element] * isequal(side, 1)
-            # boundaries_u[2, j, k] = u[j, 1, element] * (1 - isequal(side, 1))
-
             boundaries_u[1, j, k] = u[j, size(u, 2), element] * (2 - side) # set to 0 instead of NaN
             boundaries_u[2, j, k] = u[j, 1, element] * (side - 1) # set to 0 instead of NaN
         end
@@ -272,7 +269,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         orientation = orientations[boundary]
 
         u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, boundary)
-        u_inner = isequal(side, 1) * u_ll + (1 - isequal(side, 1)) * u_rr
+        u_inner = (2 - side) * u_ll + (side - 1) * u_rr
         x = get_node_coords(node_coordinates, equations, boundary)
 
         # TODO: Improve this part

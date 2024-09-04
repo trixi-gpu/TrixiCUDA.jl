@@ -140,9 +140,11 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
                                                isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation, 3) * u2,
                                                left_element]
             interfaces_u[2, j1, j2, j3, k] = u[j1,
-                                               isequal(orientation, 1) * 1 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
-                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j3,
-                                               isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation, 3) * 1,
+                                               isequal(orientation, 1) + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation,
+                                                                                      2) + isequal(orientation, 3) * j3,
+                                               isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation,
+                                                                                                                     3),
                                                right_element]
         end
     end
@@ -225,12 +227,14 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
                                                isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
                                                isequal(orientation, 1) * j2 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j3,
                                                isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation, 3) * u2,
-                                               element] * isequal(side, 1) # Set to 0 instead of NaN
+                                               element] * (2 - side) # Set to 0 instead of NaN
             boundaries_u[2, j1, j2, j3, k] = u[j1,
-                                               isequal(orientation, 1) * 1 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
-                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j3,
-                                               isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation, 3) * 1,
-                                               element] * (1 - isequal(side, 1)) # Set to 0 instead of NaN
+                                               isequal(orientation, 1) + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation,
+                                                                                      2) + isequal(orientation, 3) * j3,
+                                               isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation,
+                                                                                                                     3),
+                                               element] * (side - 1) # Set to 0 instead of NaN
         end
     end
 
@@ -259,7 +263,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         orientation = orientations[boundary]
 
         u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, j1, j2, boundary)
-        u_inner = isequal(side, 1) * u_ll + (1 - isequal(side, 1)) * u_rr
+        u_inner = (2 - side) * u_ll + (side - 1) * u_rr
         x = get_node_coords(node_coordinates, equations, j1, j2, boundary)
 
         # TODO: Improve this part
@@ -323,52 +327,60 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
 
         @inbounds begin
             u_upper_left[2, i, j1, j2, k] = u[i,
-                                              isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
-                                              isequal(orientation, 1) * j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
-                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
-                                              upper_left_element] * isequal(large_side, 1)
+                                              isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                              isequal(orientation, 1) * j1 + isequal(orientation,
+                                                                                     2) + isequal(orientation, 3) * j2,
+                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                    3),
+                                              upper_left_element] * (2 - large_side)
 
             u_upper_right[2, i, j1, j2, k] = u[i,
-                                               isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
-                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
-                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
-                                               upper_right_element] * isequal(large_side, 1)
+                                               isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                               isequal(orientation, 1) * j1 + isequal(orientation,
+                                                                                      2) + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                     3),
+                                               upper_right_element] * (2 - large_side)
 
             u_lower_left[2, i, j1, j2, k] = u[i,
-                                              isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
-                                              isequal(orientation, 1) * j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
-                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
-                                              lower_left_element] * isequal(large_side, 1)
+                                              isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                              isequal(orientation, 1) * j1 + isequal(orientation,
+                                                                                     2) + isequal(orientation, 3) * j2,
+                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                    3),
+                                              lower_left_element] * (2 - large_side)
 
             u_lower_right[2, i, j1, j2, k] = u[i,
-                                               isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
-                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
-                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
-                                               lower_right_element] * isequal(large_side, 1)
+                                               isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
+                                               isequal(orientation, 1) * j1 + isequal(orientation,
+                                                                                      2) + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                     3),
+                                               lower_right_element] * (2 - large_side)
 
             u_upper_left[1, i, j1, j2, k] = u[i,
                                               isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                              upper_left_element] * isequal(large_side, 2)
+                                              upper_left_element] * (large_side - 1)
 
             u_upper_right[1, i, j1, j2, k] = u[i,
                                                isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
                                                isequal(orientation, 1) * j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
                                                isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                               upper_right_element] * isequal(large_side, 2)
+                                               upper_right_element] * (large_side - 1)
 
             u_lower_left[1, i, j1, j2, k] = u[i,
                                               isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                              lower_left_element] * isequal(large_side, 2)
+                                              lower_left_element] * (large_side - 1)
 
             u_lower_right[1, i, j1, j2, k] = u[i,
                                                isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
                                                isequal(orientation, 1) * j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
                                                isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                               lower_right_element] * isequal(large_side, 2)
+                                               lower_right_element] * (large_side - 1)
         end
     end
 
@@ -402,62 +414,66 @@ function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lowe
                                                              isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                                             large_element] * isequal(large_side, 1)
+                                                             large_element] * (2 - large_side)
 
                 tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
                                                             u[i,
                                                               isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
                                                               isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
                                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                                              large_element] *
-                                                            isequal(large_side, 1)
+                                                              large_element] * (2 - large_side)
 
                 tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
                                                            u[i,
                                                              isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                                             large_element] * isequal(large_side, 1)
+                                                             large_element] * (2 - large_side)
 
                 tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
                                                             u[i,
                                                               isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
                                                               isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
                                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                                              large_element] *
-                                                            isequal(large_side, 1)
+                                                              large_element] * (2 - large_side)
             end
 
             for j1j1 in axes(forward_lower, 2)
                 tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
                                                            u[i,
-                                                             isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
-                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
-                                                             large_element] * isequal(large_side, 2)
+                                                             isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                             isequal(orientation, 1) * j1j1 + isequal(orientation,
+                                                                                                      2) + isequal(orientation, 3) * j2,
+                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                                   3),
+                                                             large_element] * (large_side - 1)
 
                 tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
                                                             u[i,
-                                                              isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
-                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
-                                                              large_element] *
-                                                            isequal(large_side, 2)
+                                                              isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                              isequal(orientation, 1) * j1j1 + isequal(orientation,
+                                                                                                       2) + isequal(orientation, 3) * j2,
+                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                                    3),
+                                                              large_element] * (large_side - 1)
 
                 tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
                                                            u[i,
-                                                             isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
-                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
-                                                             large_element] * isequal(large_side, 2)
+                                                             isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                             isequal(orientation, 1) * j1j1 + isequal(orientation,
+                                                                                                      2) + isequal(orientation, 3) * j2,
+                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                                   3),
+                                                             large_element] * (large_side - 1)
 
                 tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
                                                             u[i,
-                                                              isequal(orientation, 1) * 1 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * 1 + isequal(orientation, 3) * j2,
-                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * 1,
-                                                              large_element] *
-                                                            isequal(large_side, 2)
+                                                              isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                              isequal(orientation, 1) * j1j1 + isequal(orientation,
+                                                                                                       2) + isequal(orientation, 3) * j2,
+                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                                    3),
+                                                              large_element] * (large_side - 1)
             end
 
             for j2j2 in axes(forward_upper, 2)

@@ -187,12 +187,12 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
 
         @inbounds begin
             interfaces_u[1, j1, j2, k] = u[j1,
-                                           isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2,
-                                           isequal(orientation, 1) * j2 + isequal(orientation, 2) * u2,
+                                           (2 - orientation) * u2 + (orientation - 1) * j2,
+                                           (2 - orientation) * j2 + (orientation - 1) * u2,
                                            left_element]
             interfaces_u[2, j1, j2, k] = u[j1,
-                                           isequal(orientation, 1) * 1 + isequal(orientation, 2) * j2,
-                                           isequal(orientation, 1) * j2 + isequal(orientation, 2) * 1,
+                                           (2 - orientation) + (orientation - 1) * j2,
+                                           (2 - orientation) * j2 + (orientation - 1),
                                            right_element]
         end
     end
@@ -321,13 +321,13 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
 
         @inbounds begin
             boundaries_u[1, j1, j2, k] = u[j1,
-                                           isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2,
-                                           isequal(orientation, 1) * j2 + isequal(orientation, 2) * u2,
-                                           element] * isequal(side, 1) # Set to 0 instead of NaN
+                                           (2 - orientation) * u2 + (orientation - 1) * j2,
+                                           (2 - orientation) * j2 + (orientation - 1) * u2,
+                                           element] * (2 - side) # Set to 0 instead of NaN
             boundaries_u[2, j1, j2, k] = u[j1,
-                                           isequal(orientation, 1) * 1 + isequal(orientation, 2) * j2,
-                                           isequal(orientation, 1) * j2 + isequal(orientation, 2) * 1,
-                                           element] * (1 - isequal(side, 1)) # Set to 0 instead of NaN
+                                           (2 - orientation) + (orientation - 1) * j2,
+                                           (2 - orientation) * j2 + (orientation - 1),
+                                           element] * (side - 1) # Set to 0 instead of NaN
         end
     end
 
@@ -352,7 +352,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         orientation = orientations[boundary]
 
         u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, j, boundary)
-        u_inner = isequal(side, 1) * u_ll + (1 - isequal(side, 1)) * u_rr
+        u_inner = (2 - side) * u_ll + (side - 1) * u_rr
         x = get_node_coords(node_coordinates, equations, j, boundary)
 
         # TODO: Improve this part
@@ -402,24 +402,24 @@ function prolong_mortars_small2small_kernel!(u_upper, u_lower, u, neighbor_ids, 
 
         @inbounds begin
             u_upper[2, i, j, k] = u[i,
-                                    isequal(orientation, 1) * 1 + isequal(orientation, 2) * j,
-                                    isequal(orientation, 1) * j + isequal(orientation, 2) * 1,
-                                    upper_element] * isequal(large_side, 1)
+                                    (2 - orientation) + (orientation - 1) * j,
+                                    (2 - orientation) * j + (orientation - 1),
+                                    upper_element] * (2 - large_side)
 
             u_lower[2, i, j, k] = u[i,
-                                    isequal(orientation, 1) * 1 + isequal(orientation, 2) * j,
-                                    isequal(orientation, 1) * j + isequal(orientation, 2) * 1,
-                                    lower_element] * isequal(large_side, 1)
+                                    (2 - orientation) + (orientation - 1) * j,
+                                    (2 - orientation) * j + (orientation - 1),
+                                    lower_element] * (2 - large_side)
 
             u_upper[1, i, j, k] = u[i,
-                                    isequal(orientation, 1) * u2 + isequal(orientation, 2) * j,
-                                    isequal(orientation, 1) * j + isequal(orientation, 2) * u2,
-                                    upper_element] * isequal(large_side, 2)
+                                    (2 - orientation) * u2 + (orientation - 1) * j,
+                                    (2 - orientation) * j + (orientation - 1) * u2,
+                                    upper_element] * (large_side - 1)
 
             u_lower[1, i, j, k] = u[i,
-                                    isequal(orientation, 1) * u2 + isequal(orientation, 2) * j,
-                                    isequal(orientation, 1) * j + isequal(orientation, 2) * u2,
-                                    lower_element] * isequal(large_side, 2)
+                                    (2 - orientation) * u2 + (orientation - 1) * j,
+                                    (2 - orientation) * j + (orientation - 1) * u2,
+                                    lower_element] * (large_side - 1)
         end
     end
 
@@ -445,27 +445,27 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
             for jj in axes(forward_upper, 2)
                 u_upper[leftright, i, j, k] += forward_upper[j, jj] *
                                                u[i,
-                                                 isequal(orientation, 1) * u2 + isequal(orientation, 2) * jj,
-                                                 isequal(orientation, 1) * jj + isequal(orientation, 2) * u2,
-                                                 large_element] * isequal(large_side, 1)
+                                                 (2 - orientation) * u2 + (orientation - 1) * jj,
+                                                 (2 - orientation) * jj + (orientation - 1) * u2,
+                                                 large_element] * (2 - large_side)
                 u_lower[leftright, i, j, k] += forward_lower[j, jj] *
                                                u[i,
-                                                 isequal(orientation, 1) * u2 + isequal(orientation, 2) * jj,
-                                                 isequal(orientation, 1) * jj + isequal(orientation, 2) * u2,
-                                                 large_element] * isequal(large_side, 1)
+                                                 (2 - orientation) * u2 + (orientation - 1) * jj,
+                                                 (2 - orientation) * jj + (orientation - 1) * u2,
+                                                 large_element] * (2 - large_side)
             end
 
             for jj in axes(forward_lower, 2)
                 u_upper[leftright, i, j, k] += forward_upper[j, jj] *
                                                u[i,
-                                                 isequal(orientation, 1) * 1 + isequal(orientation, 2) * jj,
-                                                 isequal(orientation, 1) * jj + isequal(orientation, 2) * 1,
-                                                 large_element] * isequal(large_side, 2)
+                                                 (2 - orientation) + (orientation - 1) * jj,
+                                                 (2 - orientation) * jj + (orientation - 1),
+                                                 large_element] * (large_side - 1)
                 u_lower[leftright, i, j, k] += forward_lower[j, jj] *
                                                u[i,
-                                                 isequal(orientation, 1) * 1 + isequal(orientation, 2) * jj,
-                                                 isequal(orientation, 1) * jj + isequal(orientation, 2) * 1,
-                                                 large_element] * isequal(large_side, 2)
+                                                 (2 - orientation) + (orientation - 1) * jj,
+                                                 (2 - orientation) * jj + (orientation - 1),
+                                                 large_element] * (large_side - 1)
             end
         end
     end
@@ -560,12 +560,13 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values,
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
 
+        u2 = size(du, 2)
+
         @inbounds begin
             du[i, j1, j2, k] -= (surface_flux_values[i, j2, 1, k] * isequal(j1, 1) +
                                  surface_flux_values[i, j1, 3, k] * isequal(j2, 1)) * factor_arr[1]
-            du[i, j1, j2, k] += (surface_flux_values[i, j2, 2, k] * isequal(j1, size(du, 2)) +
-                                 surface_flux_values[i, j1, 4, k] * isequal(j2, size(du, 2))) *
-                                factor_arr[2]
+            du[i, j1, j2, k] += (surface_flux_values[i, j2, 2, k] * isequal(j1, u2) +
+                                 surface_flux_values[i, j1, 4, k] * isequal(j2, u2)) * factor_arr[2]
         end
     end
 

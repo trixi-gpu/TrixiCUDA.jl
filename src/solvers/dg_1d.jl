@@ -245,8 +245,11 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
         side = neighbor_sides[k]
 
         @inbounds begin
-            boundaries_u[1, j, k] = u[j, size(u, 2), element] * isequal(side, 1) # set to 0 instead of NaN
-            boundaries_u[2, j, k] = u[j, 1, element] * (1 - isequal(side, 1)) # set to 0 instead of NaN
+            # boundaries_u[1, j, k] = u[j, size(u, 2), element] * isequal(side, 1)
+            # boundaries_u[2, j, k] = u[j, 1, element] * (1 - isequal(side, 1))
+
+            boundaries_u[1, j, k] = u[j, size(u, 2), element] * (2 - side) # set to 0 instead of NaN
+            boundaries_u[2, j, k] = u[j, 1, element] * (side - 1) # set to 0 instead of NaN
         end
     end
 

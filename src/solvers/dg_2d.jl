@@ -57,9 +57,11 @@ function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, u, equations::A
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(u, 2)^3 && k <= size(u, 4))
-        j1 = div(j - 1, size(u, 2)^2) + 1
-        j2 = div(rem(j - 1, size(u, 2)^2), size(u, 2)) + 1
-        j3 = rem(rem(j - 1, size(u, 2)^2), size(u, 2)) + 1
+        u2 = size(u, 2)
+
+        j1 = div(j - 1, u2^2) + 1
+        j2 = div(rem(j - 1, u2^2), u2) + 1
+        j3 = rem(rem(j - 1, u2^2), u2) + 1
 
         u_node = get_node_vars(u, equations, j1, j2, k)
         u_node1 = get_node_vars(u, equations, j3, j2, k)
@@ -88,9 +90,11 @@ function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(u, 2)^3 && k <= size(u, 4))
-        j1 = div(j - 1, size(u, 2)^2) + 1
-        j2 = div(rem(j - 1, size(u, 2)^2), size(u, 2)) + 1
-        j3 = rem(rem(j - 1, size(u, 2)^2), size(u, 2)) + 1
+        u2 = size(u, 2)
+
+        j1 = div(j - 1, u2^2) + 1
+        j2 = div(rem(j - 1, u2^2), u2) + 1
+        j3 = rem(rem(j - 1, u2^2), u2) + 1
 
         u_node = get_node_vars(u, equations, j1, j2, k)
         u_node1 = get_node_vars(u, equations, j3, j2, k)
@@ -176,14 +180,15 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(interfaces_u, 2) * size(interfaces_u, 3) && k <= size(interfaces_u, 4))
-        j1 = div(j - 1, size(interfaces_u, 3)) + 1
-        j2 = rem(j - 1, size(interfaces_u, 3)) + 1
+        # size(interfaces_u, 3) == size(u, 2)
+        u2 = size(u, 2)
+
+        j1 = div(j - 1, u2) + 1
+        j2 = rem(j - 1, u2) + 1
 
         orientation = orientations[k]
         left_element = neighbor_ids[1, k]
         right_element = neighbor_ids[2, k]
-
-        u2 = size(u, 2)
 
         @inbounds begin
             interfaces_u[1, j1, j2, k] = u[j1,
@@ -310,14 +315,15 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(boundaries_u, 2) * size(boundaries_u, 3) && k <= size(boundaries_u, 4))
-        j1 = div(j - 1, size(boundaries_u, 3)) + 1
-        j2 = rem(j - 1, size(boundaries_u, 3)) + 1
+        # size(boundaries_u, 3) == size(u, 2)
+        u2 = size(u, 2)
+
+        j1 = div(j - 1, u2) + 1
+        j2 = rem(j - 1, u2) + 1
 
         element = neighbor_ids[k]
         side = neighbor_sides[k]
         orientation = orientations[k]
-
-        u2 = size(u, 2)
 
         @inbounds begin
             boundaries_u[1, j1, j2, k] = u[j1,
@@ -557,10 +563,10 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values,
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
-        j1 = div(j - 1, size(du, 2)) + 1
-        j2 = rem(j - 1, size(du, 2)) + 1
-
         u2 = size(du, 2)
+
+        j1 = div(j - 1, u2) + 1
+        j2 = rem(j - 1, u2) + 1
 
         @inbounds begin
             du[i, j1, j2, k] -= (surface_flux_values[i, j2, 1, k] * isequal(j1, 1) +

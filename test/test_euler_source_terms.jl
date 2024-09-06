@@ -9,7 +9,7 @@ outdir = "out"
 isdir(outdir) && rm(outdir, recursive = true)
 
 # Test precision of the semidiscretization process
-@testset "Test Compressible Euler Source Terms" begin
+@testset "Test Compressible Euler" begin
     @testset "Compressible Euler 1D" begin
         equations = CompressibleEulerEquations1D(1.4)
 

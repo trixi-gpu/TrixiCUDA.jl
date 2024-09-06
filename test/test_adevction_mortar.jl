@@ -1,4 +1,4 @@
-module TestAdvectionMortar
+module TestLinearAdvectionMortar # with `nonconservative_terms::False`
 
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
@@ -9,7 +9,7 @@ outdir = "out"
 isdir(outdir) && rm(outdir, recursive = true)
 
 # Test precision of the semidiscretization process
-@testset "Test Linear Advection Mortar" begin
+@testset "Test Linear Advection" begin
     @testset "Linear Advection 2D" begin
         advection_velocity = (0.2, -0.7)
         equations = LinearScalarAdvectionEquation2D(advection_velocity)

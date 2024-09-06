@@ -1,4 +1,4 @@
-module TestShallowWaterWellBalanced
+module TestShallowWaterFluxDifferencing # with `nonconservative_terms::True`
 
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
@@ -9,38 +9,46 @@ outdir = "out"
 isdir(outdir) && rm(outdir, recursive = true)
 
 # Test precision of the semidiscretization process
-@testset "Test Shallow Water Well Balanced" begin
+@testset "Test Shallow Water" begin
     @testset "Shallow Water 1D" begin
-        equations = ShallowWaterEquations1D(gravity_constant = 9.81, H0 = 3.25)
+        equations = ShallowWaterEquations1D(gravity_constant = 9.81)
 
-        function initial_condition_discontinuous_well_balancedness(x, t,
-                                                                   equations::ShallowWaterEquations1D)
-            H = equations.H0
+        function initial_condition_ec_discontinuous_bottom(x, t, equations::ShallowWaterEquations1D)
+            # Set the background values
+            H = 4.25
             v = 0.0
-            b = 0.0
+            b = sin(x[1]) # arbitrary continuous function
 
-            if x[1] >= 0.5 && x[1] <= 0.75
+            # Setup the discontinuous water height and velocity
+            if x[1] >= 0.125 && x[1] <= 0.25
+                H = 5.0
+                v = 0.1882
+            end
+
+            # Setup a discontinuous bottom topography
+            if x[1] >= -0.25 && x[1] <= -0.125
                 b = 2.0 + 0.5 * sin(2.0 * pi * x[1])
             end
 
             return prim2cons(SVector(H, v, b), equations)
         end
 
-        initial_condition = initial_condition_discontinuous_well_balancedness
+        initial_condition = initial_condition_ec_discontinuous_bottom
 
         volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-        surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal)
-        solver = DGSEM(polydeg = 4, surface_flux = surface_flux,
+        solver = DGSEM(polydeg = 4,
+                       surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal),
                        volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
         coordinates_min = -1.0
         coordinates_max = 1.0
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 3,
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 4,
                         n_cells_max = 10_000)
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
-        tspan = (0.0, 100.0)
+        tspan = (0.0, 2.0)
 
         # Get CPU data
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -108,56 +116,89 @@ isdir(outdir) && rm(outdir, recursive = true)
         surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
         @test surface_flux_values_gpu ≈ surface_flux_values
 
-        # Error when testing please check
+        # Test `cuda_surface_integral!`
+        TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
+        Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
+        @test CUDA.@allowscalar du_gpu ≈ du
 
-        # # Test `cuda_surface_integral!`
-        # TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
-        # Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
-        # @test CUDA.@allowscalar du_gpu ≈ du
+        # Test `cuda_jacobian!`
+        TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
+        Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
+        @test CUDA.@allowscalar du_gpu ≈ du
 
-        # # Test `cuda_jacobian!`
-        # TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
-        # Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
-        # @test CUDA.@allowscalar du_gpu ≈ du
-
-        # # Test `cuda_sources!`
-        # TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
-        # Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
-        # @test CUDA.@allowscalar du_gpu ≈ du
+        # Test `cuda_sources!`
+        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
+        Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
+        @test CUDA.@allowscalar du_gpu ≈ du
 
         # Copy data back to host
         du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)
     end
 
     @testset "Shallow Water 2D" begin
-        equations = ShallowWaterEquations2D(gravity_constant = 9.81, H0 = 3.25)
+        equations = ShallowWaterEquations2D(gravity_constant = 9.81)
 
-        function initial_condition_well_balancedness(x, t, equations::ShallowWaterEquations2D)
-            H = equations.H0
-            v1 = 0.0
-            v2 = 0.0
-
-            x1, x2 = x
-            b = (1.5 / exp(0.5 * ((x1 - 1.0)^2 + (x2 - 1.0)^2)) +
-                 0.75 / exp(0.5 * ((x1 + 1.0)^2 + (x2 + 1.0)^2)))
-            return prim2cons(SVector(H, v1, v2, b), equations)
-        end
-
-        initial_condition = initial_condition_well_balancedness
+        initial_condition = initial_condition_weak_blast_wave
 
         volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-        surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal)
-        solver = DGSEM(polydeg = 4, surface_flux = surface_flux,
+        solver = DGSEM(polydeg = 4,
+                       surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal),
                        volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
         coordinates_min = (-1.0, -1.0)
         coordinates_max = (1.0, 1.0)
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 2,
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 2,
                         n_cells_max = 10_000)
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
-        tspan = (0.0, 100.0)
+        tspan = (0.0, 2.0)
+        ode = semidiscretize(semi, tspan)
+
+        function initial_condition_ec_discontinuous_bottom(x, t, element_id,
+                                                           equations::ShallowWaterEquations2D)
+            # Set up polar coordinates
+            inicenter = SVector(0.7, 0.7)
+            x_norm = x[1] - inicenter[1]
+            y_norm = x[2] - inicenter[2]
+            r = sqrt(x_norm^2 + y_norm^2)
+            phi = atan(y_norm, x_norm)
+            sin_phi, cos_phi = sincos(phi)
+
+            # Set the background values
+            H = 4.25
+            v1 = 0.0
+            v2 = 0.0
+            b = 0.0
+
+            # Setup the discontinuous water height and velocities
+            if element_id == 10
+                H = 5.0
+                v1 = 0.1882 * cos_phi
+                v2 = 0.1882 * sin_phi
+            end
+
+            # Setup a discontinuous bottom topography using the element id number
+            if element_id == 7
+                b = 2.0 + 0.5 * sin(2.0 * pi * x[1]) + 0.5 * cos(2.0 * pi * x[2])
+            end
+
+            return prim2cons(SVector(H, v1, v2, b), equations)
+        end
+
+        # Point to the data we want to augment
+        u = Trixi.wrap_array(ode.u0, semi)
+        # Reset the initial condition
+        for element in eachelement(semi.solver, semi.cache)
+            for j in eachnode(semi.solver), i in eachnode(semi.solver)
+                x_node = Trixi.get_node_coords(semi.cache.elements.node_coordinates, equations,
+                                               semi.solver, i, j, element)
+                u_node = initial_condition_ec_discontinuous_bottom(x_node, first(tspan), element,
+                                                                   equations)
+                Trixi.set_node_vars!(u, u_node, equations, semi.solver, i, j, element)
+            end
+        end
 
         # Get CPU data
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -172,10 +213,10 @@ isdir(outdir) && rm(outdir, recursive = true)
         t = t_gpu = 0.0
 
         # Get initial data
-        ode = semidiscretize(semi, tspan)
+        # ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
         du_ode = similar(u_ode)
-        u = Trixi.wrap_array(u_ode, mesh, equations, solver, cache)
+        # u = Trixi.wrap_array(u_ode, mesh, equations, solver, cache)
         du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
         # Copy data to device
@@ -248,22 +289,20 @@ isdir(outdir) && rm(outdir, recursive = true)
         surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
         @test surface_flux_values_gpu ≈ surface_flux_values
 
-        # Error when testing please check
+        # Test `cuda_surface_integral!`
+        TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
+        Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
+        @test CUDA.@allowscalar du_gpu ≈ du
 
-        # # Test `cuda_surface_integral!`
-        # TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
-        # Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
-        # @test CUDA.@allowscalar du_gpu ≈ du
+        # Test `cuda_jacobian!`
+        TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
+        Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
+        @test CUDA.@allowscalar du_gpu ≈ du
 
-        # # Test `cuda_jacobian!`
-        # TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
-        # Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
-        # @test CUDA.@allowscalar du_gpu ≈ du
-
-        # # Test `cuda_sources!`
-        # TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
-        # Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
-        # @test CUDA.@allowscalar du_gpu ≈ du
+        # Test `cuda_sources!`
+        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
+        Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
+        @test CUDA.@allowscalar du_gpu ≈ du
 
         # Copy data back to host
         du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)

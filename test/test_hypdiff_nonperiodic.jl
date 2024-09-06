@@ -1,4 +1,4 @@
-module TestHyperbolicDiffusionBoundaryConditions
+module TestHyperbolicDiffusionBoundaryConditions # with `boundary_conditions::NamedTuple`
 
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
@@ -9,7 +9,7 @@ outdir = "out"
 isdir(outdir) && rm(outdir, recursive = true)
 
 # Test precision of the semidiscretization process
-@testset "Test Hyperbolic Diffusion Boundary Conditions" begin
+@testset "Test Hyperbolic Diffusion" begin
     @testset "Compressible Euler 1D" begin
         equations = HyperbolicDiffusionEquations1D()
 

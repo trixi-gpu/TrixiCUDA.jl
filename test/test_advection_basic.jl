@@ -1,4 +1,4 @@
-module TestAdvectionBasic
+module TestLinearAdvectionBasic
 
 using Trixi, TrixiGPU
 using OrdinaryDiffEq
@@ -9,7 +9,7 @@ outdir = "out"
 isdir(outdir) && rm(outdir, recursive = true)
 
 # Test precision of the semidiscretization process
-@testset "Test Linear Advection Basic" begin
+@testset "Test Linear Advection" begin
     @testset "Linear Advection 1D" begin
         advection_velocity = 1.0
         equations = LinearScalarAdvectionEquation1D(advection_velocity)

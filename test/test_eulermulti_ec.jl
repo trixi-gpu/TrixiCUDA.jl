@@ -1,4 +1,4 @@
-module TestEulerMultiFluxDifferencing
+module TestCompressibleEulerMultiFluxDifferencing # with `nonconservative_terms::False`
 
 using Trixi, TrixiGPU
 using OrdinaryDiffEq

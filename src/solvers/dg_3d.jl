@@ -799,6 +799,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     return nothing
 end
 
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
+    # Wait for the unmutable MHD implementation in Trixi.jl
+end
+
 # Pack kernels to prolonging solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{3}, equations, cache)
     neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)

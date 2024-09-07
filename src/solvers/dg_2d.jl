@@ -180,8 +180,7 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(interfaces_u, 2) * size(interfaces_u, 3) && k <= size(interfaces_u, 4))
-        # size(interfaces_u, 3) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(interfaces_u, 3) == size(u, 2)
 
         j1 = div(j - 1, u2) + 1
         j2 = rem(j - 1, u2) + 1
@@ -315,8 +314,7 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(boundaries_u, 2) * size(boundaries_u, 3) && k <= size(boundaries_u, 4))
-        # size(boundaries_u, 3) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(boundaries_u, 3) == size(u, 2)
 
         j1 = div(j - 1, u2) + 1
         j2 = rem(j - 1, u2) + 1
@@ -378,11 +376,62 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
 
         @inbounds begin
             for ii in axes(surface_flux_values, 1)
+                # `boundary_flux_node` can be nothing if periodic boundary condition is applied
                 surface_flux_values[ii, j, direction, neighbor] = boundary_flux_node === nothing ? # bad
                                                                   surface_flux_values[ii, j,
                                                                                       direction,
                                                                                       neighbor] :
                                                                   boundary_flux_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
+function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
+                               indices_arr, neighbor_ids, neighbor_sides, orientations,
+                               boundary_conditions::NamedTuple, equations::AbstractEquations{2},
+                               surface_flux::Any, nonconservative_flux::Any)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(surface_flux_values, 2) && k <= length(boundary_arr))
+        boundary = boundary_arr[k]
+        direction = (indices_arr[1] <= boundary) + (indices_arr[2] <= boundary) +
+                    (indices_arr[3] <= boundary) + (indices_arr[4] <= boundary)
+
+        neighbor = neighbor_ids[boundary]
+        side = neighbor_sides[boundary]
+        orientation = orientations[boundary]
+
+        u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, j, boundary)
+        u_inner = (2 - side) * u_ll + (side - 1) * u_rr
+        x = get_node_coords(node_coordinates, equations, j, boundary)
+
+        # TODO: Improve this part
+        if direction == 1
+            u_boundary = boundary_conditions[1].boundary_value_function(x, t, equations)
+            flux_node = surface_flux(u_boundary, u_inner, orientation, equations)
+            noncons_flux_node = nonconservative_flux(u_boundary, u_inner, orientation, equations)
+        elseif direction == 2
+            u_boundary = boundary_conditions[2].boundary_value_function(x, t, equations)
+            flux_node = surface_flux(u_inner, u_boundary, orientation, equations)
+            noncons_flux_node = nonconservative_flux(u_inner, u_boundary, orientation, equations)
+        elseif direction == 3
+            u_boundary = boundary_conditions[3].boundary_value_function(x, t, equations)
+            flux_node = surface_flux(u_boundary, u_inner, orientation, equations)
+            noncons_flux_node = nonconservative_flux(u_boundary, u_inner, orientation, equations)
+        else
+            u_boundary = boundary_conditions[4].boundary_value_function(x, t, equations)
+            flux_node = surface_flux(u_inner, u_boundary, orientation, equations)
+            noncons_flux_node = nonconservative_flux(u_inner, u_boundary, orientation, equations)
+        end
+
+        @inbounds begin
+            for ii in axes(surface_flux_values, 1)
+                surface_flux_values[ii, j, direction, neighbor] = flux_node[ii] +
+                                                                  0.5 * noncons_flux_node[ii]
             end
         end
     end
@@ -857,13 +906,13 @@ end
 
 # Dummy function for asserting boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_condition::BoundaryConditionPeriodic,
-                             equations, dg::DGSEM, cache)
+                             nonconservative_terms, equations, dg::DGSEM, cache)
     @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Pack kernels for calculating boundary fluxes
-function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple, equations,
-                             dg::DGSEM, cache)
+function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
+                             nonconservative_terms::False, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
@@ -900,6 +949,54 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                          indices_arr, neighbor_ids, neighbor_sides, orientations,
                          boundary_conditions_callable, equations, surface_flux;
+                         configurator_2d(boundary_flux_kernel, size_arr)...)
+
+    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+
+    return nothing
+end
+
+function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
+                             nonconservative_terms::True, equations, dg::DGSEM, cache)
+    surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
+
+    n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
+    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
+    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
+    orientations = CuArray{Int64}(cache.boundaries.orientations)
+    boundaries_u = CuArray{Float64}(cache.boundaries.u)
+    node_coordinates = CuArray{Float64}(cache.boundaries.node_coordinates)
+    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+
+    lasts = zero(n_boundaries_per_direction)
+    firsts = zero(n_boundaries_per_direction)
+
+    last_first_indices_kernel = @cuda launch=false last_first_indices_kernel!(lasts, firsts,
+                                                                              n_boundaries_per_direction)
+    last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction;
+                              configurator_1d(last_first_indices_kernel, lasts)...)
+
+    lasts, firsts = Array(lasts), Array(firsts)
+    boundary_arr = CuArray{Int64}(firsts[1]:lasts[4])
+    indices_arr = CuArray{Int64}([firsts[1], firsts[2], firsts[3], firsts[4]])
+
+    # Replace with callable functions (not necessary here)
+    # boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
+
+    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 2), length(boundary_arr))
+
+    boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,
+                                                                    boundaries_u, node_coordinates,
+                                                                    t, boundary_arr, indices_arr,
+                                                                    neighbor_ids, neighbor_sides,
+                                                                    orientations,
+                                                                    boundary_conditions,
+                                                                    equations,
+                                                                    surface_flux,
+                                                                    nonconservative_flux)
+    boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
+                         indices_arr, neighbor_ids, neighbor_sides, orientations,
+                         boundary_conditions, equations, surface_flux, nonconservative_flux;
                          configurator_2d(boundary_flux_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
@@ -1065,9 +1162,9 @@ function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{2}, 
     return nothing
 end
 
-# Put everything together into a single function 
-# Ref: `rhs!` function in Trixi.jl
+# Put everything together into a single function.
 
+# Ref: `rhs!` function in Trixi.jl
 function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
     du, u = copy_to_device!(du_cpu, u_cpu)
@@ -1081,7 +1178,8 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, boundary_condi
 
     cuda_prolong2boundaries!(u, mesh, boundary_conditions, equations, cache)
 
-    cuda_boundary_flux!(t, mesh, boundary_conditions, equations, dg, cache)
+    cuda_boundary_flux!(t, mesh, boundary_conditions,
+                        have_nonconservative_terms(equations), equations, dg, cache)
 
     cuda_prolong2mortars!(u, mesh, check_cache_mortars(cache), dg, cache)
 

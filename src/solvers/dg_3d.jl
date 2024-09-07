@@ -764,7 +764,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
     return nothing
 end
 
-# Launch CUDA kernels to calculate volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
     volume_flux = volume_integral.volume_flux
@@ -802,6 +801,12 @@ end
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
     # Wait for the unmutable MHD implementation in Trixi.jl
+    return nothing
+end
+
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM)
+    return nothing
 end
 
 # Pack kernels to prolonging solution to interfaces

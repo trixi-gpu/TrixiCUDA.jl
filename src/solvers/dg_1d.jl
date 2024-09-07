@@ -434,7 +434,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     return nothing
 end
 
-# Pack kernels to calculate volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
@@ -467,6 +466,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     volume_integral_kernel(du, derivative_split, symmetric_flux_arr, noncons_flux_arr;
                            configurator_3d(volume_integral_kernel, du)...)
 
+    return nothing
+end
+
+function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False, equations,
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM)
     return nothing
 end
 

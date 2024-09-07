@@ -60,7 +60,8 @@ function run_dgsem_tree_tests_1D(semi, tspan)
     @test boundaries_u_gpu ≈ boundaries_u
 
     # Test `cuda_boundary_flux!`
-    TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+    TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+                                 Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
                                  solver_gpu, cache_gpu)
     Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                               solver.surface_integral, solver)
@@ -147,7 +148,8 @@ function run_dgsem_tree_tests_2D(semi, tspan)
     @test boundaries_u_gpu ≈ boundaries_u
 
     # Test `cuda_boundary_flux!`
-    TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+    TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+                                 Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
                                  solver_gpu, cache_gpu)
     Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                               solver.surface_integral, solver)
@@ -257,7 +259,8 @@ function run_dgsem_tree_tests_3D(semi, tspan)
     @test boundaries_u_gpu ≈ boundaries_u
 
     # Test `cuda_boundary_flux!`
-    TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+    TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+                                 Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
                                  solver_gpu, cache_gpu)
     Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                               solver.surface_integral, solver)

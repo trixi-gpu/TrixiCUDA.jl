@@ -88,7 +88,8 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test boundaries_u_gpu ≈ boundaries_u
 
         # Test `cuda_boundary_flux!`
-        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+                                     Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
                                      solver_gpu, cache_gpu)
         Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                   solver.surface_integral, solver)
@@ -193,7 +194,8 @@ isdir(outdir) && rm(outdir, recursive = true)
         @test boundaries_u_gpu ≈ boundaries_u
 
         # Test `cuda_boundary_flux!`
-        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+                                     Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
                                      solver_gpu, cache_gpu)
         Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                   solver.surface_integral, solver)

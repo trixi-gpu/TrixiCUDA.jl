@@ -855,13 +855,13 @@ end
 
 # Dummy function for asserting boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_condition::BoundaryConditionPeriodic,
-                             equations, dg::DGSEM, cache)
+                             nonconservative_terms, equations, dg::DGSEM, cache)
     @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Pack kernels for calculating boundary fluxes
-function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple, equations,
-                             dg::DGSEM, cache)
+function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
+                             nonconservative_terms::False, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
@@ -903,6 +903,10 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
 
     return nothing
+end
+
+function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
+                             nonconservative_terms::True, equations, dg::DGSEM, cache)
 end
 
 # Dummy function for asserting mortars
@@ -1079,7 +1083,8 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, boundary_condi
 
     cuda_prolong2boundaries!(u, mesh, boundary_conditions, equations, cache)
 
-    cuda_boundary_flux!(t, mesh, boundary_conditions, equations, dg, cache)
+    cuda_boundary_flux!(t, mesh, boundary_conditions,
+                        have_nonconservative_terms(equations), equations, dg, cache)
 
     cuda_prolong2mortars!(u, mesh, check_cache_mortars(cache), dg, cache)
 

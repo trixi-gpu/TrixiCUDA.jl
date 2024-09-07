@@ -376,6 +376,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
 
         @inbounds begin
             for ii in axes(surface_flux_values, 1)
+                # `boundary_flux_node` can be nothing if periodic boundary condition is applied
                 surface_flux_values[ii, j, direction, neighbor] = boundary_flux_node === nothing ? # bad
                                                                   surface_flux_values[ii, j,
                                                                                       direction,
@@ -1067,9 +1068,9 @@ function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{2}, 
     return nothing
 end
 
-# Put everything together into a single function 
-# Ref: `rhs!` function in Trixi.jl
+# Put everything together into a single function.
 
+# Ref: `rhs!` function in Trixi.jl
 function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
     du, u = copy_to_device!(du_cpu, u_cpu)

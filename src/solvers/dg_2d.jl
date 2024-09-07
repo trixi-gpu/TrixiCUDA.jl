@@ -389,6 +389,56 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
     return nothing
 end
 
+function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
+                               indices_arr, neighbor_ids, neighbor_sides, orientations,
+                               boundary_conditions::NamedTuple, equations::AbstractEquations{2},
+                               surface_flux::Any, nonconservative_flux::Any)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(surface_flux_values, 2) && k <= length(boundary_arr))
+        boundary = boundary_arr[k]
+        direction = (indices_arr[1] <= boundary) + (indices_arr[2] <= boundary) +
+                    (indices_arr[3] <= boundary) + (indices_arr[4] <= boundary)
+
+        neighbor = neighbor_ids[boundary]
+        side = neighbor_sides[boundary]
+        orientation = orientations[boundary]
+
+        u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, j, boundary)
+        u_inner = (2 - side) * u_ll + (side - 1) * u_rr
+        x = get_node_coords(node_coordinates, equations, j, boundary)
+
+        # TODO: Improve this part
+        if direction == 1
+            u_boundary = boundary_conditions[1].boundary_value_function(x, t, equations)
+            flux_node = surface_flux(u_boundary, u_inner, orientation, equations)
+            noncons_flux_node = nonconservative_flux(u_boundary, u_inner, orientation, equations)
+        elseif direction == 2
+            u_boundary = boundary_conditions[2].boundary_value_function(x, t, equations)
+            flux_node = surface_flux(u_inner, u_boundary, orientation, equations)
+            noncons_flux_node = nonconservative_flux(u_inner, u_boundary, orientation, equations)
+        elseif direction == 3
+            u_boundary = boundary_conditions[3].boundary_value_function(x, t, equations)
+            flux_node = surface_flux(u_boundary, u_inner, orientation, equations)
+            noncons_flux_node = nonconservative_flux(u_boundary, u_inner, orientation, equations)
+        else
+            u_boundary = boundary_conditions[4].boundary_value_function(x, t, equations)
+            flux_node = surface_flux(u_inner, u_boundary, orientation, equations)
+            noncons_flux_node = nonconservative_flux(u_inner, u_boundary, orientation, equations)
+        end
+
+        @inbounds begin
+            for ii in axes(surface_flux_values, 1)
+                surface_flux_values[ii, j, direction, neighbor] = flux_node[ii] +
+                                                                  0.5 * noncons_flux_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for copying data small to small on mortars
 function prolong_mortars_small2small_kernel!(u_upper, u_lower, u, neighbor_ids, large_sides,
                                              orientations)
@@ -908,6 +958,50 @@ end
 
 function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
                              nonconservative_terms::True, equations, dg::DGSEM, cache)
+    surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
+
+    n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
+    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
+    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
+    orientations = CuArray{Int64}(cache.boundaries.orientations)
+    boundaries_u = CuArray{Float64}(cache.boundaries.u)
+    node_coordinates = CuArray{Float64}(cache.boundaries.node_coordinates)
+    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+
+    lasts = zero(n_boundaries_per_direction)
+    firsts = zero(n_boundaries_per_direction)
+
+    last_first_indices_kernel = @cuda launch=false last_first_indices_kernel!(lasts, firsts,
+                                                                              n_boundaries_per_direction)
+    last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction;
+                              configurator_1d(last_first_indices_kernel, lasts)...)
+
+    lasts, firsts = Array(lasts), Array(firsts)
+    boundary_arr = CuArray{Int64}(firsts[1]:lasts[4])
+    indices_arr = CuArray{Int64}([firsts[1], firsts[2], firsts[3], firsts[4]])
+
+    # Replace with callable functions (not necessary here)
+    # boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
+
+    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 2), length(boundary_arr))
+
+    boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,
+                                                                    boundaries_u, node_coordinates,
+                                                                    t, boundary_arr, indices_arr,
+                                                                    neighbor_ids, neighbor_sides,
+                                                                    orientations,
+                                                                    boundary_conditions,
+                                                                    equations,
+                                                                    surface_flux,
+                                                                    nonconservative_flux)
+    boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
+                         indices_arr, neighbor_ids, neighbor_sides, orientations,
+                         boundary_conditions, equations, surface_flux, nonconservative_flux;
+                         configurator_2d(boundary_flux_kernel, size_arr)...)
+
+    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+
+    return nothing
 end
 
 # Dummy function for asserting mortars

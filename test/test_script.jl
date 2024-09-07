@@ -3,20 +3,9 @@ using OrdinaryDiffEq
 using CUDA
 using Test
 
-equations = ShallowWaterEquations1D(gravity_constant = 1.0, H0 = 3.0)
+equations = ShallowWaterEquations2D(gravity_constant = 9.81)
 
-# An initial condition with constant total water height and zero velocities to test well-balancedness.
-function initial_condition_well_balancedness(x, t, equations::ShallowWaterEquations1D)
-    # Set the background values
-    H = equations.H0
-    v = 0.0
-
-    b = (1.5 / exp(0.5 * ((x[1] - 1.0)^2)) + 0.75 / exp(0.5 * ((x[1] + 1.0)^2)))
-
-    return prim2cons(SVector(H, v, b), equations)
-end
-
-initial_condition = initial_condition_well_balancedness
+initial_condition = initial_condition_convergence_test
 
 boundary_condition = BoundaryConditionDirichlet(initial_condition)
 
@@ -24,16 +13,15 @@ boundary_condition = BoundaryConditionDirichlet(initial_condition)
 # Get the DG approximation space
 
 volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-solver = DGSEM(polydeg = 4,
-               surface_flux = (flux_hll,
-                               flux_nonconservative_fjordholm_etal),
+solver = DGSEM(polydeg = 3,
+               surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
                volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
-# ###############################################################################
+###############################################################################
 # Get the TreeMesh and setup a periodic mesh
 
-coordinates_min = 0.0
-coordinates_max = sqrt(2.0)
+coordinates_min = (0.0, 0.0)
+coordinates_max = (sqrt(2.0), sqrt(2.0))
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 3,
                 n_cells_max = 10_000,
@@ -41,12 +29,13 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 
 # create the semi discretization object
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                    boundary_conditions = boundary_condition)
+                                    boundary_conditions = boundary_condition,
+                                    source_terms = source_terms_convergence_test)
 
 ###############################################################################
 # ODE solvers, callbacks etc.
 
-tspan = (0.0, 100.0)
+tspan = (0.0, 1.0)
 
 # Get CPU data
 (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -115,28 +104,28 @@ surface_flux_values_gpu = replace(cache_gpu.elements.surface_flux_values, NaN =>
 surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
 @test surface_flux_values_gpu ≈ surface_flux_values
 
-# # Test `cuda_prolong2mortars!`
-# TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-#                                solver_gpu, cache_gpu)
-# Trixi.prolong2mortars!(cache, u, mesh, equations,
-#                        solver.mortar, solver.surface_integral, solver)
-# u_upper_gpu = replace(cache_gpu.mortars.u_upper, NaN => 0.0)
-# u_lower_gpu = replace(cache_gpu.mortars.u_lower, NaN => 0.0)
-# u_upper = replace(cache.mortars.u_upper, NaN => 0.0)
-# u_lower = replace(cache.mortars.u_lower, NaN => 0.0)
-# @test u_upper_gpu ≈ u_upper
-# @test u_lower_gpu ≈ u_lower
+# Test `cuda_prolong2mortars!`
+TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
+                               solver_gpu, cache_gpu)
+Trixi.prolong2mortars!(cache, u, mesh, equations,
+                       solver.mortar, solver.surface_integral, solver)
+u_upper_gpu = replace(cache_gpu.mortars.u_upper, NaN => 0.0)
+u_lower_gpu = replace(cache_gpu.mortars.u_lower, NaN => 0.0)
+u_upper = replace(cache.mortars.u_upper, NaN => 0.0)
+u_lower = replace(cache.mortars.u_lower, NaN => 0.0)
+@test u_upper_gpu ≈ u_upper
+@test u_lower_gpu ≈ u_lower
 
-# # Test `cuda_mortar_flux!`
-# TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-#                            Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-#                            solver_gpu, cache_gpu)
-# Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
-#                         Trixi.have_nonconservative_terms(equations), equations,
-#                         solver.mortar, solver.surface_integral, solver, cache)
-# surface_flux_values_gpu = replace(cache_gpu.elements.surface_flux_values, NaN => 0.0)
-# surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
-# @test surface_flux_values_gpu ≈ surface_flux_values
+# Test `cuda_mortar_flux!`
+TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
+                           Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+                           solver_gpu, cache_gpu)
+Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+                        Trixi.have_nonconservative_terms(equations), equations,
+                        solver.mortar, solver.surface_integral, solver, cache)
+surface_flux_values_gpu = replace(cache_gpu.elements.surface_flux_values, NaN => 0.0)
+surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
+@test surface_flux_values_gpu ≈ surface_flux_values
 
 # Test `cuda_surface_integral!`
 TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)

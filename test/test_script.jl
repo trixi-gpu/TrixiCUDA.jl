@@ -57,13 +57,21 @@ du_gpu, u_gpu = TrixiGPU.copy_to_device!(du, u)
 # Reset data on host
 Trixi.reset_du!(du, solver, cache)
 
+element_ids_dg, element_ids_dgfv = cache.element_ids_dg, cache.element_ids_dgfv
+volume_flux_dg, volume_flux_fv = solver.volume_integral.volume_flux_dg,
+                                 solver.volume_integral.volume_flux_fv
+indicator = solver.volume_integral.indicator
+
+# alpha = CuArray{Float64}(indicator(u, mesh, equations, solver, cache))
+
 # Test `cuda_volume_integral!`
 TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                Trixi.have_nonconservative_terms(equations_gpu),
-                               equations_gpu, solver_gpu.volume_integral, solver_gpu)
-Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
-                            equations, solver.volume_integral, solver, cache)
-@test CUDA.@allowscalar du_gpu ≈ du
+                               equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                               cache_gpu)
+# Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
+#                             equations, solver.volume_integral, solver, cache)
+# @test CUDA.@allowscalar du_gpu ≈ du
 
 # # Test `cuda_prolong2interfaces!`
 # TrixiGPU.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)

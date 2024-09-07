@@ -393,7 +393,7 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
-                               equations, volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
+                               equations, volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
     derivative_dhat = CuArray{Float64}(dg.basis.derivative_dhat)
     flux_arr = similar(u)
 
@@ -410,7 +410,7 @@ end
 
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False,
                                equations, volume_integral::VolumeIntegralFluxDifferencing,
-                               dg::DGSEM)
+                               dg::DGSEM, cache)
     volume_flux = volume_integral.volume_flux
 
     derivative_split = dg.basis.derivative_split
@@ -435,7 +435,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 end
 
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
 
     derivative_split = dg.basis.derivative_split
@@ -470,7 +470,19 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 end
 
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM)
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
+    element_ids_dg, element_ids_dgfv = cache.element_ids_dg, cache.element_ids_dgfv
+    volume_flux_dg, volume_flux_fv = dg.volume_integral.volume_flux_dg,
+                                     dg.volume_integral.volume_flux_fv
+    indicator = dg.volume_integral.indicator
+
+    # This will cause scalar indexing on the GPU
+    # alpha =  CuArray{Float64}(indicator(u, mesh, equations, dg, cache)) 
+
+    # TODO: Get copies of `u` and `du` on both device and host
+    alpha = indicator(Array(u), mesh, equations, dg, cache)
+    alpha = CuArray{Float64}(alpha)
+
     return nothing
 end
 
@@ -737,7 +749,7 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, boundary_condi
     du, u = copy_to_device!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
-                          dg.volume_integral, dg)
+                          dg.volume_integral, dg, cache)
 
     cuda_prolong2interfaces!(u, mesh, equations, cache)
 

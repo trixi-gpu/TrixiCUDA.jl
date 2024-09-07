@@ -741,7 +741,7 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, equations,
-                               volume_integral::VolumeIntegralWeakForm, dg::DGSEM)
+                               volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
     derivative_dhat = CuArray{Float64}(dg.basis.derivative_dhat)
     flux_arr1 = similar(u)
     flux_arr2 = similar(u)
@@ -765,7 +765,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
 end
 
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     volume_flux = volume_integral.volume_flux
 
     derivative_split = CuArray{Float64}(dg.basis.derivative_split)
@@ -799,13 +799,13 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
 end
 
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM)
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
     return nothing
 end
 
@@ -1160,7 +1160,7 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, boundary_condi
     du, u = copy_to_device!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
-                          dg.volume_integral, dg)
+                          dg.volume_integral, dg, cache)
 
     cuda_prolong2interfaces!(u, mesh, equations, cache)
 

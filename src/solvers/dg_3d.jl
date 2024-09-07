@@ -42,8 +42,7 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2, flux_arr3)
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2)^3 && k <= size(du, 5))
-        # size(du, 2) == size(u, 2)
-        u2 = size(du, 2)
+        u2 = size(du, 2) # size(du, 2) == size(u, 2)
 
         j1 = div(j - 1, u2^2) + 1
         j2 = div(rem(j - 1, u2^2), u2) + 1
@@ -104,8 +103,7 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2)^3 && k <= size(du, 5))
-        # size(du, 2) == size(u, 2)
-        u2 = size(du, 2)
+        u2 = size(du, 2) # size(du, 2) == size(u, 2)
 
         j1 = div(j - 1, u2^2) + 1
         j2 = div(rem(j - 1, u2^2), u2) + 1
@@ -133,8 +131,7 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(interfaces_u, 2) * size(interfaces_u, 3)^2 && k <= size(interfaces_u, 5))
-        # size(interfaces_u, 3) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(interfaces_u, 3) == size(u, 2)
 
         j1 = div(j - 1, u2^2) + 1
         j2 = div(rem(j - 1, u2^2), u2) + 1
@@ -223,8 +220,7 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(boundaries_u, 2) * size(boundaries_u, 3)^2 && k <= size(boundaries_u, 5))
-        # size(boundaries_u, 3) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(boundaries_u, 3) == size(u, 2)
 
         j1 = div(j - 1, u2^2) + 1
         j2 = div(rem(j - 1, u2^2), u2) + 1
@@ -324,8 +320,7 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(u_upper_left, 2) && j <= size(u_upper_left, 3)^2 && k <= size(u_upper_left, 5))
-        # size(u_upper_left, 3) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(u_upper_left, 3) == size(u, 2)
 
         j1 = div(j - 1, u2) + 1
         j2 = rem(j - 1, u2) + 1
@@ -410,8 +405,7 @@ function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lowe
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(u_upper_left, 2) && j <= size(u_upper_left, 3)^2 && k <= size(u_upper_left, 5))
-        # size(u_upper_left, 3) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(u_upper_left, 3) == size(u, 2)
 
         j1 = div(j - 1, u2) + 1
         j2 = rem(j - 1, u2) + 1
@@ -670,8 +664,7 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values,
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2)^3 && k <= size(du, 5))
-        # size(du, 2) == size(u, 2)
-        u2 = size(du, 2)
+        u2 = size(du, 2) # size(du, 2) == size(u, 2)
 
         j1 = div(j - 1, u2^2) + 1
         j2 = div(rem(j - 1, u2^2), u2) + 1
@@ -701,8 +694,7 @@ function jacobian_kernel!(du, inverse_jacobian, equations::AbstractEquations{3})
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2)^3 && k <= size(du, 5))
-        # size(du, 2) == size(u, 2)
-        u2 = size(du, 2)
+        u2 = size(du, 2) # size(du, 2) == size(u, 2)
 
         j1 = div(j - 1, u2^2) + 1
         j2 = div(rem(j - 1, u2^2), u2) + 1
@@ -721,8 +713,7 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(du, 2)^3 && k <= size(du, 5))
-        # size(du, 2) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(du, 2) == size(u, 2)
 
         j1 = div(j - 1, u2^2) + 1
         j2 = div(rem(j - 1, u2^2), u2) + 1

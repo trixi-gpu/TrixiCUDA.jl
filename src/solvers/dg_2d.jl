@@ -180,8 +180,7 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(interfaces_u, 2) * size(interfaces_u, 3) && k <= size(interfaces_u, 4))
-        # size(interfaces_u, 3) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(interfaces_u, 3) == size(u, 2)
 
         j1 = div(j - 1, u2) + 1
         j2 = rem(j - 1, u2) + 1
@@ -315,8 +314,7 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(boundaries_u, 2) * size(boundaries_u, 3) && k <= size(boundaries_u, 4))
-        # size(boundaries_u, 3) == size(u, 2)
-        u2 = size(u, 2)
+        u2 = size(u, 2) # size(boundaries_u, 3) == size(u, 2)
 
         j1 = div(j - 1, u2) + 1
         j2 = rem(j - 1, u2) + 1

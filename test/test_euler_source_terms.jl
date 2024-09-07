@@ -9,7 +9,7 @@ outdir = "out"
 isdir(outdir) && rm(outdir, recursive = true)
 
 # Test precision of the semidiscretization process
-@testset "Test Compressible Euler Source Terms" begin
+@testset "Test Compressible Euler" begin
     @testset "Compressible Euler 1D" begin
         equations = CompressibleEulerEquations1D(1.4)
 
@@ -25,18 +25,22 @@ isdir(outdir) && rm(outdir, recursive = true)
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                             source_terms = source_terms_convergence_test)
-        (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
-        # Get deep copy for GPU to avoid overwriting during tests
-        mesh_gpu, equations_gpu = deepcopy(mesh), deepcopy(equations)
-        initial_condition_gpu, boundary_conditions_gpu, source_terms_gpu = deepcopy(initial_condition),
-                                                                           deepcopy(boundary_conditions),
-                                                                           deepcopy(source_terms)
-        solver_gpu, cache_gpu = deepcopy(solver), deepcopy(cache)
-
-        t = t_gpu = 0.0
         tspan = (0.0, 2.0)
 
+        # Get CPU data
+        (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
+
+        # Get GPU data
+        equations_gpu = deepcopy(equations)
+        mesh_gpu, solver_gpu, cache_gpu = deepcopy(mesh), deepcopy(solver), deepcopy(cache)
+        boundary_conditions_gpu, source_terms_gpu = deepcopy(boundary_conditions),
+                                                    deepcopy(source_terms)
+
+        # Set initial time
+        t = t_gpu = 0.0
+
+        # Get initial data
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
         du_ode = similar(u_ode)
@@ -123,18 +127,22 @@ isdir(outdir) && rm(outdir, recursive = true)
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                             source_terms = source_terms_convergence_test)
-        (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
-        # Get deep copy for GPU to avoid overwriting during tests
-        mesh_gpu, equations_gpu = deepcopy(mesh), deepcopy(equations)
-        initial_condition_gpu, boundary_conditions_gpu, source_terms_gpu = deepcopy(initial_condition),
-                                                                           deepcopy(boundary_conditions),
-                                                                           deepcopy(source_terms)
-        solver_gpu, cache_gpu = deepcopy(solver), deepcopy(cache)
-
-        t = t_gpu = 0.0
         tspan = (0.0, 2.0)
 
+        # Get CPU data
+        (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
+
+        # Get GPU data
+        equations_gpu = deepcopy(equations)
+        mesh_gpu, solver_gpu, cache_gpu = deepcopy(mesh), deepcopy(solver), deepcopy(cache)
+        boundary_conditions_gpu, source_terms_gpu = deepcopy(boundary_conditions),
+                                                    deepcopy(source_terms)
+
+        # Set initial time
+        t = t_gpu = 0.0
+
+        # Get initial data
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
         du_ode = similar(u_ode)
@@ -246,18 +254,22 @@ isdir(outdir) && rm(outdir, recursive = true)
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                             source_terms = source_terms_convergence_test)
-        (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
-        # Get deep copy for GPU to avoid overwriting during tests
-        mesh_gpu, equations_gpu = deepcopy(mesh), deepcopy(equations)
-        initial_condition_gpu, boundary_conditions_gpu, source_terms_gpu = deepcopy(initial_condition),
-                                                                           deepcopy(boundary_conditions),
-                                                                           deepcopy(source_terms)
-        solver_gpu, cache_gpu = deepcopy(solver), deepcopy(cache)
-
-        t = t_gpu = 0.0
         tspan = (0.0, 5.0)
 
+        # Get CPU data
+        (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
+
+        # Get GPU data
+        equations_gpu = deepcopy(equations)
+        mesh_gpu, solver_gpu, cache_gpu = deepcopy(mesh), deepcopy(solver), deepcopy(cache)
+        boundary_conditions_gpu, source_terms_gpu = deepcopy(boundary_conditions),
+                                                    deepcopy(source_terms)
+
+        # Set initial time
+        t = t_gpu = 0.0
+
+        # Get initial data
         ode = semidiscretize(semi, tspan)
         u_ode = copy(ode.u0)
         du_ode = similar(u_ode)

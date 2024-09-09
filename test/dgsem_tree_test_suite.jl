@@ -29,7 +29,8 @@ function run_dgsem_tree_tests_1D(semi, tspan)
     # Test `cuda_volume_integral!`
     TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                    Trixi.have_nonconservative_terms(equations_gpu),
-                                   equations_gpu, solver_gpu.volume_integral, solver_gpu)
+                                   equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                                   cache_gpu)
     Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                 equations, solver.volume_integral, solver, cache)
     @test CUDA.@allowscalar du_gpu ≈ du
@@ -117,7 +118,8 @@ function run_dgsem_tree_tests_2D(semi, tspan)
     # Test `cuda_volume_integral!`
     TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                    Trixi.have_nonconservative_terms(equations_gpu),
-                                   equations_gpu, solver_gpu.volume_integral, solver_gpu)
+                                   equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                                   cache_gpu)
     Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                 equations, solver.volume_integral, solver, cache)
     @test CUDA.@allowscalar du_gpu ≈ du
@@ -228,7 +230,8 @@ function run_dgsem_tree_tests_3D(semi, tspan)
     # Test `cuda_volume_integral!`
     TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                    Trixi.have_nonconservative_terms(equations_gpu),
-                                   equations_gpu, solver_gpu.volume_integral, solver_gpu)
+                                   equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                                   cache_gpu)
     Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                 equations, solver.volume_integral, solver, cache)
     @test CUDA.@allowscalar du_gpu ≈ du

@@ -41,3 +41,20 @@ function last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
 
     return nothing
 end
+
+# Kernel for counting elements for DG-only and blended DG-FV volume integral
+function pure_blended_element_count_kernel!(element_ids_dg, element_ids_dgfv, alpha, atol)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+
+    if (i <= length(alpha))
+        dg_only = isapprox(alpha[i], 0, atol = atol)
+
+        if dg_only
+            element_ids_dg[i] = i
+        else
+            element_ids_dgfv[i] = i
+        end
+    end
+
+    return nothing
+end

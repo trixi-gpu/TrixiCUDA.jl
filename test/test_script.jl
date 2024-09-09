@@ -3,39 +3,37 @@ using OrdinaryDiffEq
 using CUDA
 using Test
 
-equations = ShallowWaterEquations2D(gravity_constant = 9.81)
+equations = CompressibleEulerEquations3D(1.4)
 
-initial_condition = initial_condition_convergence_test
+initial_condition = initial_condition_weak_blast_wave
 
-boundary_condition = BoundaryConditionDirichlet(initial_condition)
+surface_flux = flux_ranocha # OBS! Using a non-dissipative flux is only sensible to test EC,
+# but not for real shock simulations
+volume_flux = flux_ranocha
+polydeg = 3
+basis = LobattoLegendreBasis(polydeg)
+indicator_sc = IndicatorHennemannGassner(equations, basis,
+                                         alpha_max = 0.5,
+                                         alpha_min = 0.001,
+                                         alpha_smooth = true,
+                                         variable = density_pressure)
+volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
+                                                 volume_flux_dg = volume_flux,
+                                                 volume_flux_fv = surface_flux)
+solver = DGSEM(basis, surface_flux, volume_integral)
 
-###############################################################################
-# Get the DG approximation space
-
-volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-solver = DGSEM(polydeg = 3,
-               surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
-               volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
-
-###############################################################################
-# Get the TreeMesh and setup a periodic mesh
-
-coordinates_min = (0.0, 0.0)
-coordinates_max = (sqrt(2.0), sqrt(2.0))
+coordinates_min = (-2.0, -2.0, -2.0)
+coordinates_max = (2.0, 2.0, 2.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 3,
-                n_cells_max = 10_000,
-                periodicity = false)
+                n_cells_max = 100_000)
 
-# create the semi discretization object
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                    boundary_conditions = boundary_condition,
-                                    source_terms = source_terms_convergence_test)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
 ###############################################################################
 # ODE solvers, callbacks etc.
 
-tspan = (0.0, 1.0)
+tspan = (0.0, 0.4)
 
 # Get CPU data
 (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -64,7 +62,8 @@ Trixi.reset_du!(du, solver, cache)
 # Test `cuda_volume_integral!`
 TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                Trixi.have_nonconservative_terms(equations_gpu),
-                               equations_gpu, solver_gpu.volume_integral, solver_gpu)
+                               equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                               cache_gpu)
 Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                             equations, solver.volume_integral, solver, cache)
 @test CUDA.@allowscalar du_gpu ≈ du
@@ -109,12 +108,18 @@ TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cac
                                solver_gpu, cache_gpu)
 Trixi.prolong2mortars!(cache, u, mesh, equations,
                        solver.mortar, solver.surface_integral, solver)
-u_upper_gpu = replace(cache_gpu.mortars.u_upper, NaN => 0.0)
-u_lower_gpu = replace(cache_gpu.mortars.u_lower, NaN => 0.0)
-u_upper = replace(cache.mortars.u_upper, NaN => 0.0)
-u_lower = replace(cache.mortars.u_lower, NaN => 0.0)
-@test u_upper_gpu ≈ u_upper
-@test u_lower_gpu ≈ u_lower
+u_upper_left_gpu = replace(cache_gpu.mortars.u_upper_left, NaN => 0.0)
+u_upper_right_gpu = replace(cache_gpu.mortars.u_upper_right, NaN => 0.0)
+u_lower_left_gpu = replace(cache_gpu.mortars.u_lower_left, NaN => 0.0)
+u_lower_right_gpu = replace(cache_gpu.mortars.u_lower_right, NaN => 0.0)
+u_upper_left = replace(cache.mortars.u_upper_left, NaN => 0.0)
+u_upper_right = replace(cache.mortars.u_upper_right, NaN => 0.0)
+u_lower_left = replace(cache.mortars.u_lower_left, NaN => 0.0)
+u_lower_right = replace(cache.mortars.u_lower_right, NaN => 0.0)
+@test u_upper_left_gpu ≈ u_upper_left
+@test u_upper_right_gpu ≈ u_upper_right
+@test u_lower_left_gpu ≈ u_lower_left
+@test u_lower_right_gpu ≈ u_lower_right
 
 # Test `cuda_mortar_flux!`
 TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
@@ -141,6 +146,3 @@ Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
 TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
 Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
 @test CUDA.@allowscalar du_gpu ≈ du
-
-# Copy data back to host
-# du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)

@@ -1,4 +1,4 @@
 [files]
-ignore-files = [
+extend-exclude = [
     "docs/dev_env_info.md"
 ]

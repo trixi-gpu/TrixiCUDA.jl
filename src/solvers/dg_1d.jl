@@ -134,23 +134,6 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, nonco
     return nothing
 end
 
-# Kernel for counting elements for DG-only and blended DG-FV volume integral
-function pure_blended_element_count_kernel!(element_ids_dg, element_ids_dgfv, alpha, atol)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-
-    if (i <= length(alpha))
-        dg_only = isapprox(alpha[i], 0, atol = atol)
-
-        if dg_only
-            element_ids_dg[i] = i
-        else
-            element_ids_dgfv[i] = i
-        end
-    end
-
-    return nothing
-end
-
 # Kernel for calculating pure DG and DG-FV volume fluxes
 function volume_flux_dgfv_kernel!(volume_flux_arr, fstar1_L, fstar1_R, u,
                                   element_ids_dgfv, equations::AbstractEquations{1},
@@ -177,7 +160,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, fstar1_L, fstar1_R, u,
             end
         end
 
-        if j1 !== 1 && j2 === 1 && element_dgfv !== 0
+        if j1 !== 1 && j2 === 1 && element_dgfv !== 0 # bad
             u_ll = get_node_vars(u, equations, j1 - 1, element_dgfv)
             u_rr = get_node_vars(u, equations, j1, element_dgfv)
             flux_fv_node = volume_flux_fv(u_ll, u_rr, 1, equations)
@@ -230,7 +213,7 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
 end
 
 # Kernel for calculating FV volume integral contribution 
-function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, invserse_weights, element_ids_dgfv,
+function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, inverse_weights, element_ids_dgfv,
                                     alpha, equations::AbstractEquations{1})
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -241,10 +224,10 @@ function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, invserse_weights, el
         element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
         alpha_element = alpha[k]
 
-        if element_dgfv !== 0
+        if element_dgfv !== 0 # bad
             @inbounds begin
                 for ii in axes(du, 1)
-                    du[ii, j, element_dgfv] += alpha_element * invserse_weights[j] *
+                    du[ii, j, element_dgfv] += alpha_element * inverse_weights[j] *
                                                (fstar1_L[ii, j + 1, element_dgfv] -
                                                 fstar1_R[ii, j, element_dgfv])
                 end
@@ -336,6 +319,7 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
     return nothing
 end
 
+# Kernel for setting interface fluxes
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
                                 noncons_right_arr, neighbor_ids)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -416,6 +400,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
     return nothing
 end
 
+# Kernel for calculating boundary fluxes
 function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                                indices_arr, neighbor_ids, neighbor_sides, orientations,
                                boundary_conditions::NamedTuple, equations::AbstractEquations{1},
@@ -529,6 +514,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False,
                                equations, volume_integral::VolumeIntegralFluxDifferencing,
                                dg::DGSEM, cache)
@@ -555,6 +541,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
@@ -590,6 +577,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
     volume_flux_dg, volume_flux_fv = dg.volume_integral.volume_flux_dg,
@@ -620,7 +608,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     derivative_split = CuArray{Float64}(derivative_split)
     volume_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
-    invserse_weights = CuArray{Float64}(dg.basis.inverse_weights)
+    inverse_weights = CuArray{Float64}(dg.basis.inverse_weights)
     fstar1_L = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 3)))
     fstar1_R = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 3)))
 
@@ -649,10 +637,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 
     volume_integral_fv_kernel = @cuda launch=false volume_integral_fv_kernel!(du, fstar1_L,
                                                                               fstar1_R,
-                                                                              invserse_weights,
+                                                                              inverse_weights,
                                                                               element_ids_dgfv,
                                                                               alpha, equations)
-    volume_integral_fv_kernel(du, fstar1_L, fstar1_R, invserse_weights, element_ids_dgfv, alpha,
+    volume_integral_fv_kernel(du, fstar1_L, fstar1_R, inverse_weights, element_ids_dgfv, alpha,
                               equations; configurator_2d(volume_integral_fv_kernel, size_arr)...)
 
     return nothing
@@ -705,6 +693,7 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
     return nothing
 end
 
+# Pack kernels for calculating interface fluxes
 function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, equations, dg::DGSEM,
                               cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
@@ -821,6 +810,7 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
     return nothing
 end
 
+# Pack kernels for calculating boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTuple,
                              nonconservative_terms::True, equations, dg::DGSEM, cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux

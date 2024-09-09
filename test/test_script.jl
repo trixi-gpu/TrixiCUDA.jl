@@ -3,7 +3,7 @@ using OrdinaryDiffEq
 using CUDA
 using Test
 
-equations = CompressibleEulerEquations1D(1.4)
+equations = CompressibleEulerEquations2D(1.4)
 
 initial_condition = initial_condition_weak_blast_wave
 
@@ -20,8 +20,8 @@ volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                  volume_flux_fv = surface_flux)
 solver = DGSEM(basis, surface_flux, volume_integral)
 
-coordinates_min = -2.0
-coordinates_max = 2.0
+coordinates_min = (-2.0, -2.0)
+coordinates_max = (2.0, 2.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 5,
                 n_cells_max = 10_000)
@@ -101,28 +101,28 @@ surface_flux_values_gpu = replace(cache_gpu.elements.surface_flux_values, NaN =>
 surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
 @test surface_flux_values_gpu ≈ surface_flux_values
 
-# # Test `cuda_prolong2mortars!`
-# TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-#                                solver_gpu, cache_gpu)
-# Trixi.prolong2mortars!(cache, u, mesh, equations,
-#                        solver.mortar, solver.surface_integral, solver)
-# u_upper_gpu = replace(cache_gpu.mortars.u_upper, NaN => 0.0)
-# u_lower_gpu = replace(cache_gpu.mortars.u_lower, NaN => 0.0)
-# u_upper = replace(cache.mortars.u_upper, NaN => 0.0)
-# u_lower = replace(cache.mortars.u_lower, NaN => 0.0)
-# @test u_upper_gpu ≈ u_upper
-# @test u_lower_gpu ≈ u_lower
+# Test `cuda_prolong2mortars!`
+TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
+                               solver_gpu, cache_gpu)
+Trixi.prolong2mortars!(cache, u, mesh, equations,
+                       solver.mortar, solver.surface_integral, solver)
+u_upper_gpu = replace(cache_gpu.mortars.u_upper, NaN => 0.0)
+u_lower_gpu = replace(cache_gpu.mortars.u_lower, NaN => 0.0)
+u_upper = replace(cache.mortars.u_upper, NaN => 0.0)
+u_lower = replace(cache.mortars.u_lower, NaN => 0.0)
+@test u_upper_gpu ≈ u_upper
+@test u_lower_gpu ≈ u_lower
 
-# # Test `cuda_mortar_flux!`
-# TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-#                            Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-#                            solver_gpu, cache_gpu)
-# Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
-#                         Trixi.have_nonconservative_terms(equations), equations,
-#                         solver.mortar, solver.surface_integral, solver, cache)
-# surface_flux_values_gpu = replace(cache_gpu.elements.surface_flux_values, NaN => 0.0)
-# surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
-# @test surface_flux_values_gpu ≈ surface_flux_values
+# Test `cuda_mortar_flux!`
+TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
+                           Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+                           solver_gpu, cache_gpu)
+Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+                        Trixi.have_nonconservative_terms(equations), equations,
+                        solver.mortar, solver.surface_integral, solver, cache)
+surface_flux_values_gpu = replace(cache_gpu.elements.surface_flux_values, NaN => 0.0)
+surface_flux_values = replace(cache.elements.surface_flux_values, NaN => 0.0)
+@test surface_flux_values_gpu ≈ surface_flux_values
 
 # Test `cuda_surface_integral!`
 TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
@@ -139,5 +139,5 @@ TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, ca
 Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
 @test CUDA.@allowscalar du_gpu ≈ du
 
-# # Copy data back to host
-# # du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)
+# # # Copy data back to host
+# # # du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)

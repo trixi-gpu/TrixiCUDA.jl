@@ -1,5 +1,4 @@
-# typos.toml
-[exclude]
-files = [
+[files.ignore]
+patterns = [
     "docs/dev_env_info.md"
 ]

@@ -1,0 +1,5 @@
+# typos.toml
+[exclude]
+files = [
+    "docs/dev_env_info.md"
+]

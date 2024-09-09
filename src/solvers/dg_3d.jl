@@ -937,6 +937,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     volume_flux = volume_integral.volume_flux
@@ -971,12 +972,14 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
     volume_flux_dg, volume_flux_fv = dg.volume_integral.volume_flux_dg,
@@ -1070,6 +1073,13 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                               inverse_weights, element_ids_dgfv, alpha;
                               configurator_2d(volume_integral_fv_kernel, size_arr)...)
 
+    return nothing
+end
+
+# Pack kernels for calculating volume integrals
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
+    # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 
@@ -1169,7 +1179,7 @@ end
 
 # Pack kernels for calculating boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTuple,
-                             nonconservative_terms, equations, dg::DGSEM, cache)
+                             nonconservative_terms::False, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
@@ -1209,6 +1219,13 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
 
+    return nothing
+end
+
+# Pack kernels for calculating boundary fluxes
+function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTuple,
+                             nonconservative_terms::True, equations, dg::DGSEM, cache)
+    # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 
@@ -1362,8 +1379,11 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
 end
 
+# Pack kernels for calculating mortar fluxes
 function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DGSEM, cache)
+    # Wait for the unmutable MHD implementation in Trixi.jl
+    return nothing
 end
 
 # Pack kernels for calculating surface integrals

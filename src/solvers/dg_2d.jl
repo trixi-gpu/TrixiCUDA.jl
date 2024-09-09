@@ -996,6 +996,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
+function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True, equations,
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
+    return nothing
+end
+
 # Pack kernels for prolonging solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, equations, cache)
     neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)

@@ -237,8 +237,7 @@ end
 
 # Kernel for calculating DG volume integral contribution
 function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                                    volume_flux_arr1, volume_flux_arr2,
-                                    equations::AbstractEquations{2})
+                                    volume_flux_arr1, volume_flux_arr2)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -280,8 +279,7 @@ end
 
 # Kernel for calculating FV volume integral contribution 
 function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, fstar2_L, fstar2_R,
-                                    inverse_weights, element_ids_dgfv, alpha,
-                                    equations::AbstractEquations{2})
+                                    inverse_weights, element_ids_dgfv, alpha)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -978,10 +976,9 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                                                               alpha,
                                                                               derivative_split,
                                                                               volume_flux_arr1,
-                                                                              volume_flux_arr2,
-                                                                              equations)
+                                                                              volume_flux_arr2)
     volume_integral_dg_kernel(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                              volume_flux_arr1, volume_flux_arr2, equations;
+                              volume_flux_arr1, volume_flux_arr2;
                               configurator_3d(volume_integral_dg_kernel, size_arr)...)
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^2, size(u, 4))
@@ -991,10 +988,9 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                                                               fstar2_L, fstar2_R,
                                                                               inverse_weights,
                                                                               element_ids_dgfv,
-                                                                              alpha,
-                                                                              equations)
+                                                                              alpha)
     volume_integral_fv_kernel(du, fstar1_L, fstar1_R, fstar2_L, fstar2_R, inverse_weights,
-                              element_ids_dgfv, alpha, equations;
+                              element_ids_dgfv, alpha;
                               configurator_2d(volume_integral_fv_kernel, size_arr)...)
 
     return nothing

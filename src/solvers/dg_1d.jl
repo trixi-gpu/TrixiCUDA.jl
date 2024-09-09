@@ -179,7 +179,7 @@ end
 
 # Kernel for calculating DG volume integral contribution
 function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                                    volume_flux_arr, equations::AbstractEquations{1})
+                                    volume_flux_arr)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -214,7 +214,7 @@ end
 
 # Kernel for calculating FV volume integral contribution 
 function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, inverse_weights, element_ids_dgfv,
-                                    alpha, equations::AbstractEquations{1})
+                                    alpha)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -627,10 +627,9 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                                                               element_ids_dgfv,
                                                                               alpha,
                                                                               derivative_split,
-                                                                              volume_flux_arr,
-                                                                              equations)
+                                                                              volume_flux_arr)
     volume_integral_dg_kernel(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                              volume_flux_arr, equations;
+                              volume_flux_arr;
                               configurator_3d(volume_integral_dg_kernel, du)...)
 
     size_arr = CuArray{Float64}(undef, size(u, 2), size(u, 3))
@@ -639,9 +638,9 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                                                               fstar1_R,
                                                                               inverse_weights,
                                                                               element_ids_dgfv,
-                                                                              alpha, equations)
-    volume_integral_fv_kernel(du, fstar1_L, fstar1_R, inverse_weights, element_ids_dgfv, alpha,
-                              equations; configurator_2d(volume_integral_fv_kernel, size_arr)...)
+                                                                              alpha)
+    volume_integral_fv_kernel(du, fstar1_L, fstar1_R, inverse_weights, element_ids_dgfv, alpha;
+                              configurator_2d(volume_integral_fv_kernel, size_arr)...)
 
     return nothing
 end

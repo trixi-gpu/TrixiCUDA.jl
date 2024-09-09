@@ -166,7 +166,7 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr1, symm
                                          noncons_flux_arr2[i, j1, j2, ii, k]
             end
 
-            du[i, j1, j2, k] += 0.5f0 * integral_contribution # change back to `Float32`
+            du[i, j1, j2, k] += 0.5 * integral_contribution # change back to `Float32`
         end
     end
 

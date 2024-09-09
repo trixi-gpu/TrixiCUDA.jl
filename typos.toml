@@ -1,4 +1,4 @@
-[files.ignore]
-patterns = [
+[files]
+ignore-files = [
     "docs/dev_env_info.md"
 ]

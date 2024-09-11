@@ -49,7 +49,7 @@ function pure_blended_element_count_kernel!(element_ids_dg, element_ids_dgfv, al
     if (i <= length(alpha))
         dg_only = isapprox(alpha[i], 0, atol = atol)
 
-        if dg_only
+        if dg_only # bad
             element_ids_dg[i] = i
         else
             element_ids_dgfv[i] = i

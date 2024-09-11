@@ -143,6 +143,9 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
 
         element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
 
+        # The sets of `get_node_vars` operations may be combined
+        # into a single set of operation for better performance (to be explored)
+
         u_node = get_node_vars(u, equations, j1, j2, j3, k)
         u_node1 = get_node_vars(u, equations, j4, j2, j3, k)
         u_node2 = get_node_vars(u, equations, j1, j4, j3, k)

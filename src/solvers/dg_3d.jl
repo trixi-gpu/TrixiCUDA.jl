@@ -945,7 +945,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     volume_flux = volume_integral.volume_flux
 
-    derivative_split = CuArray{Float64}(dg.basis.derivative_split)
+    derivative_split = dg.basis.derivative_split
+    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
+
+    derivative_split = CuArray{Float64}(derivative_split)
     volume_flux_arr1 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                         size(u, 2), size(u, 5))
     volume_flux_arr2 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),

@@ -11,19 +11,9 @@ isdir(outdir) && rm(outdir, recursive = true)
 # Test precision of the semidiscretization process
 @testset "Test Shallow Water" begin
     @testset "Shallow Water 1D" begin
-        equations = ShallowWaterEquations1D(gravity_constant = 1.0, H0 = 3.0)
+        equations = ShallowWaterEquations1D(gravity_constant = 9.81, H0 = 3.0)
 
-        function initial_condition_well_balancedness(x, t, equations::ShallowWaterEquations1D)
-            # Set the background values
-            H = equations.H0
-            v = 0.0
-
-            b = (1.5 / exp(0.5 * ((x[1] - 1.0)^2)) + 0.75 / exp(0.5 * ((x[1] + 1.0)^2)))
-
-            return prim2cons(SVector(H, v, b), equations)
-        end
-
-        initial_condition = initial_condition_well_balancedness
+        initial_condition = initial_condition_convergence_test
 
         boundary_condition = BoundaryConditionDirichlet(initial_condition)
 
@@ -43,7 +33,7 @@ isdir(outdir) && rm(outdir, recursive = true)
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                             boundary_conditions = boundary_condition)
 
-        tspan = (0.0, 100.0)
+        tspan = (0.0, 1.0)
 
         # Get CPU data
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi

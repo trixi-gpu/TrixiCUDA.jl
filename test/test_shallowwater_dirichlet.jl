@@ -11,7 +11,6 @@ isdir(outdir) && rm(outdir, recursive = true)
 # Test precision of the semidiscretization process
 @testset "Test Shallow Water" begin
     @testset "Shallow Water 1D" begin
-
         equations = ShallowWaterEquations1D(gravity_constant = 9.81, H0 = 3.0)
 
         initial_condition = initial_condition_convergence_test

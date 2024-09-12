@@ -143,6 +143,9 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
 
         element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
 
+        # The sets of `get_node_vars` operations may be combined
+        # into a single set of operation for better performance (to be explored)
+
         u_node = get_node_vars(u, equations, j1, j2, j3, k)
         u_node1 = get_node_vars(u, equations, j4, j2, j3, k)
         u_node2 = get_node_vars(u, equations, j1, j4, j3, k)
@@ -205,7 +208,8 @@ end
 
 # Kernel for calculating DG volume integral contribution
 function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                                    volume_flux_arr1, volume_flux_arr2, volume_flux_arr3)
+                                    volume_flux_arr1, volume_flux_arr2, volume_flux_arr3,
+                                    equations::AbstractEquations{3})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -937,11 +941,15 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     volume_flux = volume_integral.volume_flux
 
-    derivative_split = CuArray{Float64}(dg.basis.derivative_split)
+    derivative_split = dg.basis.derivative_split
+    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
+
+    derivative_split = CuArray{Float64}(derivative_split)
     volume_flux_arr1 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                         size(u, 2), size(u, 5))
     volume_flux_arr2 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
@@ -971,12 +979,14 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 
+# Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
     volume_flux_dg, volume_flux_fv = dg.volume_integral.volume_flux_dg,
@@ -1052,9 +1062,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                               derivative_split,
                                                                               volume_flux_arr1,
                                                                               volume_flux_arr2,
-                                                                              volume_flux_arr3)
+                                                                              volume_flux_arr3,
+                                                                              equations)
     volume_integral_dg_kernel(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                              volume_flux_arr1, volume_flux_arr2, volume_flux_arr3;
+                              volume_flux_arr1, volume_flux_arr2, volume_flux_arr3, equations;
                               configurator_3d(volume_integral_dg_kernel, size_arr)...)
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 5))
@@ -1070,6 +1081,13 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                               inverse_weights, element_ids_dgfv, alpha;
                               configurator_2d(volume_integral_fv_kernel, size_arr)...)
 
+    return nothing
+end
+
+# Pack kernels for calculating volume integrals
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
+    # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 
@@ -1169,7 +1187,7 @@ end
 
 # Pack kernels for calculating boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTuple,
-                             nonconservative_terms, equations, dg::DGSEM, cache)
+                             nonconservative_terms::False, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
@@ -1209,6 +1227,13 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
 
+    return nothing
+end
+
+# Pack kernels for calculating boundary fluxes
+function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTuple,
+                             nonconservative_terms::True, equations, dg::DGSEM, cache)
+    # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 
@@ -1362,8 +1387,11 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
 end
 
+# Pack kernels for calculating mortar fluxes
 function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DGSEM, cache)
+    # Wait for the unmutable MHD implementation in Trixi.jl
+    return nothing
 end
 
 # Pack kernels for calculating surface integrals

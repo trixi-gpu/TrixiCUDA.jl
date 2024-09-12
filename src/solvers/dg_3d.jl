@@ -208,7 +208,8 @@ end
 
 # Kernel for calculating DG volume integral contribution
 function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                                    volume_flux_arr1, volume_flux_arr2, volume_flux_arr3)
+                                    volume_flux_arr1, volume_flux_arr2, volume_flux_arr3,
+                                    equations::AbstractEquations{3})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -1061,9 +1062,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                               derivative_split,
                                                                               volume_flux_arr1,
                                                                               volume_flux_arr2,
-                                                                              volume_flux_arr3)
+                                                                              volume_flux_arr3,
+                                                                              equations)
     volume_integral_dg_kernel(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                              volume_flux_arr1, volume_flux_arr2, volume_flux_arr3;
+                              volume_flux_arr1, volume_flux_arr2, volume_flux_arr3, equations;
                               configurator_3d(volume_integral_dg_kernel, size_arr)...)
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 5))

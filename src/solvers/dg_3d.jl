@@ -144,7 +144,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
         element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
 
         # The sets of `get_node_vars` operations may be combined
-        # into a single set of operation for better performance (to be explored)
+        # into a single set of operation for better performance (to be explored).
 
         u_node = get_node_vars(u, equations, j1, j2, j3, k)
         u_node1 = get_node_vars(u, equations, j4, j2, j3, k)
@@ -163,7 +163,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             end
         end
 
-        if j1 !== 1 && j4 === 1 && element_dgfv !== 0 # bad
+        if j1 != 1 && j4 == 1 && element_dgfv != 0 # bad
             u_ll = get_node_vars(u, equations, j1 - 1, j2, j3, element_dgfv)
             u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
             flux_fv_node1 = volume_flux_fv(u_ll, u_rr, 1, equations)
@@ -176,7 +176,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             end
         end
 
-        if j2 !== 1 && j4 === 1 && element_dgfv !== 0 # bad
+        if j2 != 1 && j4 == 1 && element_dgfv != 0 # bad
             u_ll = get_node_vars(u, equations, j1, j2 - 1, j3, element_dgfv)
             u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
             flux_fv_node2 = volume_flux_fv(u_ll, u_rr, 2, equations)
@@ -189,7 +189,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             end
         end
 
-        if j3 !== 1 && j4 === 1 && element_dgfv !== 0 # bad
+        if j3 != 1 && j4 == 1 && element_dgfv != 0 # bad
             u_ll = get_node_vars(u, equations, j1, j2, j3 - 1, element_dgfv)
             u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
             flux_fv_node3 = volume_flux_fv(u_ll, u_rr, 3, equations)
@@ -227,7 +227,7 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
         alpha_element = alpha[k]
 
         @inbounds begin
-            if element_dg !== 0 # bad
+            if element_dg != 0 # bad
                 for ii in axes(du, 2)
                     du[i, j1, j2, j3, element_dg] += derivative_split[j1, ii] *
                                                      volume_flux_arr1[i, j1, ii, j2, j3, element_dg]
@@ -238,7 +238,7 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
                 end
             end
 
-            if element_dgfv !== 0 # bad
+            if element_dgfv != 0 # bad
                 for ii in axes(du, 2)
                     du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) *
                                                        derivative_split[j1, ii] *
@@ -277,7 +277,7 @@ function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, fstar2_L, fstar2_R,
         element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
         alpha_element = alpha[k]
 
-        if element_dgfv !== 0 # bad
+        if element_dgfv != 0 # bad
             @inbounds begin
                 for ii in axes(du, 1)
                     du[ii, j1, j2, j3, element_dgfv] += (alpha_element *
@@ -475,8 +475,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         @inbounds begin
             for ii in axes(surface_flux_values, 1)
                 # `boundary_flux_node` can be nothing if periodic boundary condition is applied
-                surface_flux_values[ii, j1, j2, direction, neighbor] = boundary_flux_node ===
-                                                                       nothing ? # bad
+                surface_flux_values[ii, j1, j2, direction, neighbor] = isnothing(boundary_flux_node) ? # bad
                                                                        surface_flux_values[ii, j1,
                                                                                            j2,
                                                                                            direction,

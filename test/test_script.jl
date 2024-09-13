@@ -1,6 +1,3 @@
-using Trixi, TrixiGPU
-using OrdinaryDiffEq
-
 include("test_trixigpu.jl")
 
 equations = IdealGlmMhdEquations2D(1.4)

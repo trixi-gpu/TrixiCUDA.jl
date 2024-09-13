@@ -151,7 +151,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, fstar1_L, fstar1_R, u,
         element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
 
         # The sets of `get_node_vars` operations may be combined
-        # into a single set of operation for better performance (to be explored)
+        # into a single set of operation for better performance (to be explored).
 
         u_node = get_node_vars(u, equations, j1, k)
         u_node1 = get_node_vars(u, equations, j2, k)
@@ -164,7 +164,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, fstar1_L, fstar1_R, u,
             end
         end
 
-        if j1 !== 1 && j2 === 1 && element_dgfv !== 0 # bad
+        if j1 != 1 && j2 == 1 && element_dgfv != 0 # bad
             u_ll = get_node_vars(u, equations, j1 - 1, element_dgfv)
             u_rr = get_node_vars(u, equations, j1, element_dgfv)
             flux_fv_node = volume_flux_fv(u_ll, u_rr, 1, equations)
@@ -199,7 +199,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, f
         element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
 
         # The sets of `get_node_vars` operations may be combined
-        # into a single set of operation for better performance (to be explored)
+        # into a single set of operation for better performance (to be explored).
 
         u_node = get_node_vars(u, equations, j1, k)
         u_node1 = get_node_vars(u, equations, j2, k)
@@ -214,7 +214,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, f
             end
         end
 
-        if j1 !== 1 && j2 === 1 && element_dgfv !== 0 # bad
+        if j1 != 1 && j2 == 1 && element_dgfv != 0 # bad
             u_ll = get_node_vars(u, equations, j1 - 1, element_dgfv)
             u_rr = get_node_vars(u, equations, j1, element_dgfv)
 
@@ -251,14 +251,14 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
         alpha_element = alpha[k]
 
         @inbounds begin
-            if element_dg !== 0 # bad
+            if element_dg != 0 # bad
                 for ii in axes(du, 2)
                     du[i, j, element_dg] += derivative_split[j, ii] *
                                             volume_flux_arr[i, j, ii, element_dg]
                 end
             end
 
-            if element_dgfv !== 0 # bad
+            if element_dgfv != 0 # bad
                 for ii in axes(du, 2)
                     du[i, j, element_dgfv] += (1 - alpha_element) * derivative_split[j, ii] *
                                               volume_flux_arr[i, j, ii, element_dgfv]
@@ -287,7 +287,7 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
         alpha_element = alpha[k]
 
         @inbounds begin
-            if element_dg !== 0 # bad
+            if element_dg != 0 # bad
                 integral_contribution = 0.0
 
                 for ii in axes(du, 2)
@@ -299,7 +299,7 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
                 du[i, j, element_dg] += 0.5 * integral_contribution
             end
 
-            if element_dgfv !== 0 # bad
+            if element_dgfv != 0 # bad
                 integral_contribution = 0.0
 
                 for ii in axes(du, 2)
@@ -329,7 +329,7 @@ function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, inverse_weights, ele
         element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
         alpha_element = alpha[k]
 
-        if element_dgfv !== 0 # bad
+        if element_dgfv != 0 # bad
             @inbounds begin
                 for ii in axes(du, 1)
                     du[ii, j, element_dgfv] += alpha_element * inverse_weights[j] *
@@ -494,7 +494,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         @inbounds begin
             for ii in axes(surface_flux_values, 1)
                 # `boundary_flux_node` can be nothing if periodic boundary condition is applied
-                surface_flux_values[ii, direction, neighbor] = boundary_flux_node === nothing ? # bad
+                surface_flux_values[ii, direction, neighbor] = isnothing(boundary_flux_node) ? # bad
                                                                surface_flux_values[ii, direction,
                                                                                    neighbor] :
                                                                boundary_flux_node[ii]

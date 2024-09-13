@@ -1,83 +1,26 @@
-using Trixi, TrixiGPU
-using OrdinaryDiffEq
-using CUDA
-using Test
+include("test_trixigpu.jl")
 
-equations = ShallowWaterEquations1D(gravity_constant = 9.812, H0 = 1.75)
+equations = IdealGlmMhdEquations2D(1.4)
 
-# Initial condition with a truly discontinuous velocity and bottom topography.
-# Works as intended for TreeMesh1D with `initial_refinement_level=3`. If the mesh
-# refinement level is changed the initial condition below may need changed as well to
-# ensure that the discontinuities lie on an element interface.
-function initial_condition_stone_throw_discontinuous_bottom(x, t,
-                                                            equations::ShallowWaterEquations1D)
+initial_condition = initial_condition_weak_blast_wave
 
-    # Calculate primitive variables
+volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+solver = DGSEM(polydeg = 3,
+               surface_flux = (flux_hindenlang_gassner, flux_nonconservative_powell),
+               volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
-    # flat lake
-    H = equations.H0
-
-    # Discontinuous velocity
-    v = 0.0
-    if x[1] >= -0.75 && x[1] <= 0.0
-        v = -1.0
-    elseif x[1] >= 0.0 && x[1] <= 0.75
-        v = 1.0
-    end
-
-    b = (1.5 / exp(0.5 * ((x[1] - 1.0)^2)) +
-         0.75 / exp(0.5 * ((x[1] + 1.0)^2)))
-
-    # Force a discontinuous bottom topography
-    if x[1] >= -1.5 && x[1] <= 0.0
-        b = 0.5
-    end
-
-    return prim2cons(SVector(H, v, b), equations)
-end
-
-initial_condition = initial_condition_stone_throw_discontinuous_bottom
-
-boundary_condition = boundary_condition_slip_wall
-
-###############################################################################
-# Get the DG approximation space
-
-volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-surface_flux = (FluxHydrostaticReconstruction(flux_lax_friedrichs,
-                                              hydrostatic_reconstruction_audusse_etal),
-                flux_nonconservative_audusse_etal)
-basis = LobattoLegendreBasis(4)
-
-indicator_sc = IndicatorHennemannGassner(equations, basis,
-                                         alpha_max = 0.5,
-                                         alpha_min = 0.001,
-                                         alpha_smooth = true,
-                                         variable = waterheight_pressure)
-volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
-                                                 volume_flux_dg = volume_flux,
-                                                 volume_flux_fv = surface_flux)
-
-solver = DGSEM(basis, surface_flux, volume_integral)
-
-###############################################################################
-# Create the TreeMesh for the domain [-3, 3]
-
-coordinates_min = -3.0
-coordinates_max = 3.0
+coordinates_min = (-2.0, -2.0)
+coordinates_max = (2.0, 2.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 3,
-                n_cells_max = 10_000,
-                periodicity = false)
+                initial_refinement_level = 4,
+                n_cells_max = 10_000)
 
-# create the semi discretization object
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                    boundary_conditions = boundary_condition)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
 ###############################################################################
-# ODE solver
+# ODE solvers, callbacks etc.
 
-tspan = (0.0, 3.0)
+tspan = (0.0, 0.4)
 
 # Get CPU data
 (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -110,4 +53,4 @@ TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                cache_gpu)
 Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                             equations, solver.volume_integral, solver, cache)
-@test CUDA.@allowscalar du_gpu ≈ du
+@test_approx du_gpu ≈ du

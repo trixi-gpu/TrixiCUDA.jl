@@ -1,12 +1,6 @@
 module TestShallowWaterShock # with `nonconservative_terms::True`
 
-using Trixi, TrixiGPU
-using OrdinaryDiffEq
-using Test, CUDA
-
-# Start testing with a clean environment
-outdir = "out"
-isdir(outdir) && rm(outdir, recursive = true)
+include("test_trixigpu.jl")
 
 # Test precision of the semidiscretization process
 @testset "Test Shallow Water" begin
@@ -104,7 +98,7 @@ isdir(outdir) && rm(outdir, recursive = true)
                                        cache_gpu)
         Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                     equations, solver.volume_integral, solver, cache)
-        @test CUDA.@allowscalar du_gpu ≈ du
+        @test_approx du_gpu ≈ du
 
         # Wait for fix of boundary flux dispatches
 

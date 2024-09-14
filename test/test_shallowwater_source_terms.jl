@@ -1,4 +1,12 @@
-module TestShallowWaterSourceTerms # with `nonconservative_terms::True`
+module TestShallowWaterSourceTerms
+
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_sources!`
+# Conditions:
+#  - `nonconservative_terms::True`
+#   - `source_terms`
+#######################################################################
 
 include("test_trixigpu.jl")
 

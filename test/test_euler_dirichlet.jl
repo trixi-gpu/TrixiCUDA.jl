@@ -1,34 +1,40 @@
-module TestLinearAdvectionBasic
+module TestCompressibleEulerBoundary
 
 ####################################################################### Tags
 # Kernels: 
-#   - `cuda_xx!` (most basic kernels)
+#   -`cuda_prolong2boundaries!`
+#   - `cuda_boundary_flux!`
 # Conditions:
 #   - `nonconservative_terms::False`
-#   - `volume_integral::VolumeIntegralWeakForm`
-#   - `periodicity = true` 1D, 2D, 3D
+#   - `periodicity = false` 1D, 2D, 3D - `BoundaryConditionDirichlet`
+#   - `source_terms`
 #######################################################################
 
 include("test_trixigpu.jl")
 
 # Test precision of the semidiscretization process
-@testset "Test Linear Advection" begin
-    @testset "Linear Advection 1D" begin
-        advection_velocity = 1.0
-        equations = LinearScalarAdvectionEquation1D(advection_velocity)
+@testset "Test Compressible Euler" begin
+    @testset "Compressible Euler 1D" begin
+        equations = CompressibleEulerEquations1D(1.4)
+
+        initial_condition = initial_condition_convergence_test
+
+        boundary_condition = BoundaryConditionDirichlet(initial_condition)
 
         solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = -1.0
-        coordinates_max = 1.0
+        coordinates_min = (0.0,)
+        coordinates_max = (2.0,)
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 4,
+                        n_cells_max = 10_000,
+                        periodicity = false)
 
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 4,
-                        n_cells_max = 30_000)
+        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                            source_terms = source_terms_convergence_test,
+                                            boundary_conditions = boundary_condition)
 
-        semi = SemidiscretizationHyperbolic(mesh, equations,
-                                            initial_condition_convergence_test, solver)
-
-        tspan = (0.0, 1.0)
+        tspan = (0.0, 2.0)
 
         # Get CPU data
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -109,22 +115,31 @@ include("test_trixigpu.jl")
         du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)
     end
 
-    @testset "Linear Advection 2D" begin
-        advection_velocity = (0.2, -0.7)
-        equations = LinearScalarAdvectionEquation2D(advection_velocity)
+    @testset "Compressible Euler 2D" begin
+        equations = CompressibleEulerEquations2D(1.4)
+
+        initial_condition = initial_condition_convergence_test
+
+        boundary_condition = BoundaryConditionDirichlet(initial_condition)
+        boundary_conditions = (x_neg = boundary_condition,
+                               x_pos = boundary_condition,
+                               y_neg = boundary_condition,
+                               y_pos = boundary_condition)
 
         solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = (-1.0, -1.0)
-        coordinates_max = (1.0, 1.0)
+        coordinates_min = (0.0, 0.0)
+        coordinates_max = (2.0, 2.0)
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 4,
+                        n_cells_max = 10_000,
+                        periodicity = false)
 
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 4,
-                        n_cells_max = 30_000)
+        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                            source_terms = source_terms_convergence_test,
+                                            boundary_conditions = boundary_conditions)
 
-        semi = SemidiscretizationHyperbolic(mesh, equations,
-                                            initial_condition_convergence_test, solver)
-
-        tspan = (0.0, 1.0)
+        tspan = (0.0, 2.0)
 
         # Get CPU data
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -222,22 +237,33 @@ include("test_trixigpu.jl")
         du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)
     end
 
-    @testset "Linear AdVection 3D" begin
-        advection_velocity = (0.2, -0.7, 0.5)
-        equations = LinearScalarAdvectionEquation3D(advection_velocity)
+    @testset "Compressible Euler 3D" begin
+        equations = CompressibleEulerEquations3D(1.4)
+
+        initial_condition = initial_condition_convergence_test
+
+        boundary_condition = BoundaryConditionDirichlet(initial_condition)
+        boundary_conditions = (x_neg = boundary_condition,
+                               x_pos = boundary_condition,
+                               y_neg = boundary_condition,
+                               y_pos = boundary_condition,
+                               z_neg = boundary_condition,
+                               z_pos = boundary_condition)
 
         solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = (-1.0, -1.0, -1.0)
-        coordinates_max = (1.0, 1.0, 1.0)
+        coordinates_min = (0.0, 0.0, 0.0)
+        coordinates_max = (2.0, 2.0, 2.0)
+        mesh = TreeMesh(coordinates_min, coordinates_max,
+                        initial_refinement_level = 4,
+                        n_cells_max = 10_000,
+                        periodicity = false)
 
-        mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 3,
-                        n_cells_max = 30_000)
+        semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                            source_terms = source_terms_convergence_test,
+                                            boundary_conditions = boundary_conditions)
 
-        semi = SemidiscretizationHyperbolic(mesh, equations,
-                                            initial_condition_convergence_test, solver)
-
-        tspan = (0.0, 1.0)
+        tspan = (0.0, 2.0)
 
         # Get CPU data
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi

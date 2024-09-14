@@ -1,4 +1,12 @@
-module TestShallowWaterShock # with `nonconservative_terms::True`
+module TestShallowWaterShock
+
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_volume_integral!`
+# Conditions:
+#   - `nonconservative_terms::True`
+#   - `volume_integral::VolumeIntegralShockCapturingHG`
+#######################################################################
 
 include("test_trixigpu.jl")
 

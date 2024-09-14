@@ -1,4 +1,12 @@
-module TestCompressibleEulerMultiFluxDifferencing # with `nonconservative_terms::False`
+module TestCompressibleEulerMultiFluxDifferencing
+
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_volume_integral!`
+# Conditions:
+#   - `nonconservative_terms::False`
+#   - `volume_integral::VolumeIntegralFluxDifferencing`
+#######################################################################
 
 include("test_trixigpu.jl")
 

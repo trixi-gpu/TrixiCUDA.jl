@@ -1,4 +1,12 @@
-module TestShallowWaterFluxDifferencing # with `nonconservative_terms::True`
+module TestShallowWaterFluxDifferencing
+
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_volume_integral!`
+# Conditions:
+#   - `nonconservative_terms::True`
+#   - `volume_integral::VolumeIntegralFluxDifferencing`
+#######################################################################
 
 include("test_trixigpu.jl")
 

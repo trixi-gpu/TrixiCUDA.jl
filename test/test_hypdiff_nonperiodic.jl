@@ -1,4 +1,15 @@
-module TestHyperbolicDiffusionBoundary # with `nonconservative_terms::False`
+module TestHyperbolicDiffusionBoundary
+
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_prolong2boundaries!`
+#   - `cuda_boundary_flux!`
+# Conditions:
+#   - `nonconservative_terms::False`
+#   - `periodicity = false` 1D
+#   - `periodicity = (false, true)` 2D
+#   - `periodicity = (false, true, true)` 3D
+#######################################################################
 
 include("test_trixigpu.jl")
 

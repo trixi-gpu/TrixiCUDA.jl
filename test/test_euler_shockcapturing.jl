@@ -1,5 +1,13 @@
 
-module TestCompressibleEulerShock # with `nonconservative_terms::False`
+module TestCompressibleEulerShock
+
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_volume_integral!`
+# Conditions:
+#   - `nonconservative_terms::False`
+#   - `volume_integral::VolumeIntegralShockCapturingHG`
+#######################################################################
 
 include("test_trixigpu.jl")
 

@@ -526,13 +526,15 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
 
         # TODO: Improve this part
         if direction == 1
-            u_boundary = boundary_conditions[1].boundary_value_function(x, t, equations)
-            flux_node = surface_flux(u_boundary, u_inner, orientation, equations)
-            noncons_flux_node = nonconservative_flux(u_boundary, u_inner, orientation, equations)
+            flux_node = boundary_conditions[1](u_inner, orientation, direction, x, t, surface_flux,
+                                               equations)
+            noncons_flux_node = boundary_conditions[1](u_inner, orientation, direction, x, t,
+                                                       nonconservative_flux, equations)
         else
-            u_boundary = boundary_conditions[2].boundary_value_function(x, t, equations)
-            flux_node = surface_flux(u_inner, u_boundary, orientation, equations)
-            noncons_flux_node = nonconservative_flux(u_inner, u_boundary, orientation, equations)
+            flux_node = boundary_conditions[2](u_inner, orientation, direction, x, t, surface_flux,
+                                               equations)
+            noncons_flux_node = boundary_conditions[2](u_inner, orientation, direction, x, t,
+                                                       nonconservative_flux, equations)
         end
 
         @inbounds begin

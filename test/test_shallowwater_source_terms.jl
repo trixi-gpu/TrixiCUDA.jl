@@ -4,7 +4,8 @@ module TestShallowWaterSourceTerms
 # Kernels: 
 #   -`cuda_sources!`
 # Conditions:
-#  - `nonconservative_terms::True`
+#   - `nonconservative_terms::True`
+#   - `volume_integral::VolumeIntegralFluxDifferencing`
 #   - `source_terms`
 #######################################################################
 

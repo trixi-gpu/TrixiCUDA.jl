@@ -4,7 +4,7 @@ module TestCompressibleEulerSourceTerms
 # Kernels: 
 #   -`cuda_sources!`
 # Conditions:
-#  - `nonconservative_terms::False`
+#   - `nonconservative_terms::False`
 #   - `source_terms`
 #######################################################################
 

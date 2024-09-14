@@ -1,4 +1,12 @@
-module TestLinearAdvectionMortar # with `nonconservative_terms::False`
+module TestLinearAdvectionMortar
+
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_prolong2mortars!`
+#   - `cuda_mortar_flux!`
+# Conditions:
+#   - `nonconservative_terms::False`
+#######################################################################
 
 include("test_trixigpu.jl")
 

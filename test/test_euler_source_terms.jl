@@ -1,5 +1,13 @@
 module TestCompressibleEulerSourceTerms
 
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_sources!`
+# Conditions:
+#   - `nonconservative_terms::False`
+#   - `source_terms`
+#######################################################################
+
 include("test_trixigpu.jl")
 
 # Test precision of the semidiscretization process

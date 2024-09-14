@@ -1,4 +1,13 @@
-module TestShallowWaterBoundary # with `nonconservative_terms::True`
+module TestShallowWaterBoundary
+
+####################################################################### Tags
+# Kernels: 
+#   -`cuda_prolong2boundaries!`
+#   - `cuda_boundary_flux!`
+# Conditions:
+#   - `nonconservative_terms::True`
+#   - `periodicity = false` 1D, 2D, 3D - `BoundaryConditionDirichlet`
+#######################################################################
 
 include("test_trixigpu.jl")
 

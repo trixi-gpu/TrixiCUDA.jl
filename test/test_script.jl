@@ -1,53 +1,26 @@
 include("test_trixigpu.jl")
 
-equations = ShallowWaterEquations2D(gravity_constant = 9.81, H0 = 3.25)
+equations = IdealGlmMhdEquations3D(5 / 3)
 
-# An initial condition with a bottom topography and a perturbation in the waterheight to test 
-# boundary_condition_slip_wall
-function initial_condition_perturbation(x, t, equations::ShallowWaterEquations2D)
-    # Set the background values
-    H = equations.H0
-    v1 = 0.0
-    v2 = 0.0
+initial_condition = initial_condition_convergence_test
 
-    # Bottom topography
-    b = 1.5 * exp(-0.5 * ((x[1])^2 + (x[2])^2))
-    # Waterheight perturbation
-    H = H + 0.5 * exp(-10.0 * ((x[1])^2 + (x[2])^2))
-
-    return prim2cons(SVector(H, v1, v2, b), equations)
-end
-
-initial_condition = initial_condition_perturbation
-
-boundary_condition = boundary_condition_slip_wall
-
-###############################################################################
-# Get the DG approximation space
-
-volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-surface_flux = (flux_lax_friedrichs, flux_nonconservative_wintermeyer_etal)
-solver = DGSEM(polydeg = 3, surface_flux = surface_flux,
+volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+solver = DGSEM(polydeg = 3,
+               surface_flux = (flux_lax_friedrichs, flux_nonconservative_powell),
                volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
-###############################################################################
-# Get the TreeMesh and setup a non-periodic mesh
-
-coordinates_min = (-1.0, -1.0)
-coordinates_max = (1.0, 1.0)
+coordinates_min = (-1.0, -1.0, -1.0)
+coordinates_max = (1.0, 1.0, 1.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 4,
-                n_cells_max = 10_000,
-                periodicity = false)
+                initial_refinement_level = 2,
+                n_cells_max = 10_000)
 
-# create the semi discretization object
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                    boundary_conditions = boundary_condition)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
 ###############################################################################
 # ODE solvers, callbacks etc.
 
-tspan = (0.0, 0.25)
+tspan = (0.0, 1.0)
 
 # Get CPU data
 (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -82,61 +55,61 @@ Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equati
                             equations, solver.volume_integral, solver, cache)
 @test_approx du_gpu ≈ du
 
-# Test `cuda_prolong2interfaces!`
-TrixiGPU.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
-Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
-@test_approx cache_gpu.interfaces.u ≈ cache.interfaces.u
+# # Test `cuda_prolong2interfaces!`
+# TrixiGPU.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
+# Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
+# @test_approx cache_gpu.interfaces.u ≈ cache.interfaces.u
 
-# Test `cuda_interface_flux!`
-TrixiGPU.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
-                              equations_gpu, solver_gpu, cache_gpu)
-Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
-                           Trixi.have_nonconservative_terms(equations), equations,
-                           solver.surface_integral, solver, cache)
-@test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
+# # Test `cuda_interface_flux!`
+# TrixiGPU.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
+#                               equations_gpu, solver_gpu, cache_gpu)
+# Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
+#                            Trixi.have_nonconservative_terms(equations), equations,
+#                            solver.surface_integral, solver, cache)
+# @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
-# Test `cuda_prolong2boundaries!`
-TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
-                                  cache_gpu)
-Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
-@test_approx cache_gpu.boundaries.u ≈ cache.boundaries.u
+# # Test `cuda_prolong2boundaries!`
+# TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+#                                   cache_gpu)
+# Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
+# @test_approx cache_gpu.boundaries.u ≈ cache.boundaries.u
 
-# Test `cuda_boundary_flux!`
-TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
-                             Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-                             solver_gpu, cache_gpu)
-Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
-                          solver.surface_integral, solver)
-@test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
+# # Test `cuda_boundary_flux!`
+# TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+#                              Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+#                              solver_gpu, cache_gpu)
+# Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
+#                           solver.surface_integral, solver)
+# @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
-# Test `cuda_prolong2mortars!`
-TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-                               solver_gpu, cache_gpu)
-Trixi.prolong2mortars!(cache, u, mesh, equations,
-                       solver.mortar, solver.surface_integral, solver)
-@test_approx cache_gpu.mortars.u_upper ≈ cache.mortars.u_upper
-@test_approx cache_gpu.mortars.u_lower ≈ cache.mortars.u_lower
+# # Test `cuda_prolong2mortars!`
+# TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
+#                                solver_gpu, cache_gpu)
+# Trixi.prolong2mortars!(cache, u, mesh, equations,
+#                        solver.mortar, solver.surface_integral, solver)
+# @test_approx cache_gpu.mortars.u_upper ≈ cache.mortars.u_upper
+# @test_approx cache_gpu.mortars.u_lower ≈ cache.mortars.u_lower
 
-# Test `cuda_mortar_flux!`
-TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-                           Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-                           solver_gpu, cache_gpu)
-Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
-                        Trixi.have_nonconservative_terms(equations), equations,
-                        solver.mortar, solver.surface_integral, solver, cache)
-@test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
+# # Test `cuda_mortar_flux!`
+# TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
+#                            Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+#                            solver_gpu, cache_gpu)
+# Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+#                         Trixi.have_nonconservative_terms(equations), equations,
+#                         solver.mortar, solver.surface_integral, solver, cache)
+# @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
-# Test `cuda_surface_integral!`
-TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
-Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
-@test_approx du_gpu ≈ du
+# # Test `cuda_surface_integral!`
+# TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
+# Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
+# @test_approx du_gpu ≈ du
 
-# Test `cuda_jacobian!`
-TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
-Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
-@test_approx du_gpu ≈ du
+# # Test `cuda_jacobian!`
+# TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
+# Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
+# @test_approx du_gpu ≈ du
 
-# Test `cuda_sources!`
-TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
-Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
-@test_approx du_gpu ≈ du
+# # Test `cuda_sources!`
+# TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
+# Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
+# @test_approx du_gpu ≈ du

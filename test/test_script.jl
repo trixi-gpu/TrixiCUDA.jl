@@ -1,5 +1,7 @@
 include("test_trixigpu.jl")
 
+using CUDA
+
 equations = IdealGlmMhdEquations3D(5 / 3)
 
 initial_condition = initial_condition_convergence_test
@@ -55,10 +57,10 @@ Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equati
                             equations, solver.volume_integral, solver, cache)
 @test_approx du_gpu ≈ du
 
-# # Test `cuda_prolong2interfaces!`
-# TrixiGPU.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
-# Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
-# @test_approx cache_gpu.interfaces.u ≈ cache.interfaces.u
+# Test `cuda_prolong2interfaces!`
+TrixiGPU.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
+Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
+@test_approx cache_gpu.interfaces.u ≈ cache.interfaces.u
 
 # # Test `cuda_interface_flux!`
 # TrixiGPU.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),

@@ -1290,6 +1290,14 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, eq
                               cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
+    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
+    orientations = CuArray{Int64}(cache.interfaces.orientations)
+    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
+    noncons_left_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
+    noncons_right_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
+    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+
     return nothing
 end
 

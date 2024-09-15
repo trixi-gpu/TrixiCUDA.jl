@@ -419,7 +419,8 @@ end
 
 # Kernel for setting interface fluxes
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
-                                noncons_right_arr, neighbor_ids, orientations)
+                                noncons_right_arr, neighbor_ids, orientations,
+                                equations::AbstractEquations{2})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -1098,9 +1099,10 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::True, eq
                                                                       surface_flux_arr,
                                                                       noncons_left_arr,
                                                                       noncons_right_arr,
-                                                                      neighbor_ids, orientations)
+                                                                      neighbor_ids, orientations,
+                                                                      equations)
     interface_flux_kernel(surface_flux_values, surface_flux_arr, noncons_left_arr,
-                          noncons_right_arr, neighbor_ids, orientations;
+                          noncons_right_arr, neighbor_ids, orientations, equations;
                           configurator_3d(interface_flux_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically

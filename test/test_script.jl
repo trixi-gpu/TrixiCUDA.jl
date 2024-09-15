@@ -1,23 +1,18 @@
 include("test_trixigpu.jl")
 
-equations = ShallowWaterEquations2D(gravity_constant = 9.81)
+advection_velocity = (0.2, -0.7, 0.5)
+equations = LinearScalarAdvectionEquation3D(advection_velocity)
 
-initial_condition = initial_condition_convergence_test # MMS EOC test
+solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-solver = DGSEM(polydeg = 3,
-               surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
-               volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+coordinates_min = (-1.0, -1.0, -1.0)
+coordinates_max = (1.0, 1.0, 1.0)
 
-coordinates_min = (0.0, 0.0)
-coordinates_max = (sqrt(2.0), sqrt(2.0))
-mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 3,
-                n_cells_max = 10_000,
-                periodicity = true)
+mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 3,
+                n_cells_max = 30_000)
 
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                    source_terms = source_terms_convergence_test)
+semi = SemidiscretizationHyperbolic(mesh, equations,
+                                    initial_condition_convergence_test, solver)
 
 tspan = (0.0, 1.0)
 
@@ -86,8 +81,10 @@ TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cac
                                solver_gpu, cache_gpu)
 Trixi.prolong2mortars!(cache, u, mesh, equations,
                        solver.mortar, solver.surface_integral, solver)
-@test_approx cache_gpu.mortars.u_upper ≈ cache.mortars.u_upper
-@test_approx cache_gpu.mortars.u_lower ≈ cache.mortars.u_lower
+@test_approx cache_gpu.mortars.u_upper_left ≈ cache.mortars.u_upper_left
+@test_approx cache_gpu.mortars.u_upper_right ≈ cache.mortars.u_upper_right
+@test_approx cache_gpu.mortars.u_lower_left ≈ cache.mortars.u_lower_left
+@test_approx cache_gpu.mortars.u_lower_right ≈ cache.mortars.u_lower_right
 
 # Test `cuda_mortar_flux!`
 TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),

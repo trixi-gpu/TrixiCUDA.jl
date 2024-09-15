@@ -347,18 +347,18 @@ end
 # Kernel for calculating surface fluxes 
 function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
                               equations::AbstractEquations{2}, surface_flux::Any)
-    j2 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
-    if (j2 <= size(surface_flux_arr, 3) && k <= size(surface_flux_arr, 4))
-        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j2, k)
+    if (j <= size(surface_flux_arr, 2) && k <= size(surface_flux_arr, 3))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j, k)
         orientation = orientations[k]
 
         surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
 
         @inbounds begin
-            for j1j1 in axes(surface_flux_arr, 2)
-                surface_flux_arr[1, j1j1, j2, k] = surface_flux_node[j1j1]
+            for ii in axes(surface_flux_arr, 1)
+                surface_flux_arr[ii, j, k] = surface_flux_node[ii]
             end
         end
     end
@@ -400,9 +400,8 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(surface_flux_values, 1) &&
-        j <= size(surface_flux_arr, 3) &&
-        k <= size(surface_flux_arr, 4))
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2) &&
+        k <= size(surface_flux_arr, 3))
         left_id = neighbor_ids[1, k]
         right_id = neighbor_ids[2, k]
 
@@ -410,8 +409,8 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
         right_direction = 2 * orientations[k] - 1
 
         @inbounds begin
-            surface_flux_values[i, j, left_direction, left_id] = surface_flux_arr[1, i, j, k]
-            surface_flux_values[i, j, right_direction, right_id] = surface_flux_arr[1, i, j, k]
+            surface_flux_values[i, j, left_direction, left_id] = surface_flux_arr[i, j, k]
+            surface_flux_values[i, j, right_direction, right_id] = surface_flux_arr[i, j, k]
         end
     end
 
@@ -1038,7 +1037,7 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False, e
     neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
     orientations = CuArray{Int64}(cache.interfaces.orientations)
     interfaces_u = CuArray{Float64}(cache.interfaces.u)
-    surface_flux_arr = CuArray{Float64}(undef, 1, size(interfaces_u)[2:end]...)
+    surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
 
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 3), size(interfaces_u, 4))

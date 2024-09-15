@@ -62,12 +62,12 @@ TrixiGPU.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
 Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
 @test_approx cache_gpu.interfaces.u ≈ cache.interfaces.u
 
-# # Test `cuda_interface_flux!`
-# TrixiGPU.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
-#                               equations_gpu, solver_gpu, cache_gpu)
-# Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
-#                            Trixi.have_nonconservative_terms(equations), equations,
-#                            solver.surface_integral, solver, cache)
+# Test `cuda_interface_flux!`
+TrixiGPU.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
+                              equations_gpu, solver_gpu, cache_gpu)
+Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
+                           Trixi.have_nonconservative_terms(equations), equations,
+                           solver.surface_integral, solver, cache)
 # @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
 # # Test `cuda_prolong2boundaries!`

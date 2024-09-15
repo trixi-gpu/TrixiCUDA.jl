@@ -1285,6 +1285,14 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False, e
     return nothing
 end
 
+# Pack kernels for calculating interface fluxes
+function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, equations, dg::DGSEM,
+                              cache)
+    surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
+
+    return nothing
+end
+
 # Dummy function for asserting boundaries
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{3},
                                   boundary_condition::BoundaryConditionPeriodic, equations, cache)

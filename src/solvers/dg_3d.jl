@@ -95,6 +95,55 @@ function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr
     return nothing
 end
 
+# Kernel for calculating symmetric and nonconservative fluxes
+function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2,
+                                        symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2,
+                                        noncons_flux_arr3, u, derivative_split,
+                                        equations::AbstractEquations{3}, symmetric_flux::Any,
+                                        nonconservative_flux::Any)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(u, 2)^4 && k <= size(u, 5))
+        u2 = size(u, 2)
+
+        j1 = div(j - 1, u2^3) + 1
+        j2 = div(rem(j - 1, u2^3), u2^2) + 1
+        j3 = div(rem(j - 1, u2^2), u2) + 1
+        j4 = rem(j - 1, u2) + 1
+
+        u_node = get_node_vars(u, equations, j1, j2, j3, k)
+        u_node1 = get_node_vars(u, equations, j4, j2, j3, k)
+        u_node2 = get_node_vars(u, equations, j1, j4, j3, k)
+        u_node3 = get_node_vars(u, equations, j1, j2, j4, k)
+
+        symmetric_flux_node1 = symmetric_flux(u_node, u_node1, 1, equations)
+        symmetric_flux_node2 = symmetric_flux(u_node, u_node2, 2, equations)
+        symmetric_flux_node3 = symmetric_flux(u_node, u_node3, 3, equations)
+
+        noncons_flux_node1 = nonconservative_flux(u_node, u_node1, 1, equations)
+        noncons_flux_node2 = nonconservative_flux(u_node, u_node2, 2, equations)
+        noncons_flux_node3 = nonconservative_flux(u_node, u_node3, 3, equations)
+
+        @inbounds begin
+            for ii in axes(u, 1)
+                symmetric_flux_arr1[ii, j1, j4, j2, j3, k] = derivative_split[j1, j4] *
+                                                             symmetric_flux_node1[ii]
+                symmetric_flux_arr2[ii, j1, j2, j4, j3, k] = derivative_split[j2, j4] *
+                                                             symmetric_flux_node2[ii]
+                symmetric_flux_arr3[ii, j1, j2, j3, j4, k] = derivative_split[j3, j4] *
+                                                             symmetric_flux_node3[ii]
+
+                noncons_flux_arr1[ii, j1, j4, j2, j3, k] = noncons_flux_node1[ii]
+                noncons_flux_arr2[ii, j1, j2, j4, j3, k] = noncons_flux_node2[ii]
+                noncons_flux_arr3[ii, j1, j2, j3, j4, k] = noncons_flux_node3[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for calculating volume integrals
 function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_flux_arr2,
                                  volume_flux_arr3, equations::AbstractEquations{3})
@@ -118,6 +167,44 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
                 du[i, j1, j2, j3, k] += derivative_split[j3, ii] *
                                         volume_flux_arr3[i, j1, j2, j3, ii, k]
             end
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for calculating symmetric and nonconservative volume integrals
+function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2,
+                                 symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2,
+                                 noncons_flux_arr3)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2)^3 && k <= size(du, 5))
+        u2 = size(du, 2) # size(du, 2) == size(u, 2)
+
+        j1 = div(j - 1, u2^2) + 1
+        j2 = div(rem(j - 1, u2^2), u2) + 1
+        j3 = rem(rem(j - 1, u2^2), u2) + 1
+
+        @inbounds begin
+            integral_contribution = 0.0 # change back to `Float32` 
+
+            for ii in axes(du, 2)
+                du[i, j1, j2, j3, k] += symmetric_flux_arr1[i, j1, ii, j2, j3, k]
+                du[i, j1, j2, j3, k] += symmetric_flux_arr2[i, j1, j2, ii, j3, k]
+                du[i, j1, j2, j3, k] += symmetric_flux_arr3[i, j1, j2, j3, ii, k]
+
+                integral_contribution += derivative_split[j1, ii] *
+                                         noncons_flux_arr1[i, j1, ii, j2, j3, k]
+                integral_contribution += derivative_split[j2, ii] *
+                                         noncons_flux_arr2[i, j1, j2, ii, j3, k]
+                integral_contribution += derivative_split[j3, ii] *
+                                         noncons_flux_arr3[i, j1, j2, j3, ii, k]
+            end
+
+            du[i, j1, j2, j3, k] += 0.5 * integral_contribution # change back to `Float32`
         end
     end
 
@@ -981,7 +1068,58 @@ end
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
-    # Wait for the unmutable MHD implementation in Trixi.jl
+    symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
+
+    derivative_split = dg.basis.derivative_split
+    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
+
+    derivative_split = CuArray{Float64}(derivative_split)
+    symmetric_flux_arr1 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                           size(u, 2), size(u, 5))
+    symmetric_flux_arr2 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                           size(u, 2), size(u, 5))
+    symmetric_flux_arr3 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                           size(u, 2), size(u, 5))
+    noncons_flux_arr1 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                         size(u, 2), size(u, 5))
+    noncons_flux_arr2 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                         size(u, 2), size(u, 5))
+    noncons_flux_arr3 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                         size(u, 2), size(u, 5))
+
+    size_arr = CuArray{Float64}(undef, size(u, 2)^4, size(u, 5))
+
+    symmetric_noncons_flux_kernel = @cuda launch=false symmetric_noncons_flux_kernel!(symmetric_flux_arr1,
+                                                                                      symmetric_flux_arr2,
+                                                                                      symmetric_flux_arr3,
+                                                                                      noncons_flux_arr1,
+                                                                                      noncons_flux_arr2,
+                                                                                      noncons_flux_arr3,
+                                                                                      u,
+                                                                                      derivative_split,
+                                                                                      equations,
+                                                                                      symmetric_flux,
+                                                                                      nonconservative_flux)
+    symmetric_noncons_flux_kernel(symmetric_flux_arr1, symmetric_flux_arr2, symmetric_flux_arr3,
+                                  noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3, u,
+                                  derivative_split, equations, symmetric_flux, nonconservative_flux;
+                                  configurator_2d(symmetric_noncons_flux_kernel, size_arr)...)
+
+    derivative_split = CuArray{Float64}(dg.basis.derivative_split) # use original `derivative_split`
+    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
+
+    volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
+                                                                        symmetric_flux_arr1,
+                                                                        symmetric_flux_arr2,
+                                                                        symmetric_flux_arr3,
+                                                                        noncons_flux_arr1,
+                                                                        noncons_flux_arr2,
+                                                                        noncons_flux_arr3)
+    volume_integral_kernel(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2,
+                           symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2,
+                           noncons_flux_arr3;
+                           configurator_3d(volume_integral_kernel, size_arr)...)
+
     return nothing
 end
 

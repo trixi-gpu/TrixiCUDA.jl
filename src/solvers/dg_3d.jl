@@ -1637,7 +1637,6 @@ end
 # Pack kernels for calculating mortar fluxes
 function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DGSEM, cache)
-    # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 

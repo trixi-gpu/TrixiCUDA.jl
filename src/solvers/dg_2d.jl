@@ -1348,6 +1348,7 @@ end
 
 function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DGSEM, cache)
+    return nothing
 end
 
 # Pack kernels for calculating surface integrals

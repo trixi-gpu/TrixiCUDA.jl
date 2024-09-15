@@ -427,21 +427,20 @@ end
 # Kernel for calculating surface fluxes 
 function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
                               equations::AbstractEquations{3}, surface_flux::Any)
-    j2 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j3 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    j1 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j2 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (j2 <= size(surface_flux_arr, 3) &&
-        j3 <= size(surface_flux_arr, 4) &&
-        k <= size(surface_flux_arr, 5))
-        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j2, j3, k)
+    if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
+        k <= size(surface_flux_arr, 4))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
         orientation = orientations[k]
 
         surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
 
         @inbounds begin
-            for j1j1 in axes(surface_flux_arr, 2)
-                surface_flux_arr[1, j1j1, j2, j3, k] = surface_flux_node[j1j1]
+            for ii in axes(surface_flux_arr, 1)
+                surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
             end
         end
     end
@@ -456,21 +455,21 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(surface_flux_values, 1) &&
-        j <= size(surface_flux_arr, 3)^2 &&
-        k <= size(surface_flux_arr, 5))
-        j1 = div(j - 1, size(surface_flux_arr, 3)) + 1
-        j2 = rem(j - 1, size(surface_flux_arr, 3)) + 1
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2)^2 &&
+        k <= size(surface_flux_arr, 4))
+        j1 = div(j - 1, size(surface_flux_arr, 2)) + 1
+        j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
 
         left_id = neighbor_ids[1, k]
         right_id = neighbor_ids[2, k]
 
-        left_dir = 2 * orientations[k]
-        right_dir = 2 * orientations[k] - 1
+        left_direction = 2 * orientations[k]
+        right_direction = 2 * orientations[k] - 1
 
         @inbounds begin
-            surface_flux_values[i, j1, j2, left_dir, left_id] = surface_flux_arr[1, i, j1, j2, k]
-            surface_flux_values[i, j1, j2, right_dir, right_id] = surface_flux_arr[1, i, j1, j2, k]
+            surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k]
+            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
+                                                                                         k]
         end
     end
 
@@ -1257,7 +1256,7 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False, e
     neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
     orientations = CuArray{Int64}(cache.interfaces.orientations)
     interfaces_u = CuArray{Float64}(cache.interfaces.u)
-    surface_flux_arr = CuArray{Float64}(undef, 1, size(interfaces_u)[2:end]...)
+    surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
 
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 3), size(interfaces_u, 4),
@@ -1278,6 +1277,117 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False, e
                                                                       equations)
     interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids, orientations,
                           equations;
+                          configurator_3d(interface_flux_kernel, size_arr)...)
+
+    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+
+    return nothing
+end
+
+# Kernel for calculating surface and both nonconservative fluxes 
+function surface_noncons_flux_kernel!(surface_flux_arr, noncons_left_arr, noncons_right_arr,
+                                      interfaces_u, orientations, equations::AbstractEquations{3},
+                                      surface_flux::Any, nonconservative_flux::Any)
+    j1 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j2 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
+        k <= size(surface_flux_arr, 4))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
+        orientation = orientations[k]
+
+        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
+        noncons_left_node = nonconservative_flux(u_ll, u_rr, orientation, equations)
+        noncons_right_node = nonconservative_flux(u_rr, u_ll, orientation, equations)
+
+        @inbounds begin
+            for ii in axes(surface_flux_arr, 1)
+                surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
+                noncons_left_arr[ii, j1, j2, k] = noncons_left_node[ii]
+                noncons_right_arr[ii, j1, j2, k] = noncons_right_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for setting interface fluxes
+function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
+                                noncons_right_arr, neighbor_ids, orientations,
+                                equations::AbstractEquations{3})
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2)^2 &&
+        k <= size(surface_flux_arr, 4))
+        j1 = div(j - 1, size(surface_flux_arr, 2)) + 1
+        j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
+
+        left_id = neighbor_ids[1, k]
+        right_id = neighbor_ids[2, k]
+
+        left_direction = 2 * orientations[k]
+        right_direction = 2 * orientations[k] - 1
+
+        @inbounds begin
+            surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2,
+                                                                                       k] +
+                                                                      0.5 *
+                                                                      noncons_left_arr[i, j1, j2, k]
+            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
+                                                                                         k] +
+                                                                        0.5 *
+                                                                        noncons_right_arr[i, j1, j2,
+                                                                                          k]
+        end
+    end
+
+    return nothing
+end
+
+# Pack kernels for calculating interface fluxes
+function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, equations, dg::DGSEM,
+                              cache)
+    surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
+
+    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
+    orientations = CuArray{Int64}(cache.interfaces.orientations)
+    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
+    noncons_left_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
+    noncons_right_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
+    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+
+    size_arr = CuArray{Float64}(undef, size(interfaces_u, 3), size(interfaces_u, 4),
+                                size(interfaces_u, 5))
+
+    surface_noncons_flux_kernel = @cuda launch=false surface_noncons_flux_kernel!(surface_flux_arr,
+                                                                                  noncons_left_arr,
+                                                                                  noncons_right_arr,
+                                                                                  interfaces_u,
+                                                                                  orientations,
+                                                                                  equations,
+                                                                                  surface_flux,
+                                                                                  nonconservative_flux)
+    surface_noncons_flux_kernel(surface_flux_arr, noncons_left_arr, noncons_right_arr, interfaces_u,
+                                orientations, equations, surface_flux, nonconservative_flux;
+                                configurator_3d(surface_noncons_flux_kernel, size_arr)...)
+
+    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 1), size(interfaces_u, 3)^2,
+                                size(interfaces_u, 5))
+
+    interface_flux_kernel = @cuda launch=false interface_flux_kernel!(surface_flux_values,
+                                                                      surface_flux_arr,
+                                                                      noncons_left_arr,
+                                                                      noncons_right_arr,
+                                                                      neighbor_ids, orientations,
+                                                                      equations)
+    interface_flux_kernel(surface_flux_values, surface_flux_arr, noncons_left_arr,
+                          noncons_right_arr,
+                          neighbor_ids, orientations, equations;
                           configurator_3d(interface_flux_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically

@@ -673,23 +673,67 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
 end
 
 # Kernel for calculating mortar fluxes
-function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orientations, equations,
-                             surface_flux::Any)
+function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orientations,
+                             equations::AbstractEquations{2}, surface_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(u_upper, 3) && k <= length(orientations))
-        u_ll_upper, u_rr_upper = get_surface_node_vars(u_upper, equations, j, k)
-        u_ll_lower, u_rr_lower = get_surface_node_vars(u_lower, equations, j, k)
+        u_upper_ll, u_upper_rr = get_surface_node_vars(u_upper, equations, j, k)
+        u_lower_ll, u_lower_rr = get_surface_node_vars(u_lower, equations, j, k)
         orientation = orientations[k]
 
-        flux_upper_node = surface_flux(u_ll_upper, u_rr_upper, orientation, equations)
-        flux_lower_node = surface_flux(u_ll_lower, u_rr_lower, orientation, equations)
+        flux_upper_node = surface_flux(u_upper_ll, u_upper_rr, orientation, equations)
+        flux_lower_node = surface_flux(u_lower_ll, u_lower_rr, orientation, equations)
 
         @inbounds begin
-            for i in axes(fstar_upper, 1)
-                fstar_upper[i, j, k] = flux_upper_node[i]
-                fstar_lower[i, j, k] = flux_lower_node[i]
+            for ii in axes(fstar_upper, 1)
+                fstar_upper[ii, j, k] = flux_upper_node[ii]
+                fstar_lower[ii, j, k] = flux_lower_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for calculating mortar fluxes and adding nonconservative fluxes
+function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orientations, large_sides,
+                             equations::AbstractEquations{2}, surface_flux::Any,
+                             nonconservative_flux::Any)
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+
+    if (j <= size(u_upper, 3) && k <= length(orientations))
+        u_upper_ll, u_upper_rr = get_surface_node_vars(u_upper, equations, j, k)
+        u_lower_ll, u_lower_rr = get_surface_node_vars(u_lower, equations, j, k)
+
+        orientation = orientations[k]
+        large_side = large_sides[k]
+
+        flux_upper_node = surface_flux(u_upper_ll, u_upper_rr, orientation, equations)
+        flux_lower_node = surface_flux(u_lower_ll, u_lower_rr, orientation, equations)
+
+        @inbounds begin
+            for ii in axes(fstar_upper, 1)
+                fstar_upper[ii, j, k] = flux_upper_node[ii]
+                fstar_lower[ii, j, k] = flux_lower_node[ii]
+            end
+        end
+
+        u_upper1 = (2 - large_side) * u_upper_ll + (large_side - 1) * u_upper_rr
+        u_upper2 = (large_side - 1) * u_upper_ll + (2 - large_side) * u_upper_rr
+
+        u_lower1 = (2 - large_side) * u_lower_ll + (large_side - 1) * u_lower_rr
+        u_lower2 = (large_side - 1) * u_lower_ll + (2 - large_side) * u_lower_rr
+
+        noncons_flux_upper = nonconservative_flux(u_upper1, u_upper2, orientation, equations)
+        noncons_flux_lower = nonconservative_flux(u_lower1, u_lower2, orientation, equations)
+
+        @inbounds begin
+            for ii in axes(fstar_upper, 1)
+                fstar_upper[ii, j, k] += 0.5 * noncons_flux_upper[ii]
+                fstar_lower[ii, j, k] += 0.5 * noncons_flux_lower[ii]
             end
         end
     end
@@ -1338,16 +1382,65 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
                                                                                 large_sides,
                                                                                 orientations)
     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_upper,
-                               fstar_lower,
-                               reverse_upper, reverse_lower, neighbor_ids, large_sides,
+                               fstar_lower, reverse_upper, reverse_lower, neighbor_ids, large_sides,
                                orientations;
                                configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+
+    return nothing
 end
 
+# Pack kernels for calculating mortar fluxes
 function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DGSEM, cache)
+    surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
+
+    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
+    large_sides = CuArray{Int64}(cache.mortars.large_sides)
+    orientations = CuArray{Int64}(cache.mortars.orientations)
+
+    u_upper = CuArray{Float64}(cache.mortars.u_upper)
+    u_lower = CuArray{Float64}(cache.mortars.u_lower)
+    reverse_upper = CuArray{Float64}(dg.mortar.reverse_upper)
+    reverse_lower = CuArray{Float64}(dg.mortar.reverse_lower)
+
+    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    tmp_surface_flux_values = zero(similar(surface_flux_values))
+
+    fstar_upper = CuArray{Float64}(undef, size(u_upper, 2), size(u_upper, 3), length(orientations))
+    fstar_lower = CuArray{Float64}(undef, size(u_upper, 2), size(u_upper, 3), length(orientations))
+
+    size_arr = CuArray{Float64}(undef, size(u_upper, 3), length(orientations))
+
+    mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper,
+                                                                u_lower, orientations, large_sides,
+                                                                equations, surface_flux,
+                                                                nonconservative_flux)
+    mortar_flux_kernel(fstar_upper, fstar_lower, u_upper, u_lower, orientations, large_sides,
+                       equations, surface_flux, nonconservative_flux;
+                       configurator_2d(mortar_flux_kernel, size_arr)...)
+
+    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 1), size(surface_flux_values, 2),
+                                length(orientations))
+
+    mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
+                                                                                tmp_surface_flux_values,
+                                                                                fstar_upper,
+                                                                                fstar_lower,
+                                                                                reverse_upper,
+                                                                                reverse_lower,
+                                                                                neighbor_ids,
+                                                                                large_sides,
+                                                                                orientations)
+    mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_upper,
+                               fstar_lower, reverse_upper, reverse_lower, neighbor_ids, large_sides,
+                               orientations;
+                               configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
+
+    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+
+    return nothing
 end
 
 # Pack kernels for calculating surface integrals

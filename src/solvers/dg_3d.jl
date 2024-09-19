@@ -1348,7 +1348,11 @@ end
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
-    # Wait for the unmutable MHD implementation in Trixi.jl
+    volume_flux_dg, volume_flux_fv = dg.volume_integral.volume_flux_dg,
+                                     dg.volume_integral.volume_flux_fv
+
+    indicator = dg.volume_integral.indicator
+
     return nothing
 end
 

@@ -1559,7 +1559,7 @@ end
 
 # Pack kernels for calculating boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTuple,
-                             nonconservative_terms::False, equations, dg::DGSEM, cache)
+                             nonconservative_terms, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
@@ -1599,13 +1599,6 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
 
-    return nothing
-end
-
-# Pack kernels for calculating boundary fluxes
-function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTuple,
-                             nonconservative_terms::True, equations, dg::DGSEM, cache)
-    # Wait for the unmutable MHD implementation in Trixi.jl
     return nothing
 end
 

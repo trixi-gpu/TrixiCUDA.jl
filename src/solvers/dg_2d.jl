@@ -283,8 +283,8 @@ end
 
 # Kernel for calculating pure DG and DG-FV volume fluxes
 function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, noncons_flux_arr1,
-                                  noncons_flux_arr2, fstar1_L, fstar1_R, fstar2_L, fstar2_R, u,
-                                  element_ids_dgfv, derivative_split,
+                                  noncons_flux_arr2, fstar1_L, fstar1_R, fstar2_L, fstar2_R,
+                                  u, element_ids_dgfv, derivative_split,
                                   equations::AbstractEquations{2},
                                   volume_flux_dg::Any, nonconservative_flux_dg::Any,
                                   volume_flux_fv::Any, nonconservative_flux_fv::Any)

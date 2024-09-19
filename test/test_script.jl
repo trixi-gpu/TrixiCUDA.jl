@@ -1,6 +1,40 @@
 include("test_trixigpu.jl")
 
-equations = IdealGlmMhdEquations2D(1.4)
+# equations = IdealGlmMhdEquations2D(1.4)
+
+# initial_condition = initial_condition_weak_blast_wave
+
+# surface_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+# volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+# polydeg = 4
+# basis = LobattoLegendreBasis(polydeg)
+# indicator_sc = IndicatorHennemannGassner(equations, basis,
+#                                          alpha_max = 0.5,
+#                                          alpha_min = 0.001,
+#                                          alpha_smooth = true,
+#                                          variable = density_pressure)
+# volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
+#                                                  volume_flux_dg = volume_flux,
+#                                                  volume_flux_fv = surface_flux)
+
+# solver = DGSEM(polydeg = polydeg, surface_flux = surface_flux,
+#                volume_integral = volume_integral)
+
+# coordinates_min = (-2.0, -2.0)
+# coordinates_max = (2.0, 2.0)
+# mesh = TreeMesh(coordinates_min, coordinates_max,
+#                 initial_refinement_level = 3,
+#                 n_cells_max = 10_000)
+
+# # create the semi discretization object
+# semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+
+# ###############################################################################
+# # ODE solvers, callbacks etc.
+
+# tspan = (0.0, 1.0)
+
+equations = IdealGlmMhdEquations3D(1.4)
 
 initial_condition = initial_condition_weak_blast_wave
 
@@ -20,8 +54,8 @@ volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
 solver = DGSEM(polydeg = polydeg, surface_flux = surface_flux,
                volume_integral = volume_integral)
 
-coordinates_min = (-2.0, -2.0)
-coordinates_max = (2.0, 2.0)
+coordinates_min = (-2.0, -2.0, -2.0)
+coordinates_max = (2.0, 2.0, 2.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 3,
                 n_cells_max = 10_000)
@@ -99,8 +133,10 @@ TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cac
                                solver_gpu, cache_gpu)
 Trixi.prolong2mortars!(cache, u, mesh, equations,
                        solver.mortar, solver.surface_integral, solver)
-@test_approx cache_gpu.mortars.u_upper ≈ cache.mortars.u_upper
-@test_approx cache_gpu.mortars.u_lower ≈ cache.mortars.u_lower
+@test_approx cache_gpu.mortars.u_upper_left ≈ cache.mortars.u_upper_left
+@test_approx cache_gpu.mortars.u_upper_right ≈ cache.mortars.u_upper_right
+@test_approx cache_gpu.mortars.u_lower_left ≈ cache.mortars.u_lower_left
+@test_approx cache_gpu.mortars.u_lower_right ≈ cache.mortars.u_lower_right
 
 # Test `cuda_mortar_flux!`
 TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),

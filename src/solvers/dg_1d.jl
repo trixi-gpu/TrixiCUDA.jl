@@ -181,6 +181,41 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, fstar1_L, fstar1_R, u,
     return nothing
 end
 
+# Kernel for calculating DG volume integral contribution
+function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
+                                    volume_flux_arr, equations::AbstractEquations{1})
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        # length(element_ids_dg) == size(du, 3)
+        # length(element_ids_dgfv) == size(du, 3)
+
+        element_dg = element_ids_dg[k] # check if `element_dg` is zero
+        element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
+        alpha_element = alpha[k]
+
+        @inbounds begin
+            if element_dg != 0 # bad
+                for ii in axes(du, 2)
+                    du[i, j, element_dg] += derivative_split[j, ii] *
+                                            volume_flux_arr[i, j, ii, element_dg]
+                end
+            end
+
+            if element_dgfv != 0 # bad
+                for ii in axes(du, 2)
+                    du[i, j, element_dgfv] += (1 - alpha_element) * derivative_split[j, ii] *
+                                              volume_flux_arr[i, j, ii, element_dgfv]
+                end
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for calculating pure DG and DG-FV volume fluxes
 function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R, u,
                                   element_ids_dgfv, derivative_split,
@@ -227,41 +262,6 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, f
                 for ii in axes(u, 1)
                     fstar1_L[ii, j1, element_dgfv] = f1_node[ii] + 0.5 * f1_L_node[ii]
                     fstar1_R[ii, j1, element_dgfv] = f1_node[ii] + 0.5 * f1_R_node[ii]
-                end
-            end
-        end
-    end
-
-    return nothing
-end
-
-# Kernel for calculating DG volume integral contribution
-function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                                    volume_flux_arr, equations::AbstractEquations{1})
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        # length(element_ids_dg) == size(du, 3)
-        # length(element_ids_dgfv) == size(du, 3)
-
-        element_dg = element_ids_dg[k] # check if `element_dg` is zero
-        element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
-        alpha_element = alpha[k]
-
-        @inbounds begin
-            if element_dg != 0 # bad
-                for ii in axes(du, 2)
-                    du[i, j, element_dg] += derivative_split[j, ii] *
-                                            volume_flux_arr[i, j, ii, element_dg]
-                end
-            end
-
-            if element_dgfv != 0 # bad
-                for ii in axes(du, 2)
-                    du[i, j, element_dgfv] += (1 - alpha_element) * derivative_split[j, ii] *
-                                              volume_flux_arr[i, j, ii, element_dgfv]
                 end
             end
         end
@@ -804,6 +804,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                             element_ids_dgfv, derivative_split, equations, volume_flux_dg,
                             nonconservative_flux_dg, volume_flux_fv, nonconservative_flux_fv;
                             configurator_2d(volume_flux_dgfv_kernel, size_arr)...)
+
+    derivative_split = CuArray{Float64}(dg.basis.derivative_split) # use original `derivative_split`
 
     volume_integral_dg_kernel = @cuda launch=false volume_integral_dg_kernel!(du, element_ids_dg,
                                                                               element_ids_dgfv,

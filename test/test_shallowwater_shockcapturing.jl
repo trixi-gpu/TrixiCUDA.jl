@@ -1,5 +1,8 @@
 module TestShallowWaterShock
 
+# Combined with `IdealGlmMhdEquations2D` and `IdealGlmMhdEquations3D`
+# to complete the tests for shock capturing
+
 ####################################################################### Tags
 # Kernels: 
 #   -`cuda_volume_integral!`

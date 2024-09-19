@@ -832,6 +832,79 @@ function mortar_flux_kernel!(fstar_upper_left, fstar_upper_right, fstar_lower_le
     return nothing
 end
 
+# Kernel for calculating mortar fluxes and adding nonconservative fluxes
+function mortar_flux_kernel!(fstar_upper_left, fstar_upper_right, fstar_lower_left,
+                             fstar_lower_right, u_upper_left, u_upper_right, u_lower_left,
+                             u_lower_right, orientations, large_sides,
+                             equations::AbstractEquations{3}, surface_flux::Any,
+                             nonconservative_flux::Any)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(u_upper_left, 3) && j <= size(u_upper_left, 4) && k <= length(orientations))
+        u_upper_left_ll, u_upper_left_rr = get_surface_node_vars(u_upper_left, equations, i, j, k)
+        u_upper_right_ll, u_upper_right_rr = get_surface_node_vars(u_upper_right, equations, i, j,
+                                                                   k)
+        u_lower_left_ll, u_lower_left_rr = get_surface_node_vars(u_lower_left, equations, i, j, k)
+        u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j,
+                                                                   k)
+
+        orientation = orientations[k]
+        large_side = large_sides[k]
+
+        flux_upper_left_node = surface_flux(u_upper_left_ll, u_upper_left_rr, orientation,
+                                            equations)
+        flux_upper_right_node = surface_flux(u_upper_right_ll, u_upper_right_rr, orientation,
+                                             equations)
+        flux_lower_left_node = surface_flux(u_lower_left_ll, u_lower_left_rr, orientation,
+                                            equations)
+        flux_lower_right_node = surface_flux(u_lower_right_ll, u_lower_right_rr, orientation,
+                                             equations)
+
+        @inbounds begin
+            for ii in axes(fstar_upper_left, 1)
+                fstar_upper_left[ii, i, j, k] = flux_upper_left_node[ii]
+                fstar_upper_right[ii, i, j, k] = flux_upper_right_node[ii]
+                fstar_lower_left[ii, i, j, k] = flux_lower_left_node[ii]
+                fstar_lower_right[ii, i, j, k] = flux_lower_right_node[ii]
+            end
+        end
+
+        u_upper_left1 = (2 - large_side) * u_upper_left_ll + (large_side - 1) * u_upper_left_rr
+        u_upper_left2 = (large_side - 1) * u_upper_left_ll + (2 - large_side) * u_upper_left_rr
+
+        u_upper_right1 = (2 - large_side) * u_upper_right_ll + (large_side - 1) * u_upper_right_rr
+        u_upper_right2 = (large_side - 1) * u_upper_right_ll + (2 - large_side) * u_upper_right_rr
+
+        u_lower_left1 = (2 - large_side) * u_lower_left_ll + (large_side - 1) * u_lower_left_rr
+        u_lower_left2 = (large_side - 1) * u_lower_left_ll + (2 - large_side) * u_lower_left_rr
+
+        u_lower_right1 = (2 - large_side) * u_lower_right_ll + (large_side - 1) * u_lower_right_rr
+        u_lower_right2 = (large_side - 1) * u_lower_right_ll + (2 - large_side) * u_lower_right_rr
+
+        noncons_flux_upper_left = nonconservative_flux(u_upper_left1, u_upper_left2, orientation,
+                                                       equations)
+        noncons_flux_upper_right = nonconservative_flux(u_upper_right1, u_upper_right2, orientation,
+                                                        equations)
+        noncons_flux_lower_left = nonconservative_flux(u_lower_left1, u_lower_left2, orientation,
+                                                       equations)
+        noncons_flux_lower_right = nonconservative_flux(u_lower_right1, u_lower_right2, orientation,
+                                                        equations)
+
+        @inbounds begin
+            for ii in axes(fstar_upper_left, 1)
+                fstar_upper_left[ii, i, j, k] += 0.5 * noncons_flux_upper_left[ii]
+                fstar_upper_right[ii, i, j, k] += 0.5 * noncons_flux_upper_right[ii]
+                fstar_lower_left[ii, i, j, k] += 0.5 * noncons_flux_lower_left[ii]
+                fstar_lower_right[ii, i, j, k] += 0.5 * noncons_flux_lower_right[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for copying mortar fluxes small to small and small to large - step 1
 function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_upper_left, tmp_upper_right,
                                      tmp_lower_left, tmp_lower_right, fstar_upper_left,
@@ -1712,79 +1785,6 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
 
     cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
-    return nothing
-end
-
-# Kernel for calculating mortar fluxes and adding nonconservative fluxes
-function mortar_flux_kernel!(fstar_upper_left, fstar_upper_right, fstar_lower_left,
-                             fstar_lower_right, u_upper_left, u_upper_right, u_lower_left,
-                             u_lower_right, orientations, large_sides,
-                             equations::AbstractEquations{3}, surface_flux::Any,
-                             nonconservative_flux::Any)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (i <= size(u_upper_left, 3) && j <= size(u_upper_left, 4) && k <= length(orientations))
-        u_upper_left_ll, u_upper_left_rr = get_surface_node_vars(u_upper_left, equations, i, j, k)
-        u_upper_right_ll, u_upper_right_rr = get_surface_node_vars(u_upper_right, equations, i, j,
-                                                                   k)
-        u_lower_left_ll, u_lower_left_rr = get_surface_node_vars(u_lower_left, equations, i, j, k)
-        u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j,
-                                                                   k)
-
-        orientation = orientations[k]
-        large_side = large_sides[k]
-
-        flux_upper_left_node = surface_flux(u_upper_left_ll, u_upper_left_rr, orientation,
-                                            equations)
-        flux_upper_right_node = surface_flux(u_upper_right_ll, u_upper_right_rr, orientation,
-                                             equations)
-        flux_lower_left_node = surface_flux(u_lower_left_ll, u_lower_left_rr, orientation,
-                                            equations)
-        flux_lower_right_node = surface_flux(u_lower_right_ll, u_lower_right_rr, orientation,
-                                             equations)
-
-        @inbounds begin
-            for ii in axes(fstar_upper_left, 1)
-                fstar_upper_left[ii, i, j, k] = flux_upper_left_node[ii]
-                fstar_upper_right[ii, i, j, k] = flux_upper_right_node[ii]
-                fstar_lower_left[ii, i, j, k] = flux_lower_left_node[ii]
-                fstar_lower_right[ii, i, j, k] = flux_lower_right_node[ii]
-            end
-        end
-
-        u_upper_left1 = (2 - large_side) * u_upper_left_ll + (large_side - 1) * u_upper_left_rr
-        u_upper_left2 = (large_side - 1) * u_upper_left_ll + (2 - large_side) * u_upper_left_rr
-
-        u_upper_right1 = (2 - large_side) * u_upper_right_ll + (large_side - 1) * u_upper_right_rr
-        u_upper_right2 = (large_side - 1) * u_upper_right_ll + (2 - large_side) * u_upper_right_rr
-
-        u_lower_left1 = (2 - large_side) * u_lower_left_ll + (large_side - 1) * u_lower_left_rr
-        u_lower_left2 = (large_side - 1) * u_lower_left_ll + (2 - large_side) * u_lower_left_rr
-
-        u_lower_right1 = (2 - large_side) * u_lower_right_ll + (large_side - 1) * u_lower_right_rr
-        u_lower_right2 = (large_side - 1) * u_lower_right_ll + (2 - large_side) * u_lower_right_rr
-
-        noncons_flux_upper_left = nonconservative_flux(u_upper_left1, u_upper_left2, orientation,
-                                                       equations)
-        noncons_flux_upper_right = nonconservative_flux(u_upper_right1, u_upper_right2, orientation,
-                                                        equations)
-        noncons_flux_lower_left = nonconservative_flux(u_lower_left1, u_lower_left2, orientation,
-                                                       equations)
-        noncons_flux_lower_right = nonconservative_flux(u_lower_right1, u_lower_right2, orientation,
-                                                        equations)
-
-        @inbounds begin
-            for ii in axes(fstar_upper_left, 1)
-                fstar_upper_left[ii, i, j, k] += 0.5 * noncons_flux_upper_left[ii]
-                fstar_upper_right[ii, i, j, k] += 0.5 * noncons_flux_upper_right[ii]
-                fstar_lower_left[ii, i, j, k] += 0.5 * noncons_flux_lower_left[ii]
-                fstar_lower_right[ii, i, j, k] += 0.5 * noncons_flux_lower_right[ii]
-            end
-        end
-    end
 
     return nothing
 end

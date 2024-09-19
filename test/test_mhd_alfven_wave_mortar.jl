@@ -1,37 +1,43 @@
-module TestLinearAdvectionMortar
+module TestMHDMortar
 
 ####################################################################### Tags
 # Kernels: 
-#   -`cuda_prolong2mortars!`
+#   - `cuda_prolong2mortars!`
 #   - `cuda_mortar_flux!`
 # Conditions:
-#   - `nonconservative_terms::False`
+#   - `nonconservative_terms::True`
+#   - `periodicity = true` 1D, 2D, 3D
+#   - `volume_integral::VolumeIntegralFluxDifferencing`
 #   - `cache_mortars::True`
 #######################################################################
 
 include("test_trixigpu.jl")
 
 # Test precision of the semidiscretization process
-@testset "Test Linear Advection" begin
-    @testset "Linear Advection 2D" begin
-        advection_velocity = (0.2, -0.7)
-        equations = LinearScalarAdvectionEquation2D(advection_velocity)
+@testset "Test Ideal GLM MHD" begin
+    @testset "Ideal GLM MHD 2D" begin
+        equations = IdealGlmMhdEquations2D(5 / 3)
 
         initial_condition = initial_condition_convergence_test
-        solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-        coordinates_min = (-1.0, -1.0)
-        coordinates_max = (1.0, 1.0)
-        refinement_patches = ((type = "box", coordinates_min = (0.0, -1.0),
-                               coordinates_max = (1.0, 1.0)),)
+        volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+        solver = DGSEM(polydeg = 3,
+                       surface_flux = (flux_hlle,
+                                       flux_nonconservative_powell),
+                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+
+        coordinates_min = (0.0, 0.0)
+        coordinates_max = (sqrt(2.0), sqrt(2.0))
+        refinement_patches = ((type = "box", coordinates_min = 0.25 .* coordinates_max,
+                               coordinates_max = 0.75 .* coordinates_max),)
         mesh = TreeMesh(coordinates_min, coordinates_max,
-                        initial_refinement_level = 2,
+                        initial_refinement_level = 4,
                         refinement_patches = refinement_patches,
                         n_cells_max = 10_000)
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
-        tspan = (0.0, 1.0)
+        tspan = (0.0, 2.0)
 
         # Get CPU data
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -98,8 +104,8 @@ include("test_trixigpu.jl")
                                        solver_gpu, cache_gpu)
         Trixi.prolong2mortars!(cache, u, mesh, equations,
                                solver.mortar, solver.surface_integral, solver)
-        @test_approx cache.mortars.u_upper ≈ cache_gpu.mortars.u_upper
-        @test_approx cache.mortars.u_lower ≈ cache_gpu.mortars.u_lower
+        @test_approx cache_gpu.mortars.u_upper ≈ cache.mortars.u_upper
+        @test_approx cache_gpu.mortars.u_lower ≈ cache.mortars.u_lower
 
         # Test `cuda_mortar_flux!`
         TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
@@ -129,19 +135,21 @@ include("test_trixigpu.jl")
         du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)
     end
 
-    @testset "Linear AdVection 3D" begin
-        advection_velocity = (0.2, -0.7, 0.5)
-        equations = LinearScalarAdvectionEquation3D(advection_velocity)
+    @testset "Ideal GLM MHD 3D" begin
+        equations = IdealGlmMhdEquations3D(5 / 3)
 
         initial_condition = initial_condition_convergence_test
-        solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
+
+        volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+        solver = DGSEM(polydeg = 3,
+                       surface_flux = (flux_hlle,
+                                       flux_nonconservative_powell),
+                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
         coordinates_min = (-1.0, -1.0, -1.0)
         coordinates_max = (1.0, 1.0, 1.0)
-        refinement_patches = ((type = "box", coordinates_min = (0.0, -1.0, -1.0),
-                               coordinates_max = (1.0, 1.0, 1.0)),
-                              (type = "box", coordinates_min = (0.0, -0.5, -0.5),
-                               coordinates_max = (0.5, 0.5, 0.5)))
+        refinement_patches = ((type = "box", coordinates_min = (-0.5, -0.5, -0.5),
+                               coordinates_max = (0.5, 0.5, 0.5)),)
         mesh = TreeMesh(coordinates_min, coordinates_max,
                         initial_refinement_level = 2,
                         refinement_patches = refinement_patches,
@@ -149,7 +157,7 @@ include("test_trixigpu.jl")
 
         semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 
-        tspan = (0.0, 5.0)
+        tspan = (0.0, 1.0)
 
         # Get CPU data
         (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi

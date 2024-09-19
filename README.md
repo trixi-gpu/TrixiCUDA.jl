@@ -99,11 +99,8 @@ sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false),
 summary_callback()
 ```
 
-# GPU Kernels to be Implemented
-Kernels left to be implemented on `TreeMesh` with `DGSEM`:
-- 1D Kernels: 1) `calc_volume_integral!` - `volume_integral::VolumeIntegralShockCapturingHG`
-- 2D Kernels: 1) `calc_volume_integral!` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!`- `nonconservative_terms::True`
-- 3D Kernels: 1) `calc_volume_integral!` - `volume_integral::VolumeIntegralShockCapturingHG`, 2) `calc_mortar_flux!` - `nonconservative_terms::True`
+# Benchmarks
+Coming...
 
 # Show Your Support
 We always welcome new contributors to join us in future development. Please feel free to reach out if you would like to get involved!

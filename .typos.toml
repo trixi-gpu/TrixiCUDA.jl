@@ -1,4 +1,4 @@
 [files]
 extend-exclude = [
-    "docs/dev_env_info.md"
+    "docs/src/dev_env_info.md"
 ]

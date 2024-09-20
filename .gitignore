@@ -1,5 +1,6 @@
 **/Manifest.toml
 out*/
+docs/build
 
 .DS_Store
 

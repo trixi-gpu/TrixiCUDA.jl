@@ -4,12 +4,12 @@ push!(LOAD_PATH, "../src/")
 using Documenter
 using TrixiCUDA
 
-# DocMeta.setdocmeta!(TrixiCUDA, :DocTestSetup, :(using TrixiCUDA); recursive = true)
+DocMeta.setdocmeta!(TrixiCUDA, :DocTestSetup, :(using TrixiCUDA); recursive = true)
 
 makedocs(sitename = "TrixiCUDA.jl",
-         #  pages = [
-         #      "Home" => "index.md"
-         #  ],
+         pages = [
+             "Home" => "index.md"
+         ],
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true"))
 
 deploydocs(repo = "github.com/trixi-gpu/TrixiCUDA.jl",

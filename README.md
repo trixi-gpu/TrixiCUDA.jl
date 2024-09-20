@@ -1,7 +1,8 @@
 # TrixiCUDA.jl
 
-[![Build Status](https://github.com/huiyuxie/TrixiCUDA.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/huiyuxie/TrixiCUDA.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build status (Github Actions)](https://github.com/trixi-gpu/TrixiCUDA.jl/workflows/CI/badge.svg)](https://github.com/trixi-gpu/TrixiCUDA.jl/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![dev docs](https://img.shields.io/badge/docs-dev-orange.svg)](https://trixi-gpu.github.io/TrixiCUDA.jl/dev)
 
 **TrixiCUDA.jl** is a component package of the [**Trixi.jl**](https://github.com/trixi-framework/Trixi.jl) ecosystem and provides GPU acceleration support for solving hyperbolic partial differential equations (PDEs). This package was initialized through the [**Google Summer of Code**](https://summerofcode.withgoogle.com/archive/2023/projects/upstR7K2) program in 2023 and is under active development and testing.
 

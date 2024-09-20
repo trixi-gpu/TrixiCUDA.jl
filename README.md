@@ -15,7 +15,7 @@ The package is now in pre-release status and will be registered once the initial
 ## Users
 Users who are interested now can install the package by running the following command in the Julia REPL: 
 ```julia
-julia> using Pkg; Pkg.add(url="https://github.com/czha/TrixiCUDA.jl.git")
+julia> using Pkg; Pkg.add(url="https://github.com/trixi-gpu/TrixiCUDA.jl.git")
 ```
 Then the package can be used with the following simple command:
 ```julia
@@ -100,7 +100,7 @@ summary_callback()
 ```
 
 # Benchmarks
-Coming...
+Please check benchmark branch and this part will be updated soon.
 
 # Show Your Support
 We always welcome new contributors to join us in future development. Please feel free to reach out if you would like to get involved!

@@ -1,6 +1,6 @@
-module TrixiGPU
+module TrixiCUDA
 
-# Include other packages that are used in TrixiGPU.jl
+# Include other packages that are used in TrixiCUDA.jl
 # using Reexport: @reexport
 
 using CUDA: @cuda, CuArray, HostKernel,

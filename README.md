@@ -1,9 +1,9 @@
-# TrixiGPU.jl
+# TrixiCUDA.jl
 
-[![Build Status](https://github.com/huiyuxie/TrixiGPU.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/huiyuxie/TrixiGPU.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/huiyuxie/TrixiCUDA.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/huiyuxie/TrixiCUDA.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-**TrixiGPU.jl** is a component package of the [**Trixi.jl**](https://github.com/trixi-framework/Trixi.jl) ecosystem and provides GPU acceleration support for solving hyperbolic partial differential equations (PDEs). This package was initialized through the [**Google Summer of Code**](https://summerofcode.withgoogle.com/archive/2023/projects/upstR7K2) program in 2023 and is under active development and testing.
+**TrixiCUDA.jl** is a component package of the [**Trixi.jl**](https://github.com/trixi-framework/Trixi.jl) ecosystem and provides GPU acceleration support for solving hyperbolic partial differential equations (PDEs). This package was initialized through the [**Google Summer of Code**](https://summerofcode.withgoogle.com/archive/2023/projects/upstR7K2) program in 2023 and is under active development and testing.
 
 The acceleration focus of this package is currently on the semidiscretization part (with plans to extend to other parts) of the PDE solvers, and [**CUDA.jl**](https://github.com/JuliaGPU/CUDA.jl) is our primary support (will expand to more types of GPUs using [**AMDGPU.jl**](https://github.com/JuliaGPU/AMDGPU.jl), [**OneAPI.jl**](https://github.com/JuliaGPU/oneAPI.jl), and [**Metal.jl**](https://github.com/JuliaGPU/Metal.jl) in the future). 
 
@@ -15,15 +15,15 @@ The package is now in pre-release status and will be registered once the initial
 ## Users
 Users who are interested now can install the package by running the following command in the Julia REPL: 
 ```julia
-julia> using Pkg; Pkg.add(url="https://github.com/czha/TrixiGPU.jl.git")
+julia> using Pkg; Pkg.add(url="https://github.com/trixi-gpu/TrixiCUDA.jl.git")
 ```
 Then the package can be used with the following simple command:
 ```julia
-julia> using TrixiGPU
+julia> using TrixiCUDA
 ```
 This package serves as a support package, so it is recommended to these packages together:
 ```julia
-julia> using Trixi, TrixiGPU, OrdinaryDiffEq
+julia> using Trixi, TrixiCUDA, OrdinaryDiffEq
 ```
 
 ## Developers
@@ -48,11 +48,11 @@ Our current focus is on the semidiscretization of PDEs. The table below shows th
 | `DGMultiMesh`      | 1D, 2D, 3D        | `DGMulti`   | 🟡 Planned      |
 
 # Example of PDE Semidiscretization on GPU
-Let's take a look at a simple example to see how to use **TrixiGPU.jl** to run the simulation on the GPU (now only CUDA-compatible).
+Let's take a look at a simple example to see how to use **TrixiCUDA.jl** to run the simulation on the GPU (now only CUDA-compatible).
 
 ```julia
 # Take 1D linear advection equation as an example
-using Trixi, TrixiGPU
+using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
 ###############################################################################
@@ -76,7 +76,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_convergen
 ###############################################################################
 # ODE solvers, callbacks etc.
 
-ode = semidiscretize_gpu(semi, (0.0, 1.0)) # from TrixiGPU.jl
+ode = semidiscretize_gpu(semi, (0.0, 1.0)) # from TrixiCUDA.jl
 
 summary_callback = SummaryCallback()
 
@@ -100,7 +100,7 @@ summary_callback()
 ```
 
 # Benchmarks
-Coming...
+Please check benchmark branch and this part will be updated soon.
 
 # Show Your Support
 We always welcome new contributors to join us in future development. Please feel free to reach out if you would like to get involved!

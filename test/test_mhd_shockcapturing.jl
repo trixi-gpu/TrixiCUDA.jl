@@ -11,7 +11,7 @@ module TestMHDShock
 #   - `volume_integral::VolumeIntegralShockCapturingHG`
 #######################################################################
 
-include("test_trixigpu.jl")
+include("test_trixicuda.jl")
 
 # Test precision of the semidiscretization process
 @testset "Test Ideal GLM MHD" begin
@@ -66,80 +66,81 @@ include("test_trixigpu.jl")
         du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
         # Copy data to device
-        du_gpu, u_gpu = TrixiGPU.copy_to_device!(du, u)
+        du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
         # Reset data on host
         Trixi.reset_du!(du, solver, cache)
 
         # Test `cuda_volume_integral!`
-        TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
-                                       Trixi.have_nonconservative_terms(equations_gpu),
-                                       equations_gpu, solver_gpu.volume_integral, solver_gpu,
-                                       cache_gpu)
+        TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
+                                        Trixi.have_nonconservative_terms(equations_gpu),
+                                        equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                                        cache_gpu)
         Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                     equations, solver.volume_integral, solver, cache)
         @test_approx du_gpu ≈ du
 
         # Test `cuda_prolong2interfaces!`
-        TrixiGPU.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
+        TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
         Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
         @test_approx cache_gpu.interfaces.u ≈ cache.interfaces.u
 
         # Test `cuda_interface_flux!`
-        TrixiGPU.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
-                                      equations_gpu, solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
+                                       equations_gpu, solver_gpu, cache_gpu)
         Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
                                    Trixi.have_nonconservative_terms(equations), equations,
                                    solver.surface_integral, solver, cache)
         @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
         # Test `cuda_prolong2boundaries!`
-        TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
-                                          cache_gpu)
+        TrixiCUDA.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+                                           cache_gpu)
         Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
         @test_approx cache_gpu.boundaries.u ≈ cache.boundaries.u
 
         # Test `cuda_boundary_flux!`
-        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
-                                     Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-                                     solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+                                      Trixi.have_nonconservative_terms(equations_gpu),
+                                      equations_gpu,
+                                      solver_gpu, cache_gpu)
         Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                   solver.surface_integral, solver)
         @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
         # Test `cuda_prolong2mortars!`
-        TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-                                       solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                                        solver_gpu, cache_gpu)
         Trixi.prolong2mortars!(cache, u, mesh, equations,
                                solver.mortar, solver.surface_integral, solver)
         @test_approx cache_gpu.mortars.u_upper ≈ cache.mortars.u_upper
         @test_approx cache_gpu.mortars.u_lower ≈ cache.mortars.u_lower
 
         # Test `cuda_mortar_flux!`
-        TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-                                   Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-                                   solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                                    Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+                                    solver_gpu, cache_gpu)
         Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
                                 Trixi.have_nonconservative_terms(equations), equations,
                                 solver.mortar, solver.surface_integral, solver, cache)
         @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
         # Test `cuda_surface_integral!`
-        TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
         Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
         @test_approx du_gpu ≈ du
 
         # Test `cuda_jacobian!`
-        TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
+        TrixiCUDA.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
         Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
         @test_approx du_gpu ≈ du
 
         # Test `cuda_sources!`
-        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
+        TrixiCUDA.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
         Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
         @test_approx du_gpu ≈ du
 
         # Copy data back to host
-        du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)
+        du_cpu, u_cpu = TrixiCUDA.copy_to_host!(du_gpu, u_gpu)
     end
 
     @testset "Ideal GLM MHD 3D" begin
@@ -193,49 +194,50 @@ include("test_trixigpu.jl")
         du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
         # Copy data to device
-        du_gpu, u_gpu = TrixiGPU.copy_to_device!(du, u)
+        du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
         # Reset data on host
         Trixi.reset_du!(du, solver, cache)
 
         # Test `cuda_volume_integral!`
-        TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
-                                       Trixi.have_nonconservative_terms(equations_gpu),
-                                       equations_gpu, solver_gpu.volume_integral, solver_gpu,
-                                       cache_gpu)
+        TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
+                                        Trixi.have_nonconservative_terms(equations_gpu),
+                                        equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                                        cache_gpu)
         Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                     equations, solver.volume_integral, solver, cache)
         @test_approx du_gpu ≈ du
 
         # Test `cuda_prolong2interfaces!`
-        TrixiGPU.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
+        TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
         Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
         @test_approx cache_gpu.interfaces.u ≈ cache.interfaces.u
 
         # Test `cuda_interface_flux!`
-        TrixiGPU.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
-                                      equations_gpu, solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
+                                       equations_gpu, solver_gpu, cache_gpu)
         Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
                                    Trixi.have_nonconservative_terms(equations), equations,
                                    solver.surface_integral, solver, cache)
         @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
         # Test `cuda_prolong2boundaries!`
-        TrixiGPU.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
-                                          cache_gpu)
+        TrixiCUDA.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
+                                           cache_gpu)
         Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
         @test_approx cache_gpu.boundaries.u ≈ cache.boundaries.u
 
         # Test `cuda_boundary_flux!`
-        TrixiGPU.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
-                                     Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-                                     solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+                                      Trixi.have_nonconservative_terms(equations_gpu),
+                                      equations_gpu,
+                                      solver_gpu, cache_gpu)
         Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                   solver.surface_integral, solver)
         @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
         # Test `cuda_prolong2mortars!`
-        TrixiGPU.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-                                       solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                                        solver_gpu, cache_gpu)
         Trixi.prolong2mortars!(cache, u, mesh, equations,
                                solver.mortar, solver.surface_integral, solver)
         @test_approx cache_gpu.mortars.u_upper_left ≈ cache.mortars.u_upper_left
@@ -244,31 +246,31 @@ include("test_trixigpu.jl")
         @test_approx cache_gpu.mortars.u_lower_right ≈ cache.mortars.u_lower_right
 
         # Test `cuda_mortar_flux!`
-        TrixiGPU.cuda_mortar_flux!(mesh_gpu, TrixiGPU.check_cache_mortars(cache_gpu),
-                                   Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-                                   solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                                    Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+                                    solver_gpu, cache_gpu)
         Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
                                 Trixi.have_nonconservative_terms(equations), equations,
                                 solver.mortar, solver.surface_integral, solver, cache)
         @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
         # Test `cuda_surface_integral!`
-        TrixiGPU.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
+        TrixiCUDA.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
         Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver, cache)
         @test_approx du_gpu ≈ du
 
         # Test `cuda_jacobian!`
-        TrixiGPU.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
+        TrixiCUDA.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
         Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
         @test_approx du_gpu ≈ du
 
         # Test `cuda_sources!`
-        TrixiGPU.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
+        TrixiCUDA.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu)
         Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
         @test_approx du_gpu ≈ du
 
         # Copy data back to host
-        du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)
+        du_cpu, u_cpu = TrixiCUDA.copy_to_host!(du_gpu, u_gpu)
     end
 end
 

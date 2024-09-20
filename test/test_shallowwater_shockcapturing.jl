@@ -11,7 +11,7 @@ module TestShallowWaterShock
 #   - `volume_integral::VolumeIntegralShockCapturingHG`
 #######################################################################
 
-include("test_trixigpu.jl")
+include("test_trixicuda.jl")
 
 # Test precision of the semidiscretization process
 @testset "Test Shallow Water" begin
@@ -98,15 +98,15 @@ include("test_trixigpu.jl")
         du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
         # Copy data to device
-        du_gpu, u_gpu = TrixiGPU.copy_to_device!(du, u)
+        du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
         # Reset data on host
         Trixi.reset_du!(du, solver, cache)
 
         # Test `cuda_volume_integral!`
-        TrixiGPU.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
-                                       Trixi.have_nonconservative_terms(equations_gpu),
-                                       equations_gpu, solver_gpu.volume_integral, solver_gpu,
-                                       cache_gpu)
+        TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
+                                        Trixi.have_nonconservative_terms(equations_gpu),
+                                        equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                                        cache_gpu)
         Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                     equations, solver.volume_integral, solver, cache)
         @test_approx du_gpu ≈ du
@@ -114,7 +114,7 @@ include("test_trixigpu.jl")
         # Wait for fix of boundary flux dispatches
 
         # Copy data back to host
-        du_cpu, u_cpu = TrixiGPU.copy_to_host!(du_gpu, u_gpu)
+        du_cpu, u_cpu = TrixiCUDA.copy_to_host!(du_gpu, u_gpu)
     end
 
     @testset "Shallow Water 2D" begin end

@@ -1,4 +1,4 @@
-using Trixi, TrixiGPU
+using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
 # The example is taken from the Trixi.jl 
@@ -28,7 +28,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_convergen
 # ODE solvers, callbacks etc.
 
 # Create ODE problem with time span from 0.0 to 1.0
-ode = semidiscretize_gpu(semi, (0.0, 1.0)) # from TrixiGPU.jl
+ode = semidiscretize_gpu(semi, (0.0, 1.0)) # from TrixiCUDA.jl
 
 # At the beginning of the main loop, the SummaryCallback prints a summary of the simulation setup
 # and resets the timers

@@ -1,4 +1,4 @@
-name = "TrixiGPU"
+name = "TrixiCUDA"
 uuid = "5056661c-942a-472c-b3bc-01507f717a60"
 authors = ["Huiyu Xie"]
 version = "1.0.0-DEV"

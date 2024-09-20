@@ -1,4 +1,4 @@
-using TrixiGPU
+using TrixiCUDA
 using Test
 
 # Note that it is complicated to get tight error bounds for GPU kernels, here we use `isapprox` 
@@ -6,4 +6,4 @@ using Test
 # CPU kernels, which corresponds to requiring equality of about half of the significant digits 
 # (see https://docs.julialang.org/en/v1/base/math/#Base.isapprox).
 
-@testset "TrixiGPU.jl" begin end
+@testset "TrixiCUDA.jl" begin end

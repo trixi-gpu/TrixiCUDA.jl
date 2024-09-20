@@ -1,4 +1,4 @@
-using Trixi, TrixiGPU
+using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
 # The example is taken from the Trixi.jl
@@ -24,7 +24,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
 # ODE solvers, callbacks etc.
 
 tspan = (0.0, 2.0)
-ode = semidiscretize_gpu(semi, tspan) # from TrixiGPU.jl   
+ode = semidiscretize_gpu(semi, tspan) # from TrixiCUDA.jl   
 
 summary_callback = SummaryCallback()
 

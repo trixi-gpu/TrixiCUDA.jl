@@ -25,6 +25,7 @@ using StaticArrays: SVector
 
 # Include other source files
 include("auxiliary/auxiliary.jl")
+include("semidiscretization/semidiscretization.jl")
 include("solvers/solvers.jl")
 
 set_log_type!("log_Base")

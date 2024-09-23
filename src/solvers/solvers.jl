@@ -1,3 +1,4 @@
+include("cache.jl")
 include("common.jl")
 include("dg_1d.jl")
 include("dg_2d.jl")

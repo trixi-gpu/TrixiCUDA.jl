@@ -1,10 +1,10 @@
-function SemidiscretizationHyperbolic_gpu(mesh, equations, initial_condition, solver;
-                                          source_terms = nothing,
-                                          boundary_conditions = boundary_condition_periodic,
-                                          # `RealT` is used as real type for node locations etc.
-                                          # while `uEltype` is used as element type of solutions etc.
-                                          RealT = real(solver), uEltype = RealT,
-                                          initial_cache = NamedTuple())
+function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver;
+                                         source_terms = nothing,
+                                         boundary_conditions = boundary_condition_periodic,
+                                         # `RealT` is used as real type for node locations etc.
+                                         # while `uEltype` is used as element type of solutions etc.
+                                         RealT = real(solver), uEltype = RealT,
+                                         initial_cache = NamedTuple())
     @assert ndims(mesh) == ndims(equations)
 
     # cache = (; create_cache(mesh, equations, solver, RealT, uEltype)...,

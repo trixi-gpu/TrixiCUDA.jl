@@ -17,7 +17,7 @@ function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
 end
 
 # Ref: `semidiscretize` function in Trixi.jl
-function semidiscretize_gpu(semi::SemidiscretizationHyperbolic, tspan)
+function semidiscretizeGPU(semi::SemidiscretizationHyperbolic, tspan)
     u0_ode = compute_coefficients(first(tspan), semi)
 
     iip = true

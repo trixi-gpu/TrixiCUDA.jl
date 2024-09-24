@@ -1144,10 +1144,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                         size(u, 4))
 
     inverse_weights = CuArray{Float64}(dg.basis.inverse_weights)
-    fstar1_L = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 2), size(u, 4)))
-    fstar1_R = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 2), size(u, 4)))
-    fstar2_L = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2) + 1, size(u, 4)))
-    fstar2_R = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2) + 1, size(u, 4)))
+    fstar1_L = cache.fstar1_L
+    fstar1_R = cache.fstar1_R
+    fstar2_L = cache.fstar2_L
+    fstar2_R = cache.fstar2_R
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 4))
 
@@ -1231,10 +1231,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                          size(u, 4))
 
     inverse_weights = CuArray{Float64}(dg.basis.inverse_weights)
-    fstar1_L = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 2), size(u, 4)))
-    fstar1_R = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 2), size(u, 4)))
-    fstar2_L = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2) + 1, size(u, 4)))
-    fstar2_R = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2) + 1, size(u, 4)))
+    fstar1_L = cache.fstar1_L
+    fstar1_R = cache.fstar1_R
+    fstar2_L = cache.fstar2_L
+    fstar2_R = cache.fstar2_R
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 4))
 
@@ -1594,8 +1594,8 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
     surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
     tmp_surface_flux_values = zero(similar(surface_flux_values))
 
-    fstar_upper = CuArray{Float64}(undef, size(u_upper, 2), size(u_upper, 3), length(orientations))
-    fstar_lower = CuArray{Float64}(undef, size(u_upper, 2), size(u_upper, 3), length(orientations))
+    fstar_upper = cache.fstar_upper
+    fstar_lower = cache.fstar_lower
 
     size_arr = CuArray{Float64}(undef, size(u_upper, 3), length(orientations))
 
@@ -1645,8 +1645,8 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
     surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
     tmp_surface_flux_values = zero(similar(surface_flux_values))
 
-    fstar_upper = CuArray{Float64}(undef, size(u_upper, 2), size(u_upper, 3), length(orientations))
-    fstar_lower = CuArray{Float64}(undef, size(u_upper, 2), size(u_upper, 3), length(orientations))
+    fstar_upper = cache.fstar_upper
+    fstar_lower = cache.fstar_lower
 
     size_arr = CuArray{Float64}(undef, size(u_upper, 3), length(orientations))
 

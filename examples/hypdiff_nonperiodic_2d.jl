@@ -32,7 +32,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
 # ODE solvers, callbacks etc.
 
 tspan = (0.0, 5.0)
-ode = semidiscretize_gpu(semi, tspan) # from TrixiCUDA.jl
+ode = semidiscretizeGPU(semi, tspan) # from TrixiCUDA.jl
 
 summary_callback = SummaryCallback()
 

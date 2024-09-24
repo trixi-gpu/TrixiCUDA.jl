@@ -37,7 +37,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 # ODE solver
 
 tspan = (0.0, 2.0)
-ode = semidiscretize_gpu(semi, tspan) # from TrixiCUDA.jl
+ode = semidiscretizeGPU(semi, tspan) # from TrixiCUDA.jl
 
 ###############################################################################
 # Workaround to set a discontinuous bottom topography and initial condition for debugging and testing.

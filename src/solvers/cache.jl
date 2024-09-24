@@ -23,7 +23,7 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DGSEM, RealT, uEltyp
     return cache
 end
 
-# Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently exprimental
+# Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently experimental
 # in Trixi.jl and it is not implemented here.
 
 function create_cache_gpu(mesh::TreeMesh{1}, equations,

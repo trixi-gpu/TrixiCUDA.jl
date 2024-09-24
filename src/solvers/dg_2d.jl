@@ -1003,7 +1003,7 @@ end
 # partial work in semidiscretization. They are used to invoke kernels from the host (i.e., CPU) 
 # and run them on the device (i.e., GPU).
 
-# Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently exprimental
+# Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently experimental
 # in Trixi.jl and it is not implemented here.
 
 # Pack kernels for calculating volume integrals

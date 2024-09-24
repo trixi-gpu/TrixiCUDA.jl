@@ -18,7 +18,7 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DGSEM, RealT, uEltyp
 
     # Add specialized parts of the cache required to compute the volume integral etc.
     cache = (; cache...,
-             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype)...)
+             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache)...)
 
     return cache
 end
@@ -26,31 +26,29 @@ end
 # Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently experimental
 # in Trixi.jl and it is not implemented here.
 
+# Create cache for 1D tree mesh
 function create_cache_gpu(mesh::TreeMesh{1}, equations,
-                          volume_integral::VolumeIntegralWeakForm, dg::DGSEM, uEltype)
+                          volume_integral::VolumeIntegralWeakForm, dg::DGSEM,
+                          uEltype, cache)
     NamedTuple()
 end
 
 function create_cache_gpu(mesh::TreeMesh{1}, equations,
-                          volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, uEltype)
+                          volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM,
+                          uEltype, cache)
     NamedTuple()
 end
 
-# function create_cache_gpu(mesh::TreeMesh{1}, equations,
-#                       volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, uEltype)
-#     element_ids_dg = Int[]
-#     element_ids_dgfv = Int[]
+function create_cache_gpu(mesh::TreeMesh{1}, equations,
+                          volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM,
+                          uEltype, cache)
+    fstar1_L = CUDA.zeros(Float64, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
+    fstar1_R = CUDA.zeros(Float64, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
 
-#     cache = create_cache(mesh, equations,
-#                          VolumeIntegralFluxDifferencing(volume_integral.volume_flux_dg),
-#                          dg, uEltype)
+    cache = create_cache_gpu(mesh, equations,
+                             VolumeIntegralFluxDifferencing(volume_integral.volume_flux_dg),
+                             dg, uEltype, cache)
 
-#     A2dp1_x = Array{uEltype, 2}
-#     fstar1_L_threaded = A2dp1_x[A2dp1_x(undef, nvariables(equations), nnodes(dg) + 1)
-#                                 for _ in 1:Threads.nthreads()]
-#     fstar1_R_threaded = A2dp1_x[A2dp1_x(undef, nvariables(equations), nnodes(dg) + 1)
-#                                 for _ in 1:Threads.nthreads()]
-
-#     return (; cache..., element_ids_dg, element_ids_dgfv, fstar1_L_threaded,
-#             fstar1_R_threaded)
-# end
+    # Remove `element_ids_dg` and `element_ids_dgfv` here
+    return (; cache..., fstar1_L, fstar1_R)
+end

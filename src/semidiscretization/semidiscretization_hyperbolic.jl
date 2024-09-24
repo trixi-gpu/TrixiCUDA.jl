@@ -11,17 +11,17 @@ function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, sol
 
     cache = (; create_cache_gpu(mesh, equations, solver, RealT, uEltype)...,
              initial_cache...)
-    # _boundary_conditions = digest_boundary_conditions(boundary_conditions, mesh, solver,
-    #                                                   cache)
+    _boundary_conditions = digest_boundary_conditions(boundary_conditions, mesh, solver,
+                                                      cache)
 
-    # check_periodicity_mesh_boundary_conditions(mesh, _boundary_conditions)
+    check_periodicity_mesh_boundary_conditions(mesh, _boundary_conditions)
 
-    # SemidiscretizationHyperbolic{typeof(mesh), typeof(equations),
-    #                              typeof(initial_condition),
-    #                              typeof(_boundary_conditions), typeof(source_terms),
-    #                              typeof(solver), typeof(cache)}(mesh, equations,
-    #                                                             initial_condition,
-    #                                                             _boundary_conditions,
-    #                                                             source_terms, solver,
-    #                                                             cache)
+    SemidiscretizationHyperbolic{typeof(mesh), typeof(equations),
+                                 typeof(initial_condition),
+                                 typeof(_boundary_conditions), typeof(source_terms),
+                                 typeof(solver), typeof(cache)}(mesh, equations,
+                                                                initial_condition,
+                                                                _boundary_conditions,
+                                                                source_terms, solver,
+                                                                cache)
 end

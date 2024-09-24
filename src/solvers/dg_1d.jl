@@ -719,8 +719,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     volume_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
     inverse_weights = CuArray{Float64}(dg.basis.inverse_weights)
-    fstar1_L = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 3)))
-    fstar1_R = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 3)))
+    fstar1_L = cache.fstar1_L
+    fstar1_R = cache.fstar1_R
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^2, size(u, 3))
 
@@ -789,8 +789,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     noncons_flux_arr = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
     inverse_weights = CuArray{Float64}(dg.basis.inverse_weights)
-    fstar1_L = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 3)))
-    fstar1_R = zero(CuArray{Float64}(undef, size(u, 1), size(u, 2) + 1, size(u, 3)))
+    fstar1_L = cache.fstar1_L
+    fstar1_R = cache.fstar1_R
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^2, size(u, 3))
 

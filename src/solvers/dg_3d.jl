@@ -1311,6 +1311,9 @@ end
 # partial work in semidiscretization. They are used to invoke kernels from the host (i.e., CPU) 
 # and run them on the device (i.e., GPU).
 
+# Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently exprimental
+# in Trixi.jl and it is not implemented here.
+
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, equations,
                                volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
@@ -1445,7 +1448,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
 
     # For `Float64`, this gives 1.8189894035458565e-12
     # For `Float32`, this gives 1.1920929f-5
-    atol = 1.8189894035458565e-12 # Ref: `pure_and_blended_element_ids!` in Trixi.jl
+    atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
     element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
     element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
@@ -1543,7 +1546,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
 
     # For `Float64`, this gives 1.8189894035458565e-12
     # For `Float32`, this gives 1.1920929f-5
-    atol = 1.8189894035458565e-12 # Ref: `pure_and_blended_element_ids!` in Trixi.jl
+    atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
     element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
     element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
@@ -2222,7 +2225,7 @@ end
 
 # Put everything together into a single function.
 
-# Ref: `rhs!` function in Trixi.jl
+# See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
     du, u = copy_to_device!(du_cpu, u_cpu)

@@ -6,11 +6,14 @@ module TrixiCUDA
 using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, similar, launch_configuration
 
-using Trixi: AbstractEquations, TreeMesh, DGSEM,
+using Trixi: AbstractEquations, True, False,
+             TreeMesh,
+             DGSEM,
              BoundaryConditionPeriodic, SemidiscretizationHyperbolic,
              VolumeIntegralWeakForm, VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG,
-             flux, ntuple, nvariables,
-             True, False,
+             flux,
+             ntuple, nvariables,
+             local_leaf_cells, init_elements, init_interfaces, init_boundaries,
              wrap_array, compute_coefficients, have_nonconservative_terms,
              boundary_condition_periodic,
              set_log_type!, set_sqrt_type!

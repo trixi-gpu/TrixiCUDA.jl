@@ -11,5 +11,5 @@ coordinates_max = 1.0
 mesh = TreeMesh(coordinates_min, coordinates_max, initial_refinement_level = 4,
                 n_cells_max = 30_000)
 
-semi = TrixiCUDA.SemidiscretizationHyperbolicGPU(mesh, equations,
-                                                 initial_condition_convergence_test, solver)
+semi = SemidiscretizationHyperbolicGPU(mesh, equations,
+                                       initial_condition_convergence_test, solver)

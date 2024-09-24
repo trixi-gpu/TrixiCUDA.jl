@@ -1,3 +1,5 @@
+# This file is part of the package `Semidiscretizations.jl`.
+
 function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver;
                                          source_terms = nothing,
                                          boundary_conditions = boundary_condition_periodic,
@@ -7,8 +9,8 @@ function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, sol
                                          initial_cache = NamedTuple())
     @assert ndims(mesh) == ndims(equations)
 
-    # cache = (; create_cache(mesh, equations, solver, RealT, uEltype)...,
-    #          initial_cache...)
+    cache = (; create_cache_gpu(mesh, equations, solver, RealT, uEltype)...,
+             initial_cache...)
     # _boundary_conditions = digest_boundary_conditions(boundary_conditions, mesh, solver,
     #                                                   cache)
 

@@ -4,7 +4,7 @@ include("dg_1d.jl")
 include("dg_2d.jl")
 include("dg_3d.jl")
 
-# Ref: `rhs!` function in Trixi.jl
+# See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
     (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
 
@@ -16,7 +16,7 @@ function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
     return nothing
 end
 
-# Ref: `semidiscretize` function in Trixi.jl
+# See also `semidiscretize` function in Trixi.jl
 function semidiscretizeGPU(semi::SemidiscretizationHyperbolic, tspan)
     u0_ode = compute_coefficients(first(tspan), semi)
 

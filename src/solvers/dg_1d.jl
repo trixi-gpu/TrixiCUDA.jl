@@ -702,8 +702,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
-    element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
-    element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
+    element_ids_dg = zero(CuArray{Int}(undef, length(alpha)))
+    element_ids_dgfv = zero(CuArray{Int}(undef, length(alpha)))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
@@ -771,8 +771,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
-    element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
-    element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
+    element_ids_dg = zero(CuArray{Int}(undef, length(alpha)))
+    element_ids_dgfv = zero(CuArray{Int}(undef, length(alpha)))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
@@ -836,7 +836,7 @@ end
 
 # Pack kernels for prolonging solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, equations, cache)
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
+    neighbor_ids = CuArray{Int}(cache.interfaces.neighbor_ids)
     interfaces_u = CuArray{Float64}(cache.interfaces.u)
 
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 2), size(interfaces_u, 3))
@@ -856,7 +856,7 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
                               cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
+    neighbor_ids = CuArray{Int}(cache.interfaces.neighbor_ids)
     interfaces_u = CuArray{Float64}(cache.interfaces.u)
     surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
@@ -886,7 +886,7 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, eq
                               cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
+    neighbor_ids = CuArray{Int}(cache.interfaces.neighbor_ids)
     interfaces_u = CuArray{Float64}(cache.interfaces.u)
     surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     noncons_left_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
@@ -931,8 +931,8 @@ end
 # Pack kernels for prolonging solution to boundaries
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{1}, boundary_conditions::NamedTuple, equations,
                                   cache)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
+    neighbor_ids = CuArray{Int}(cache.boundaries.neighbor_ids)
+    neighbor_sides = CuArray{Int}(cache.boundaries.neighbor_sides)
     boundaries_u = CuArray{Float64}(cache.boundaries.u)
 
     size_arr = CuArray{Float64}(undef, size(boundaries_u, 2), size(boundaries_u, 3))
@@ -959,10 +959,10 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                              nonconservative_terms::False, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    orientations = CuArray{Int64}(cache.boundaries.orientations)
+    n_boundaries_per_direction = CuArray{Int}(cache.boundaries.n_boundaries_per_direction)
+    neighbor_ids = CuArray{Int}(cache.boundaries.neighbor_ids)
+    neighbor_sides = CuArray{Int}(cache.boundaries.neighbor_sides)
+    orientations = CuArray{Int}(cache.boundaries.orientations)
     boundaries_u = CuArray{Float64}(cache.boundaries.u)
     node_coordinates = CuArray{Float64}(cache.boundaries.node_coordinates)
     surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
@@ -976,8 +976,8 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                               configurator_1d(last_first_indices_kernel, lasts)...)
 
     lasts, firsts = Array(lasts), Array(firsts)
-    boundary_arr = CuArray{Int64}(firsts[1]:lasts[2])
-    indices_arr = CuArray{Int64}([firsts[1], firsts[2]])
+    boundary_arr = CuArray{Int}(firsts[1]:lasts[2])
+    indices_arr = CuArray{Int}([firsts[1], firsts[2]])
     boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
 
     boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,
@@ -1003,10 +1003,10 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                              nonconservative_terms::True, equations, dg::DGSEM, cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
-    n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    orientations = CuArray{Int64}(cache.boundaries.orientations)
+    n_boundaries_per_direction = CuArray{Int}(cache.boundaries.n_boundaries_per_direction)
+    neighbor_ids = CuArray{Int}(cache.boundaries.neighbor_ids)
+    neighbor_sides = CuArray{Int}(cache.boundaries.neighbor_sides)
+    orientations = CuArray{Int}(cache.boundaries.orientations)
     boundaries_u = CuArray{Float64}(cache.boundaries.u)
     node_coordinates = CuArray{Float64}(cache.boundaries.node_coordinates)
     surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
@@ -1020,8 +1020,8 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                               configurator_1d(last_first_indices_kernel, lasts)...)
 
     lasts, firsts = Array(lasts), Array(firsts)
-    boundary_arr = CuArray{Int64}(firsts[1]:lasts[2])
-    indices_arr = CuArray{Int64}([firsts[1], firsts[2]])
+    boundary_arr = CuArray{Int}(firsts[1]:lasts[2])
+    indices_arr = CuArray{Int}([firsts[1], firsts[2]])
 
     # Replace with callable functions (not necessary here)
     # boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)

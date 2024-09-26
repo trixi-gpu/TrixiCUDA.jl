@@ -23,7 +23,7 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DGSEM, RealT, uEltyp
     boundaries = init_boundaries(leaf_cell_ids, mesh, elements)
 
     # CPU cache
-    cache = (; elements, interfaces, boundaries)
+    cache_cpu = (; elements, interfaces, boundaries)
 
     # Copy cache components from CPU to GPU
     elements = copy_elements(elements)
@@ -35,7 +35,7 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DGSEM, RealT, uEltyp
 
     # Add specialized parts of the cache required to compute the volume integral etc.
     cache = (; cache_gpu...,
-             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache)...)
+             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_cpu)...)
 
     return cache
 end
@@ -74,12 +74,22 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
 
     mortars = init_mortars(leaf_cell_ids, mesh, elements, dg.mortar)
 
-    cache = (; elements, interfaces, boundaries, mortars)
+    # CPU cache
+    cache_cpu = (; elements, interfaces, boundaries, mortars)
+
+    # Copy cache components from CPU to GPU
+    elements = copy_elements(elements)
+    interfaces = copy_interfaces(interfaces)
+    boundaries = copy_boundaries(boundaries)
+    mortars = copy_mortars(mortars)
+
+    # GPU cache
+    cache_gpu = (; elements, interfaces, boundaries, mortars)
 
     # Add specialized parts of the cache required to compute the volume integral etc.
-    cache = (; cache...,
-             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache)...)
-    cache = (; cache..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache)...)
+    cache_gpu = (; cache_gpu...,
+                 create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_cpu)...)
+    cache = (; cache_gpu..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache_cpu)...)
 
     return cache
 end

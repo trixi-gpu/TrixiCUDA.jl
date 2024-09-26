@@ -695,8 +695,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     indicator = dg.volume_integral.indicator
 
     # TODO: Get copies of `u` and `du` on both device and host
-    # GPU scalar indexing here
-    alpha = indicator(Array(u), mesh, equations, dg, cache)
+    # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
+    alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
     alpha = CuArray{Float64}(alpha)
 
     # For `Float64`, this gives 1.8189894035458565e-12
@@ -765,7 +765,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     indicator = dg.volume_integral.indicator
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = indicator(Array(u), mesh, equations, dg, cache)
+    # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
+    alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
     alpha = CuArray{Float64}(alpha)
 
     # For `Float64`, this gives 1.8189894035458565e-12
@@ -961,7 +962,7 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
     node_coordinates = cache.boundaries.node_coordinates
     surface_flux_values = cache.elements.surface_flux_values
 
-    # Create new arrays on the device
+    # Create new arrays on the GPU
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 
@@ -1004,7 +1005,7 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
     node_coordinates = cache.boundaries.node_coordinates
     surface_flux_values = cache.elements.surface_flux_values
 
-    # Create new arrays on the device
+    # Create new arrays on the GPU
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 

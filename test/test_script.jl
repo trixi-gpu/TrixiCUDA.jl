@@ -1,25 +1,33 @@
 include("test_trixicuda.jl")
 
-equations = ShallowWaterEquations1D(gravity_constant = 9.81)
+equations = IdealGlmMhdEquations2D(1.4)
 
-initial_condition = initial_condition_convergence_test
+initial_condition = initial_condition_weak_blast_wave
 
-volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-solver = DGSEM(polydeg = 3,
-               surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
-               volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+surface_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+polydeg = 4
+basis = LobattoLegendreBasis(polydeg)
+indicator_sc = IndicatorHennemannGassner(equations, basis,
+                                         alpha_max = 0.5,
+                                         alpha_min = 0.001,
+                                         alpha_smooth = true,
+                                         variable = density_pressure)
+volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
+                                                 volume_flux_dg = volume_flux,
+                                                 volume_flux_fv = surface_flux)
 
-coordinates_min = 0.0
-coordinates_max = sqrt(2.0)
+solver = DGSEM(polydeg = polydeg, surface_flux = surface_flux,
+               volume_integral = volume_integral)
+
+coordinates_min = (-2.0, -2.0)
+coordinates_max = (2.0, 2.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 3,
-                n_cells_max = 10_000,
-                periodicity = true)
+                n_cells_max = 10_000)
 
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                    source_terms = source_terms_convergence_test)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
-                                           source_terms = source_terms_convergence_test)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
 
 tspan = (0.0, 1.0)
 
@@ -81,6 +89,23 @@ TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
                               solver_gpu, cache_gpu)
 Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                           solver.surface_integral, solver)
+@test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
+
+# Test `cuda_prolong2mortars!`
+TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                                solver_gpu, cache_gpu)
+Trixi.prolong2mortars!(cache, u, mesh, equations,
+                       solver.mortar, solver.surface_integral, solver)
+@test_approx cache_gpu.mortars.u_upper ≈ cache.mortars.u_upper
+@test_approx cache_gpu.mortars.u_lower ≈ cache.mortars.u_lower
+
+# Test `cuda_mortar_flux!`
+TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                            Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+                            solver_gpu, cache_gpu)
+Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+                        Trixi.have_nonconservative_terms(equations), equations,
+                        solver.mortar, solver.surface_integral, solver, cache)
 @test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
 
 # Test `cuda_surface_integral!`

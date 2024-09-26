@@ -8,7 +8,10 @@ using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, similar, launch_configuration
 
 using Trixi: AbstractEquations, AbstractContainer,
-             InterfaceContainer1D, ElementContainer1D, BoundaryContainer1D,
+             ElementContainer1D, ElementContainer2D,
+             InterfaceContainer1D, InterfaceContainer2D,
+             BoundaryContainer1D, BoundaryContainer2D,
+             L2MortarContainer2D,
              True, False,
              TreeMesh, DGSEM,
              BoundaryConditionPeriodic, SemidiscretizationHyperbolic,
@@ -22,7 +25,7 @@ using Trixi: AbstractEquations, AbstractContainer,
              set_log_type!, set_sqrt_type!
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars,
-              nelements, ninterfaces
+              nelements, ninterfaces, nmortars
 
 using SciMLBase: ODEProblem, FullSpecialize
 

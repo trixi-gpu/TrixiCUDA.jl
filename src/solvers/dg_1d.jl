@@ -695,6 +695,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     indicator = dg.volume_integral.indicator
 
     # TODO: Get copies of `u` and `du` on both device and host
+    # GPU scalar indexing here
     alpha = indicator(Array(u), mesh, equations, dg, cache)
     alpha = CuArray{Float64}(alpha)
 
@@ -836,8 +837,8 @@ end
 
 # Pack kernels for prolonging solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, equations, cache)
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    neighbor_ids = cache.interfaces.neighbor_ids
+    interfaces_u = cache.interfaces.u
 
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 2), size(interfaces_u, 3))
 
@@ -845,8 +846,6 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, equations, cache)
                                                                               neighbor_ids)
     prolong_interfaces_kernel(interfaces_u, u, neighbor_ids;
                               configurator_2d(prolong_interfaces_kernel, size_arr)...)
-
-    cache.interfaces.u = interfaces_u  # copy back to host automatically
 
     return nothing
 end
@@ -856,11 +855,11 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
                               cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
-    surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    neighbor_ids = cache.interfaces.neighbor_ids
+    interfaces_u = cache.interfaces.u
+    surface_flux_values = cache.elements.surface_flux_values
 
+    surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 3))
 
     surface_flux_kernel = @cuda launch=false surface_flux_kernel!(surface_flux_arr, interfaces_u,
@@ -876,8 +875,6 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
     interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids;
                           configurator_2d(interface_flux_kernel, size_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
     return nothing
 end
 
@@ -886,12 +883,13 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, eq
                               cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    neighbor_ids = cache.interfaces.neighbor_ids
+    interfaces_u = cache.interfaces.u
+    surface_flux_values = cache.elements.surface_flux_values
+
     surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     noncons_left_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     noncons_right_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
 
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 3))
 
@@ -917,8 +915,6 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, eq
                           noncons_right_arr, neighbor_ids;
                           configurator_2d(interface_flux_kernel, size_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
     return nothing
 end
 
@@ -931,9 +927,9 @@ end
 # Pack kernels for prolonging solution to boundaries
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{1}, boundary_conditions::NamedTuple, equations,
                                   cache)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    boundaries_u = CuArray{Float64}(cache.boundaries.u)
+    neighbor_ids = cache.boundaries.neighbor_ids
+    neighbor_sides = cache.boundaries.neighbor_sides
+    boundaries_u = cache.boundaries.u
 
     size_arr = CuArray{Float64}(undef, size(boundaries_u, 2), size(boundaries_u, 3))
 
@@ -942,8 +938,6 @@ function cuda_prolong2boundaries!(u, mesh::TreeMesh{1}, boundary_conditions::Nam
                                                                               neighbor_sides)
     prolong_boundaries_kernel(boundaries_u, u, neighbor_ids, neighbor_sides;
                               configurator_2d(prolong_boundaries_kernel, size_arr)...)
-
-    cache.boundaries.u = boundaries_u  # copy back to host automatically
 
     return nothing
 end
@@ -959,14 +953,15 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                              nonconservative_terms::False, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    orientations = CuArray{Int64}(cache.boundaries.orientations)
-    boundaries_u = CuArray{Float64}(cache.boundaries.u)
-    node_coordinates = CuArray{Float64}(cache.boundaries.node_coordinates)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    n_boundaries_per_direction = cache.boundaries.n_boundaries_per_direction
+    neighbor_ids = cache.boundaries.neighbor_ids
+    neighbor_sides = cache.boundaries.neighbor_sides
+    orientations = cache.boundaries.orientations
+    boundaries_u = cache.boundaries.u
+    node_coordinates = cache.boundaries.node_coordinates
+    surface_flux_values = cache.elements.surface_flux_values
 
+    # Create new arrays on the device
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 
@@ -993,8 +988,6 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                          boundary_conditions_callable, equations, surface_flux;
                          configurator_1d(boundary_flux_kernel, boundary_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
     return nothing
 end
 
@@ -1003,14 +996,15 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                              nonconservative_terms::True, equations, dg::DGSEM, cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
-    n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    orientations = CuArray{Int64}(cache.boundaries.orientations)
-    boundaries_u = CuArray{Float64}(cache.boundaries.u)
-    node_coordinates = CuArray{Float64}(cache.boundaries.node_coordinates)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    n_boundaries_per_direction = cache.boundaries.n_boundaries_per_direction
+    neighbor_ids = cache.boundaries.neighbor_ids
+    neighbor_sides = cache.boundaries.neighbor_sides
+    orientations = cache.boundaries.orientations
+    boundaries_u = cache.boundaries.u
+    node_coordinates = cache.boundaries.node_coordinates
+    surface_flux_values = cache.elements.surface_flux_values
 
+    # Create new arrays on the device
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 
@@ -1040,8 +1034,6 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                          boundary_conditions, equations, surface_flux, nonconservative_flux;
                          configurator_1d(boundary_flux_kernel, boundary_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
     return nothing
 end
 
@@ -1051,7 +1043,7 @@ function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DGSEM, cac
                                       dg.basis.boundary_interpolation[1, 1],
                                       dg.basis.boundary_interpolation[size(du, 2), 2]
                                   ])
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    surface_flux_values = cache.elements.surface_flux_values
 
     surface_integral_kernel = @cuda launch=false surface_integral_kernel!(du, factor_arr,
                                                                           surface_flux_values,
@@ -1064,7 +1056,7 @@ end
 
 # Pack kernels for applying Jacobian to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{1}, equations, cache)
-    inverse_jacobian = CuArray{Float64}(cache.elements.inverse_jacobian)
+    inverse_jacobian = cache.elements.inverse_jacobian
 
     jacobian_kernel = @cuda launch=false jacobian_kernel!(du, inverse_jacobian, equations)
     jacobian_kernel(du, inverse_jacobian, equations; configurator_3d(jacobian_kernel, du)...)
@@ -1079,7 +1071,7 @@ end
 
 # Pack kernels for calculating source terms 
 function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{1}, cache)
-    node_coordinates = CuArray{Float64}(cache.elements.node_coordinates)
+    node_coordinates = cache.elements.node_coordinates
 
     size_arr = CuArray{Float64}(undef, size(du, 2), size(du, 3))
 
@@ -1096,7 +1088,7 @@ end
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
-    du, u = copy_to_device!(du_cpu, u_cpu)
+    du, u = copy_to_gpu!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg, cache)
@@ -1116,7 +1108,7 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{1}, equations, boundary_condi
 
     cuda_sources!(du, u, t, source_terms, equations, cache)
 
-    du_computed, _ = copy_to_host!(du, u)
+    du_computed, _ = copy_to_cpu!(du, u)
     du_cpu .= du_computed
 
     return nothing

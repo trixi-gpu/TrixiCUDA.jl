@@ -2208,7 +2208,7 @@ end
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
-    du, u = copy_to_device!(du_cpu, u_cpu)
+    du, u = copy_to_gpu!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg, cache)
@@ -2233,7 +2233,7 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, boundary_condi
 
     cuda_sources!(du, u, t, source_terms, equations, cache)
 
-    du_computed, _ = copy_to_host!(du, u)
+    du_computed, _ = copy_to_cpu!(du, u)
     du_cpu .= du_computed
 
     return nothing

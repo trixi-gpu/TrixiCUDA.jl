@@ -22,7 +22,7 @@ function run_dgsem_tree_tests_1D(semi, tspan)
     du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
     # Copy data to device
-    du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
+    du_gpu, u_gpu = TrixiCUDA.copy_to_gpu!(du, u)
     # Reset data on host
     Trixi.reset_du!(du, solver, cache)
 
@@ -78,7 +78,7 @@ function run_dgsem_tree_tests_1D(semi, tspan)
     @test_approx du_gpu ≈ du
 
     # Copy data back to host
-    du_cpu, u_cpu = TrixiCUDA.copy_to_host!(du_gpu, u_gpu)
+    du_cpu, u_cpu = TrixiCUDA.copy_to_cpu!(du_gpu, u_gpu)
 end
 
 # Test suite for 2D problems
@@ -103,7 +103,7 @@ function run_dgsem_tree_tests_2D(semi, tspan)
     du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
     # Copy data to device
-    du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
+    du_gpu, u_gpu = TrixiCUDA.copy_to_gpu!(du, u)
     # Reset data on host
     Trixi.reset_du!(du, solver, cache)
 
@@ -176,7 +176,7 @@ function run_dgsem_tree_tests_2D(semi, tspan)
     @test_approx du_gpu ≈ du
 
     # Copy data back to host
-    du_cpu, u_cpu = TrixiCUDA.copy_to_host!(du_gpu, u_gpu)
+    du_cpu, u_cpu = TrixiCUDA.copy_to_cpu!(du_gpu, u_gpu)
 end
 
 # Test suite for 3D problems
@@ -201,7 +201,7 @@ function run_dgsem_tree_tests_3D(semi, tspan)
     du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
     # Copy data to device
-    du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
+    du_gpu, u_gpu = TrixiCUDA.copy_to_gpu!(du, u)
     # Reset data on host
     Trixi.reset_du!(du, solver, cache)
 
@@ -276,5 +276,5 @@ function run_dgsem_tree_tests_3D(semi, tspan)
     @test_approx du_gpu ≈ du
 
     # Copy data back to host
-    du_cpu, u_cpu = TrixiCUDA.copy_to_host!(du_gpu, u_gpu)
+    du_cpu, u_cpu = TrixiCUDA.copy_to_cpu!(du_gpu, u_gpu)
 end

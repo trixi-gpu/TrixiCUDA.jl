@@ -7,7 +7,9 @@ using CUDA
 using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, similar, launch_configuration
 
-using Trixi: AbstractEquations, True, False,
+using Trixi: AbstractEquations, AbstractContainer,
+             InterfaceContainer1D, ElementContainer1D, BoundaryContainer1D,
+             True, False,
              TreeMesh, DGSEM,
              BoundaryConditionPeriodic, SemidiscretizationHyperbolic,
              VolumeIntegralWeakForm, VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG,
@@ -19,7 +21,8 @@ using Trixi: AbstractEquations, True, False,
              digest_boundary_conditions, check_periodicity_mesh_boundary_conditions,
              set_log_type!, set_sqrt_type!
 
-import Trixi: get_node_vars, get_node_coords, get_surface_node_vars
+import Trixi: get_node_vars, get_node_coords, get_surface_node_vars,
+              nelements, ninterfaces
 
 using SciMLBase: ODEProblem, FullSpecialize
 

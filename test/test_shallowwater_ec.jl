@@ -72,7 +72,7 @@ include("test_trixicuda.jl")
         du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
         # Copy data to device
-        du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
+        du_gpu, u_gpu = TrixiCUDA.copy_to_gpu!(du, u)
         # Reset data on host
         Trixi.reset_du!(du, solver, cache)
 
@@ -129,7 +129,7 @@ include("test_trixicuda.jl")
         @test_approx du_gpu ≈ du
 
         # Copy data back to host
-        du_cpu, u_cpu = TrixiCUDA.copy_to_host!(du_gpu, u_gpu)
+        du_cpu, u_cpu = TrixiCUDA.copy_to_cpu!(du_gpu, u_gpu)
     end
 
     @testset "Shallow Water 2D" begin
@@ -217,7 +217,7 @@ include("test_trixicuda.jl")
         du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
         # Copy data to device
-        du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
+        du_gpu, u_gpu = TrixiCUDA.copy_to_gpu!(du, u)
         # Reset data on host
         Trixi.reset_du!(du, solver, cache)
 
@@ -291,7 +291,7 @@ include("test_trixicuda.jl")
         @test_approx du_gpu ≈ du
 
         # Copy data back to host
-        du_cpu, u_cpu = TrixiCUDA.copy_to_host!(du_gpu, u_gpu)
+        du_cpu, u_cpu = TrixiCUDA.copy_to_cpu!(du_gpu, u_gpu)
     end
 end
 

@@ -12,7 +12,8 @@ makedocs(sitename = "TrixiCUDA.jl",
              "Tutorial 1" => "aws_gpu_setup.md",
              "Tutorial 2" => "nsys_profiling.md"
          ],
-         format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true"))
+         format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
+                                  assets = ["assets/favicon.ico"]))
 
 deploydocs(repo = "github.com/trixi-gpu/TrixiCUDA.jl",
            devbranch = "main",

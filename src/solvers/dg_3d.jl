@@ -633,6 +633,35 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
     return nothing
 end
 
+# Kernel for calculating surface and both nonconservative fluxes 
+function surface_noncons_flux_kernel!(surface_flux_arr, noncons_left_arr, noncons_right_arr,
+                                      interfaces_u, orientations, equations::AbstractEquations{3},
+                                      surface_flux::Any, nonconservative_flux::Any)
+    j1 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j2 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
+        k <= size(surface_flux_arr, 4))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
+        orientation = orientations[k]
+
+        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
+        noncons_left_node = nonconservative_flux(u_ll, u_rr, orientation, equations)
+        noncons_right_node = nonconservative_flux(u_rr, u_ll, orientation, equations)
+
+        @inbounds begin
+            for ii in axes(surface_flux_arr, 1)
+                surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
+                noncons_left_arr[ii, j1, j2, k] = noncons_left_node[ii]
+                noncons_right_arr[ii, j1, j2, k] = noncons_right_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for setting interface fluxes
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids, orientations,
                                 equations::AbstractEquations{3})
@@ -655,6 +684,41 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
             surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k]
             surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
                                                                                          k]
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for setting interface fluxes
+function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
+                                noncons_right_arr, neighbor_ids, orientations,
+                                equations::AbstractEquations{3})
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2)^2 &&
+        k <= size(surface_flux_arr, 4))
+        j1 = div(j - 1, size(surface_flux_arr, 2)) + 1
+        j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
+
+        left_id = neighbor_ids[1, k]
+        right_id = neighbor_ids[2, k]
+
+        left_direction = 2 * orientations[k]
+        right_direction = 2 * orientations[k] - 1
+
+        @inbounds begin
+            surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2,
+                                                                                       k] +
+                                                                      0.5 *
+                                                                      noncons_left_arr[i, j1, j2, k]
+            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
+                                                                                         k] +
+                                                                        0.5 *
+                                                                        noncons_right_arr[i, j1, j2,
+                                                                                          k]
         end
     end
 
@@ -1451,8 +1515,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
-    element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
-    element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
+    element_ids_dg = CUDA.zero(Int, length(alpha))
+    element_ids_dgfv = CUDA.zero(Int, length(alpha))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
@@ -1544,8 +1608,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
-    element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
-    element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
+    element_ids_dg = CUDA.zero(Int, length(alpha))
+    element_ids_dgfv = CUDA.zero(Int, length(alpha))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
@@ -1693,70 +1757,6 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False, e
     return nothing
 end
 
-# Kernel for calculating surface and both nonconservative fluxes 
-function surface_noncons_flux_kernel!(surface_flux_arr, noncons_left_arr, noncons_right_arr,
-                                      interfaces_u, orientations, equations::AbstractEquations{3},
-                                      surface_flux::Any, nonconservative_flux::Any)
-    j1 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j2 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
-        k <= size(surface_flux_arr, 4))
-        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
-        orientation = orientations[k]
-
-        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
-        noncons_left_node = nonconservative_flux(u_ll, u_rr, orientation, equations)
-        noncons_right_node = nonconservative_flux(u_rr, u_ll, orientation, equations)
-
-        @inbounds begin
-            for ii in axes(surface_flux_arr, 1)
-                surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
-                noncons_left_arr[ii, j1, j2, k] = noncons_left_node[ii]
-                noncons_right_arr[ii, j1, j2, k] = noncons_right_node[ii]
-            end
-        end
-    end
-
-    return nothing
-end
-
-# Kernel for setting interface fluxes
-function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
-                                noncons_right_arr, neighbor_ids, orientations,
-                                equations::AbstractEquations{3})
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2)^2 &&
-        k <= size(surface_flux_arr, 4))
-        j1 = div(j - 1, size(surface_flux_arr, 2)) + 1
-        j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
-
-        left_id = neighbor_ids[1, k]
-        right_id = neighbor_ids[2, k]
-
-        left_direction = 2 * orientations[k]
-        right_direction = 2 * orientations[k] - 1
-
-        @inbounds begin
-            surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2,
-                                                                                       k] +
-                                                                      0.5 *
-                                                                      noncons_left_arr[i, j1, j2, k]
-            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
-                                                                                         k] +
-                                                                        0.5 *
-                                                                        noncons_right_arr[i, j1, j2,
-                                                                                          k]
-        end
-    end
-
-    return nothing
-end
-
 # Pack kernels for calculating interface fluxes
 function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, equations, dg::DGSEM,
                               cache)
@@ -1855,16 +1855,16 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 
+    # May introduce kernel launching overhead
     last_first_indices_kernel = @cuda launch=false last_first_indices_kernel!(lasts, firsts,
                                                                               n_boundaries_per_direction)
     last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction;
                               configurator_1d(last_first_indices_kernel, lasts)...)
 
-    lasts, firsts = Array(lasts), Array(firsts)
-    boundary_arr = CuArray{Int64}(firsts[1]:lasts[6])
-    indices_arr = CuArray{Int64}([firsts[1], firsts[2], firsts[3], firsts[4], firsts[5], firsts[6]])
-    boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
+    indices_arr = firsts
+    boundary_arr = CuArray{Int}(Array(firsts)[1]:Array(lasts)[end])
 
+    boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
     size_arr = CuArray{Float64}(undef, size(surface_flux_values, 2)^2, length(boundary_arr))
 
     boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,

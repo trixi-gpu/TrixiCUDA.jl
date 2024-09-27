@@ -10,7 +10,6 @@ mutable struct ElementContainerGPU3D{RealT <: Real, uEltype <: Real} <: Abstract
     cell_ids::CuArray{Int, 1}
 
     # Inner constructor
-    # Inner constructor
     function ElementContainerGPU3D{RealT, uEltype}(dims_inverse_jacobian::NTuple{1, Int},
                                                    dims_node_coordinates::NTuple{5, Int},
                                                    dims_surface_flux_values::NTuple{5, Int},

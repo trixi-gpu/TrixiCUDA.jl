@@ -1527,8 +1527,9 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DG
     large_sides = cache.mortars.large_sides
     orientations = cache.mortars.orientations
 
-    u_upper = cache.mortars.u_upper # original CPU array holds NaNs
-    u_lower = cache.mortars.u_lower # original CPU array holds NaNs
+    # The original CPU arrays hold NaNs
+    u_upper = cache.mortars.u_upper
+    u_lower = cache.mortars.u_lower
 
     forward_upper = CuArray{Float64}(dg.mortar.forward_upper)
     forward_lower = CuArray{Float64}(dg.mortar.forward_lower)
@@ -1576,6 +1577,7 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
     large_sides = cache.mortars.large_sides
     orientations = cache.mortars.orientations
 
+    # 
     u_upper = cache.mortars.u_upper
     u_lower = cache.mortars.u_lower
     reverse_upper = CuArray{Float64}(dg.mortar.reverse_upper)
@@ -1625,6 +1627,7 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
     large_sides = cache.mortars.large_sides
     orientations = cache.mortars.orientations
 
+    # The original CPU arrays hold NaNs
     u_upper = cache.mortars.u_upper
     u_lower = cache.mortars.u_lower
     reverse_upper = CuArray{Float64}(dg.mortar.reverse_upper)

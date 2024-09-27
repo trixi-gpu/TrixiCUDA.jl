@@ -1,6 +1,6 @@
 include("test_trixicuda.jl")
 
-equations = IdealGlmMhdEquations2D(1.4)
+equations = IdealGlmMhdEquations3D(1.4)
 
 initial_condition = initial_condition_weak_blast_wave
 
@@ -20,8 +20,8 @@ volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
 solver = DGSEM(polydeg = polydeg, surface_flux = surface_flux,
                volume_integral = volume_integral)
 
-coordinates_min = (-2.0, -2.0)
-coordinates_max = (2.0, 2.0)
+coordinates_min = (-2.0, -2.0, -2.0)
+coordinates_max = (2.0, 2.0, 2.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 3,
                 n_cells_max = 10_000)
@@ -96,8 +96,10 @@ TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu, TrixiCUDA.check_cache_mortars(c
                                 solver_gpu, cache_gpu)
 Trixi.prolong2mortars!(cache, u, mesh, equations,
                        solver.mortar, solver.surface_integral, solver)
-@test_approx cache_gpu.mortars.u_upper ≈ cache.mortars.u_upper
-@test_approx cache_gpu.mortars.u_lower ≈ cache.mortars.u_lower
+@test_approx cache_gpu.mortars.u_upper_left ≈ cache.mortars.u_upper_left
+@test_approx cache_gpu.mortars.u_upper_right ≈ cache.mortars.u_upper_right
+@test_approx cache_gpu.mortars.u_lower_left ≈ cache.mortars.u_lower_left
+@test_approx cache_gpu.mortars.u_lower_right ≈ cache.mortars.u_lower_right
 
 # Test `cuda_mortar_flux!`
 TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),

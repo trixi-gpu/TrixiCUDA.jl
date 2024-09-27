@@ -1,13 +1,12 @@
 include("test_trixicuda.jl")
 
-equations = CompressibleEulerEquations3D(1.4)
+equations = IdealGlmMhdEquations3D(1.4)
 
 initial_condition = initial_condition_weak_blast_wave
 
-surface_flux = flux_ranocha # OBS! Using a non-dissipative flux is only sensible to test EC,
-# but not for real shock simulations
-volume_flux = flux_ranocha
-polydeg = 3
+surface_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+polydeg = 4
 basis = LobattoLegendreBasis(polydeg)
 indicator_sc = IndicatorHennemannGassner(equations, basis,
                                          alpha_max = 0.5,
@@ -17,18 +16,20 @@ indicator_sc = IndicatorHennemannGassner(equations, basis,
 volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                  volume_flux_dg = volume_flux,
                                                  volume_flux_fv = surface_flux)
-solver = DGSEM(basis, surface_flux, volume_integral)
+
+solver = DGSEM(polydeg = polydeg, surface_flux = surface_flux,
+               volume_integral = volume_integral)
 
 coordinates_min = (-2.0, -2.0, -2.0)
 coordinates_max = (2.0, 2.0, 2.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 3,
-                n_cells_max = 100_000)
+                n_cells_max = 10_000)
 
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
 
-tspan = (0.0, 5.0)
+tspan = (0.0, 1.0)
 
 # Get CPU data
 (; mesh, equations, initial_condition, boundary_conditions, source_terms, solver, cache) = semi
@@ -50,7 +51,7 @@ u = Trixi.wrap_array(u_ode, mesh, equations, solver, cache)
 du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
 # Copy data to device
-du_gpu, u_gpu = TrixiCUDA.copy_to_device!(du, u)
+du_gpu, u_gpu = TrixiCUDA.copy_to_gpu!(du, u)
 # Reset data on host
 Trixi.reset_du!(du, solver, cache)
 

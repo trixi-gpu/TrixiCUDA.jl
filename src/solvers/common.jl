@@ -1,15 +1,15 @@
 # Some common functions that are shared between the solvers.
 
-# Copy data from host to device
-function copy_to_device!(du::PtrArray, u::PtrArray)
+# Copy data from CPU to GPU
+function copy_to_gpu!(du::PtrArray, u::PtrArray)
     du = CuArray{Float64}(zero(du))
     u = CuArray{Float64}(u)
 
     return (du, u)
 end
 
-# Copy data from device to host 
-function copy_to_host!(du::CuArray, u::CuArray)
+# Copy data from GPU to CPU 
+function copy_to_cpu!(du::CuArray, u::CuArray)
     # TODO: Direct CuArray to PtrArray
     du = PtrArray(Array{Float64}(du))
     u = PtrArray(Array{Float64}(u))

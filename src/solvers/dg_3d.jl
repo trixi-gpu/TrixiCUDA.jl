@@ -1443,7 +1443,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     indicator = dg.volume_integral.indicator
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = indicator(Array(u), mesh, equations, dg, cache)
+    # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
+    alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
     alpha = CuArray{Float64}(alpha)
 
     # For `Float64`, this gives 1.8189894035458565e-12
@@ -1535,7 +1536,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     indicator = dg.volume_integral.indicator
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = indicator(Array(u), mesh, equations, dg, cache)
+    # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
+    alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
     alpha = CuArray{Float64}(alpha)
 
     # For `Float64`, this gives 1.8189894035458565e-12
@@ -1640,9 +1642,9 @@ end
 
 # Pack kernels to prolonging solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{3}, equations, cache)
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    orientations = CuArray{Int64}(cache.interfaces.orientations)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    neighbor_ids = cache.interfaces.neighbor_ids
+    orientations = cache.interfaces.orientations
+    interfaces_u = cache.interfaces.u
 
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 2) * size(interfaces_u, 3)^2,
                                 size(interfaces_u, 5))
@@ -1654,8 +1656,6 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{3}, equations, cache)
     prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations, equations;
                               configurator_2d(prolong_interfaces_kernel, size_arr)...)
 
-    cache.interfaces.u = interfaces_u  # copy back to host automatically
-
     return nothing
 end
 
@@ -1664,12 +1664,12 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False, e
                               cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    orientations = CuArray{Int64}(cache.interfaces.orientations)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
-    surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    neighbor_ids = cache.interfaces.neighbor_ids
+    orientations = cache.interfaces.orientations
+    interfaces_u = cache.interfaces.u
+    surface_flux_values = cache.elements.surface_flux_values
 
+    surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 3), size(interfaces_u, 4),
                                 size(interfaces_u, 5))
 
@@ -1689,8 +1689,6 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False, e
     interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids, orientations,
                           equations;
                           configurator_3d(interface_flux_kernel, size_arr)...)
-
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
 
     return nothing
 end
@@ -1764,13 +1762,14 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, eq
                               cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    orientations = CuArray{Int64}(cache.interfaces.orientations)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    neighbor_ids = cache.interfaces.neighbor_ids
+    orientations = cache.interfaces.orientations
+    interfaces_u = cache.interfaces.u
+    surface_flux_values = cache.elements.surface_flux_values
+
     surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     noncons_left_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     noncons_right_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
 
     size_arr = CuArray{Float64}(undef, size(interfaces_u, 3), size(interfaces_u, 4),
                                 size(interfaces_u, 5))
@@ -1801,8 +1800,6 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, eq
                           neighbor_ids, orientations, equations;
                           configurator_3d(interface_flux_kernel, size_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
     return nothing
 end
 
@@ -1815,10 +1812,10 @@ end
 # Pack kernels for prolonging solution to boundaries
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{3}, boundary_conditions::NamedTuple, equations,
                                   cache)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    orientations = CuArray{Int64}(cache.boundaries.orientations)
-    boundaries_u = CuArray{Float64}(cache.boundaries.u)
+    neighbor_ids = cache.boundaries.neighbor_ids
+    neighbor_sides = cache.boundaries.neighbor_sides
+    orientations = cache.boundaries.orientations
+    boundaries_u = cache.boundaries.u
 
     size_arr = CuArray{Float64}(undef, size(boundaries_u, 2) * size(boundaries_u, 3)^2,
                                 size(boundaries_u, 5))
@@ -1831,8 +1828,6 @@ function cuda_prolong2boundaries!(u, mesh::TreeMesh{3}, boundary_conditions::Nam
     prolong_boundaries_kernel(boundaries_u, u, neighbor_ids, neighbor_sides, orientations,
                               equations;
                               configurator_2d(prolong_boundaries_kernel, size_arr)...)
-
-    cache.boundaries.u = boundaries_u  # copy back to host automatically
 
     return nothing
 end
@@ -1848,14 +1843,15 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
                              nonconservative_terms, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    orientations = CuArray{Int64}(cache.boundaries.orientations)
-    boundaries_u = CuArray{Float64}(cache.boundaries.u)
-    node_coordinates = CuArray{Float64}(cache.boundaries.node_coordinates)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    n_boundaries_per_direction = cache.boundaries.n_boundaries_per_direction
+    neighbor_ids = cache.boundaries.neighbor_ids
+    neighbor_sides = cache.boundaries.neighbor_sides
+    orientations = cache.boundaries.orientations
+    boundaries_u = cache.boundaries.u
+    node_coordinates = cache.boundaries.node_coordinates
+    surface_flux_values = cache.elements.surface_flux_values
 
+    # Create new arrays on the GPU
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 
@@ -1883,8 +1879,6 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
                          boundary_conditions_callable, equations, surface_flux;
                          configurator_2d(boundary_flux_kernel, size_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
     return nothing
 end
 
@@ -1895,14 +1889,15 @@ end
 
 # Pack kernels for prolonging solution to mortars
 function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DGSEM, cache)
-    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
-    large_sides = CuArray{Int64}(cache.mortars.large_sides)
-    orientations = CuArray{Int64}(cache.mortars.orientations)
+    neighbor_ids = cache.mortars.neighbor_ids
+    large_sides = cache.mortars.large_sides
+    orientations = cache.mortars.orientations
 
-    u_upper_left = zero(CuArray{Float64}(cache.mortars.u_upper_left)) # NaN to zero
-    u_upper_right = zero(CuArray{Float64}(cache.mortars.u_upper_right)) # NaN to zero
-    u_lower_left = zero(CuArray{Float64}(cache.mortars.u_lower_left)) # NaN to zero
-    u_lower_right = zero(CuArray{Float64}(cache.mortars.u_lower_right)) # NaN to zero
+    # The original CPU arrays hold NaNs
+    u_upper_left = cache.mortars.u_upper_left
+    u_upper_right = cache.mortars.u_upper_right
+    u_lower_left = cache.mortars.u_lower_left
+    u_lower_right = cache.mortars.u_lower_right
 
     forward_upper = CuArray{Float64}(dg.mortar.forward_upper)
     forward_lower = CuArray{Float64}(dg.mortar.forward_lower)
@@ -1962,11 +1957,6 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DG
                                        configurator_3d(prolong_mortars_large2small_kernel,
                                                        size_arr)...)
 
-    cache.mortars.u_upper_left = u_upper_left # copy back to host automatically
-    cache.mortars.u_upper_right = u_upper_right # copy back to host automatically
-    cache.mortars.u_lower_left = u_lower_left # copy back to host automatically
-    cache.mortars.u_lower_right = u_lower_right # copy back to host automatically
-
     return nothing
 end
 
@@ -1981,18 +1971,19 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                            equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
-    large_sides = CuArray{Int64}(cache.mortars.large_sides)
-    orientations = CuArray{Int64}(cache.mortars.orientations)
+    neighbor_ids = cache.mortars.neighbor_ids
+    large_sides = cache.mortars.large_sides
+    orientations = cache.mortars.orientations
 
-    u_upper_left = CuArray{Float64}(cache.mortars.u_upper_left)
-    u_upper_right = CuArray{Float64}(cache.mortars.u_upper_right)
-    u_lower_left = CuArray{Float64}(cache.mortars.u_lower_left)
-    u_lower_right = CuArray{Float64}(cache.mortars.u_lower_right)
+    # The original CPU arrays hold NaNs
+    u_upper_left = cache.mortars.u_upper_left
+    u_upper_right = cache.mortars.u_upper_right
+    u_lower_left = cache.mortars.u_lower_left
+    u_lower_right = cache.mortars.u_lower_right
     reverse_upper = CuArray{Float64}(dg.mortar.reverse_upper)
     reverse_lower = CuArray{Float64}(dg.mortar.reverse_lower)
 
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    surface_flux_values = cache.elements.surface_flux_values
     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
 
     fstar_upper_left = cache.fstar_upper_left
@@ -2059,8 +2050,6 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                reverse_lower, neighbor_ids, large_sides, orientations;
                                configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
     return nothing
 end
 
@@ -2069,18 +2058,19 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                            equations, dg::DGSEM, cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
-    large_sides = CuArray{Int64}(cache.mortars.large_sides)
-    orientations = CuArray{Int64}(cache.mortars.orientations)
+    neighbor_ids = cache.mortars.neighbor_ids
+    large_sides = cache.mortars.large_sides
+    orientations = cache.mortars.orientations
 
-    u_upper_left = CuArray{Float64}(cache.mortars.u_upper_left)
-    u_upper_right = CuArray{Float64}(cache.mortars.u_upper_right)
-    u_lower_left = CuArray{Float64}(cache.mortars.u_lower_left)
-    u_lower_right = CuArray{Float64}(cache.mortars.u_lower_right)
+    # The original CPU arrays hold NaNs
+    u_upper_left = cache.mortars.u_upper_left
+    u_upper_right = cache.mortars.u_upper_right
+    u_lower_left = cache.mortars.u_lower_left
+    u_lower_right = cache.mortars.u_lower_right
     reverse_upper = CuArray{Float64}(dg.mortar.reverse_upper)
     reverse_lower = CuArray{Float64}(dg.mortar.reverse_lower)
 
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    surface_flux_values = cache.elements.surface_flux_values
     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
 
     fstar_upper_left = cache.fstar_upper_left
@@ -2148,8 +2138,6 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                reverse_lower, neighbor_ids, large_sides, orientations;
                                configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
 
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
     return nothing
 end
 
@@ -2159,7 +2147,7 @@ function cuda_surface_integral!(du, mesh::TreeMesh{3}, equations, dg::DGSEM, cac
                                       dg.basis.boundary_interpolation[1, 1],
                                       dg.basis.boundary_interpolation[size(du, 2), 2]
                                   ])
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    surface_flux_values = cache.elements.surface_flux_values
 
     size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
 
@@ -2174,7 +2162,7 @@ end
 
 # Pack kernels for applying Jacobian to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{3}, equations, cache)
-    inverse_jacobian = CuArray{Float64}(cache.elements.inverse_jacobian)
+    inverse_jacobian = cache.elements.inverse_jacobian
 
     size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
 
@@ -2191,7 +2179,7 @@ end
 
 # Pack kernels for calculating source terms 
 function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{3}, cache)
-    node_coordinates = CuArray{Float64}(cache.elements.node_coordinates)
+    node_coordinates = cache.elements.node_coordinates
 
     size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 5))
 
@@ -2208,7 +2196,7 @@ end
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
-    du, u = copy_to_device!(du_cpu, u_cpu)
+    du, u = copy_to_gpu!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg, cache)
@@ -2233,7 +2221,7 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, boundary_condi
 
     cuda_sources!(du, u, t, source_terms, equations, cache)
 
-    du_computed, _ = copy_to_host!(du, u)
+    du_computed, _ = copy_to_cpu!(du, u)
     du_cpu .= du_computed
 
     return nothing

@@ -1515,8 +1515,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
-    element_ids_dg = CUDA.zero(Int, length(alpha))
-    element_ids_dgfv = CUDA.zero(Int, length(alpha))
+    element_ids_dg = CUDA.zeros(Int, length(alpha))
+    element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
@@ -1608,8 +1608,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
-    element_ids_dg = CUDA.zero(Int, length(alpha))
-    element_ids_dgfv = CUDA.zero(Int, length(alpha))
+    element_ids_dg = CUDA.zeros(Int, length(alpha))
+    element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,

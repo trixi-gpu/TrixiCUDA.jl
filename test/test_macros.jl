@@ -1,7 +1,7 @@
 # Create some macros to simplify the testing process.
 
-# Load the required packages, macros, and structs
 using Trixi, TrixiCUDA
+using CUDA
 using Test: @test, @testset
 
 # Macro to test the type Float64 or Float32 ?

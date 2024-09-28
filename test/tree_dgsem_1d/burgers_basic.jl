@@ -2,31 +2,24 @@ module Test
 
 include("../test_helpers_1d.jl")
 
-advection_velocity = 1.0
-equations = LinearScalarAdvectionEquation1D(advection_velocity)
+equations = InviscidBurgersEquation1D()
 
-initial_condition = initial_condition_gauss
-boundary_conditions = BoundaryConditionDirichlet(initial_condition)
+initial_condition = initial_condition_convergence_test
 
 solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-coordinates_min = (0.0,)
-coordinates_max = (5.0,)
+coordinates_min = 0.0
+coordinates_max = 1.0
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 4,
-                n_cells_max = 10_000,
-                periodicity = false)
+                n_cells_max = 10_000)
 
-semi = SemidiscretizationHyperbolic(mesh, equations,
-                                    initial_condition,
-                                    solver,
-                                    boundary_conditions = boundary_conditions)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations,
-                                           initial_condition,
-                                           solver,
-                                           boundary_conditions = boundary_conditions)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                    source_terms = source_terms_convergence_test)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
+                                           source_terms = source_terms_convergence_test)
 
-tspan = (0.0, 5.0)
+tspan = (0.0, 2.0)
 
 ode = semidiscretize(semi, tspan)
 u_ode = copy(ode.u0)

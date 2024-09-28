@@ -1019,21 +1019,21 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
     indices_arr = firsts
     boundary_arr = CuArray{Int}(Array(firsts)[1]:Array(lasts)[end])
 
-    # Replace with callable functions (not necessary here)
-    # boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
+    boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
 
     boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,
                                                                     boundaries_u, node_coordinates,
                                                                     t, boundary_arr, indices_arr,
                                                                     neighbor_ids, neighbor_sides,
                                                                     orientations,
-                                                                    boundary_conditions,
+                                                                    boundary_conditions_callable,
                                                                     equations,
                                                                     surface_flux,
                                                                     nonconservative_flux)
     boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                          indices_arr, neighbor_ids, neighbor_sides, orientations,
-                         boundary_conditions, equations, surface_flux, nonconservative_flux;
+                         boundary_conditions_callable, equations, surface_flux,
+                         nonconservative_flux;
                          configurator_1d(boundary_flux_kernel, boundary_arr)...)
 
     return nothing

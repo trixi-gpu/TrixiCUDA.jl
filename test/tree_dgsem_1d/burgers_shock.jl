@@ -1,3 +1,5 @@
+module Test
+
 include("../test_helpers_1d.jl")
 
 equations = InviscidBurgersEquation1D()
@@ -35,11 +37,9 @@ function initial_condition_shock(x, t, equation::InviscidBurgersEquation1D)
     return SVector(scalar)
 end
 
-###############################################################################
 # Specify non-periodic boundary conditions
-
 function inflow(x, t, equations::InviscidBurgersEquation1D)
-    return initial_condition_shock(coordinate_min, t, equations)
+    return initial_condition_shock(0.0, t, equations)
 end
 boundary_condition_inflow = BoundaryConditionDirichlet(inflow)
 
@@ -84,43 +84,55 @@ source_terms_gpu = semi_gpu.source_terms
 u_gpu = CuArray(u)
 du_gpu = CuArray(du)
 
-# Copy data to device
-du_gpu, u_gpu = TrixiCUDA.copy_to_gpu!(du, u)
-# Reset data on host
-Trixi.reset_du!(du, solver, cache)
+# Begin tests
+@testset "Semidiscretization Process" begin
+    @testset "Copy to GPU" begin
+        test_copy_to_gpu(du_gpu, u_gpu, du, u, solver, cache)
+    end
 
-# Test `cuda_volume_integral!`
-TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
-                                Trixi.have_nonconservative_terms(equations_gpu),
-                                equations_gpu, solver_gpu.volume_integral, solver_gpu,
-                                cache_gpu)
-Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
-                            equations, solver.volume_integral, solver, cache)
-@test_approx du_gpu ≈ du
+    @testset "Volume Integral" begin
+        test_volume_integral(du_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu,
+                             du, u, mesh, equations, solver, cache)
+    end
 
-# Test `cuda_prolong2interfaces!`
-TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
-Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
-@test_approx cache_gpu.interfaces.u ≈ cache.interfaces.u
+    @testset "Prolong Interfaces" begin
+        test_prolong2interfaces(u_gpu, mesh_gpu, equations_gpu, cache_gpu,
+                                u, mesh, equations, solver, cache)
+    end
 
-# Test `cuda_interface_flux!`
-TrixiCUDA.cuda_interface_flux!(mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
-                               equations_gpu, solver_gpu, cache_gpu)
-Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
-                           Trixi.have_nonconservative_terms(equations), equations,
-                           solver.surface_integral, solver, cache)
-@test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
+    @testset "Interface Flux" begin
+        test_interface_flux(mesh_gpu, equations_gpu, solver_gpu, cache_gpu,
+                            mesh, equations, solver, cache)
+    end
 
-# Test `cuda_prolong2boundaries!`
-TrixiCUDA.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu,
-                                   cache_gpu)
-Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
-@test_approx cache_gpu.boundaries.u ≈ cache.boundaries.u
+    @testset "Prolong Boundaries" begin
+        test_prolong2boundaries(u_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu, cache_gpu,
+                                u, mesh, equations, solver, cache)
+    end
 
-# Test `cuda_boundary_flux!`
-TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
-                              Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
-                              solver_gpu, cache_gpu)
-Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
-                          solver.surface_integral, solver)
-@test_approx cache_gpu.elements.surface_flux_values ≈ cache.elements.surface_flux_values
+    @testset "Boundary Flux" begin
+        test_boundary_flux(t_gpu, mesh_gpu, boundary_conditions_gpu, equations_gpu, solver_gpu,
+                           cache_gpu, t, mesh, equations, solver, cache)
+    end
+
+    @testset "Surface Integral" begin
+        test_surface_integral(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu,
+                              du, u, mesh, equations, solver, cache)
+    end
+
+    @testset "Apply Jacobian" begin
+        test_jacobian(du_gpu, mesh_gpu, equations_gpu, cache_gpu,
+                      du, mesh, equations, solver, cache)
+    end
+
+    @testset "Apply Sources" begin
+        test_sources(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, cache_gpu,
+                     du, u, t, source_terms, equations, solver, cache)
+    end
+
+    @testset "Copy to CPU" begin
+        test_copy_to_cpu(du_gpu, u_gpu, du, u)
+    end
+end
+
+end # module

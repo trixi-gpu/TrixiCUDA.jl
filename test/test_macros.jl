@@ -1,21 +1,41 @@
 # Create some macros to simplify the testing process.
-
 using Trixi, TrixiCUDA
 using CUDA
 using Test: @test, @testset
 
 # Macro to test the type Float64 or Float32 ?
 
-# Macro to test the approximate equality of arrays from GPU and CPU, while 
-# also handling the cases related to NaNs.
-macro test_approx(expr)
-    # Parse the expression and check that it is of the form array1 ≈ array2
-    if expr.head != :call || expr.args[1] != :≈
-        error("Usage: @test_approx array1 ≈ array2")
+# Macro to test the exact equality of arrays from GPU and CPU
+macro test_equal(expr)
+    # Parse the expression and check that it is of the form 
+    # @test_equal (array1, array2)
+    if expr.head != :tuple || length(expr.args) != 2
+        error("Usage: @test_equal (gpu, cpu)")
     end
 
-    local gpu = esc(expr.args[2])
-    local cpu = esc(expr.args[3])
+    local gpu = esc(expr.args[1])
+    local cpu = esc(expr.args[2])
+
+    quote
+        # Convert to arrays to avoid using CUDA.@allowscalar 
+        # to access the elements of some arrays
+        local gpu_arr = Array($gpu)
+        local cpu_arr = Array($cpu)
+
+        @test gpu_arr == cpu_arr
+    end
+end
+
+# Macro to test the approximate equality of arrays from GPU and CPU with NaNs
+macro test_approx(expr)
+    # Parse the expression and check that it is of the form 
+    # @test_approx (array1, array2)
+    if expr.head != :tuple || length(expr.args) != 2
+        error("Usage: @test_approx (gpu, cpu)")
+    end
+
+    local gpu = esc(expr.args[1])
+    local cpu = esc(expr.args[2])
 
     quote
         # Convert to arrays to avoid using CUDA.@allowscalar 

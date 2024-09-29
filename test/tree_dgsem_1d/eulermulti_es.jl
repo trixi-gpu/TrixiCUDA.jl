@@ -1,69 +1,27 @@
-module TestBurgersShock1D
+module TestEulerMultiES1D
 
 include("../test_macros.jl")
 
-@testset "Burgers Shock 1D" begin
-    equations = InviscidBurgersEquation1D()
+@testset "Euler Multi ES 1D" begin
+    equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4),
+                                                           gas_constants = (0.4, 0.4))
 
-    basis = LobattoLegendreBasis(3)
-    # Use shock capturing techniques to suppress oscillations at discontinuities
-    indicator_sc = IndicatorHennemannGassner(equations, basis,
-                                             alpha_max = 1.0,
-                                             alpha_min = 0.001,
-                                             alpha_smooth = true,
-                                             variable = first)
+    initial_condition = initial_condition_weak_blast_wave
 
-    volume_flux = flux_ec
-    surface_flux = flux_lax_friedrichs
+    volume_flux = flux_ranocha
+    solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs,
+                   volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
-    volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
-                                                     volume_flux_dg = surface_flux,
-                                                     volume_flux_fv = surface_flux)
+    coordinates_min = (-2.0,)
+    coordinates_max = (2.0,)
+    mesh = TreeMesh(coordinates_min, coordinates_max,
+                    initial_refinement_level = 5,
+                    n_cells_max = 10_000)
 
-    solver = DGSEM(basis, surface_flux, volume_integral)
+    semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
 
-    coordinate_min = 0.0
-    coordinate_max = 1.0
-
-    # Make sure to turn periodicity explicitly off as special boundary conditions are specified
-    mesh = TreeMesh(coordinate_min, coordinate_max,
-                    initial_refinement_level = 6,
-                    n_cells_max = 10_000,
-                    periodicity = false)
-
-    # Discontinuous initial condition (Riemann Problem) leading to a shock to test e.g. correct shock speed.
-    function initial_condition_shock(x, t, equation::InviscidBurgersEquation1D)
-        scalar = x[1] < 0.5 ? 1.5 : 0.5
-
-        return SVector(scalar)
-    end
-
-    # Specify non-periodic boundary conditions
-    function inflow(x, t, equations::InviscidBurgersEquation1D)
-        return initial_condition_shock(0.0, t, equations)
-    end
-    boundary_condition_inflow = BoundaryConditionDirichlet(inflow)
-
-    function boundary_condition_outflow(u_inner, orientation, normal_direction, x, t,
-                                        surface_flux_function,
-                                        equations::InviscidBurgersEquation1D)
-        # Calculate the boundary flux entirely from the internal solution state
-        flux = Trixi.flux(u_inner, normal_direction, equations)
-
-        return flux
-    end
-
-    boundary_conditions = (x_neg = boundary_condition_inflow,
-                           x_pos = boundary_condition_outflow)
-
-    initial_condition = initial_condition_shock
-
-    semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                        boundary_conditions = boundary_conditions)
-    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
-                                               boundary_conditions = boundary_conditions)
-
-    tspan = (0.0, 0.2)
+    tspan = (0.0, 0.4)
 
     ode = semidiscretize(semi, tspan)
     u_ode = copy(ode.u0)

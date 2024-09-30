@@ -2,7 +2,7 @@
 
 # Copy data from CPU to GPU
 function copy_to_gpu!(du::PtrArray, u::PtrArray)
-    du = CuArray{Float64}(zero(du))
+    du = CUDA.zeros(Float64, size(du)...)
     u = CuArray{Float64}(u)
 
     return (du, u)

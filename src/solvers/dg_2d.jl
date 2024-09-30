@@ -1125,8 +1125,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
-    element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
-    element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
+    element_ids_dg = CUDA.zeros(Int, length(alpha))
+    element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
@@ -1209,8 +1209,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
 
-    element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
-    element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
+    element_ids_dg = CUDA.zeros(Int, length(alpha))
+    element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
@@ -1440,16 +1440,16 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 
+    # May introduce kernel launching overhead
     last_first_indices_kernel = @cuda launch=false last_first_indices_kernel!(lasts, firsts,
                                                                               n_boundaries_per_direction)
     last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction;
                               configurator_1d(last_first_indices_kernel, lasts)...)
 
-    lasts, firsts = Array(lasts), Array(firsts)
-    boundary_arr = CuArray{Int64}(firsts[1]:lasts[4])
-    indices_arr = CuArray{Int64}([firsts[1], firsts[2], firsts[3], firsts[4]])
-    boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
+    indices_arr = firsts
+    boundary_arr = CuArray{Int}(Array(firsts)[1]:Array(lasts)[end])
 
+    boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
     size_arr = CuArray{Float64}(undef, size(surface_flux_values, 2), length(boundary_arr))
 
     boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,
@@ -1485,18 +1485,16 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 
+    # May introduce kernel launching overhead
     last_first_indices_kernel = @cuda launch=false last_first_indices_kernel!(lasts, firsts,
                                                                               n_boundaries_per_direction)
     last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction;
                               configurator_1d(last_first_indices_kernel, lasts)...)
 
-    lasts, firsts = Array(lasts), Array(firsts)
-    boundary_arr = CuArray{Int64}(firsts[1]:lasts[4])
-    indices_arr = CuArray{Int64}([firsts[1], firsts[2], firsts[3], firsts[4]])
+    indices_arr = firsts
+    boundary_arr = CuArray{Int}(Array(firsts)[1]:Array(lasts)[end])
 
-    # Replace with callable functions (not necessary here)
-    # boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
-
+    boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
     size_arr = CuArray{Float64}(undef, size(surface_flux_values, 2), length(boundary_arr))
 
     boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,
@@ -1504,13 +1502,14 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
                                                                     t, boundary_arr, indices_arr,
                                                                     neighbor_ids, neighbor_sides,
                                                                     orientations,
-                                                                    boundary_conditions,
+                                                                    boundary_conditions_callable,
                                                                     equations,
                                                                     surface_flux,
                                                                     nonconservative_flux)
     boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                          indices_arr, neighbor_ids, neighbor_sides, orientations,
-                         boundary_conditions, equations, surface_flux, nonconservative_flux;
+                         boundary_conditions_callable, equations, surface_flux,
+                         nonconservative_flux;
                          configurator_2d(boundary_flux_kernel, size_arr)...)
 
     return nothing
@@ -1577,7 +1576,7 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
     large_sides = cache.mortars.large_sides
     orientations = cache.mortars.orientations
 
-    # 
+    # The original CPU arrays hold NaNs
     u_upper = cache.mortars.u_upper
     u_lower = cache.mortars.u_lower
     reverse_upper = CuArray{Float64}(dg.mortar.reverse_upper)

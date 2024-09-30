@@ -1,9 +1,11 @@
-using TrixiCUDA
-using Test
+module TestTrixiCUDA
 
-# Note that it is complicated to get tight error bounds for GPU kernels, here we use `isapprox` 
-# with the default mode to validate the precision by comparing the results from GPU kernels and 
-# CPU kernels, which corresponds to requiring equality of about half of the significant digits 
-# (see https://docs.julialang.org/en/v1/base/math/#Base.isapprox).
+using Test: @testset
 
-@testset "TrixiCUDA.jl" begin end
+@testset "TrixiCUDA.jl" begin
+    # include("./tree_dgsem_1d/tree_dgsem_1d.jl")
+    # include("./tree_dgsem_2d/tree_dgsem_2d.jl")
+    # include("./tree_dgsem_3d/tree_dgsem_3d.jl")
+end
+
+end

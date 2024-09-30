@@ -1,27 +1,27 @@
-module TestEulerMultiEC2D
+module TestMHDAlfvenWave3D
 
 include("../test_macros.jl")
 
-@testset "Euler Multi EC 2D" begin
-    equations = CompressibleEulerMulticomponentEquations2D(gammas = 1.4,
-                                                           gas_constants = 0.4)
+@testset "MHD Alfven Wave 3D" begin
+    equations = IdealGlmMhdEquations3D(5 / 3)
 
-    initial_condition = initial_condition_weak_blast_wave
+    initial_condition = initial_condition_convergence_test
 
-    volume_flux = flux_ranocha
-    solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
+    volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+    solver = DGSEM(polydeg = 3,
+                   surface_flux = (flux_lax_friedrichs, flux_nonconservative_powell),
                    volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
-    coordinates_min = (-2.0, -2.0)
-    coordinates_max = (2.0, 2.0)
+    coordinates_min = (-1.0, -1.0, -1.0)
+    coordinates_max = (1.0, 1.0, 1.0)
     mesh = TreeMesh(coordinates_min, coordinates_max,
-                    initial_refinement_level = 5,
+                    initial_refinement_level = 2,
                     n_cells_max = 10_000)
 
     semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
     semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
 
-    tspan = (0.0, 0.4)
+    tspan = (0.0, 1.0)
 
     ode = semidiscretize(semi, tspan)
     u_ode = copy(ode.u0)
@@ -105,10 +105,12 @@ include("../test_macros.jl")
             TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
                                             TrixiCUDA.check_cache_mortars(cache_gpu),
                                             solver_gpu, cache_gpu)
-            Trixi.prolong2mortars!(cache, u, mesh, equations, solver.mortar,
-                                   solver.surface_integral, solver)
-            @test_approx (cache_gpu.mortars.u_upper, cache.mortars.u_upper)
-            @test_approx (cache_gpu.mortars.u_lower, cache.mortars.u_lower)
+            Trixi.prolong2mortars!(cache, u, mesh, equations,
+                                   solver.mortar, solver.surface_integral, solver)
+            @test_approx (cache_gpu.mortars.u_upper_left, cache.mortars.u_upper_left)
+            @test_approx (cache_gpu.mortars.u_upper_right, cache.mortars.u_upper_right)
+            @test_approx (cache_gpu.mortars.u_lower_left, cache.mortars.u_lower_left)
+            @test_approx (cache_gpu.mortars.u_lower_right, cache.mortars.u_lower_right)
             @test_equal (u_gpu, u)
         end
 

@@ -93,11 +93,10 @@ include("../test_macros.jl")
         @testset "Volume Integral" begin
             TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                             Trixi.have_nonconservative_terms(equations_gpu),
-                                            equations_gpu,
-                                            solver_gpu.volume_integral, solver_gpu, cache_gpu)
+                                            equations_gpu, solver_gpu.volume_integral, solver_gpu,
+                                            cache_gpu)
             Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
-                                        equations,
-                                        solver.volume_integral, solver, cache)
+                                        equations, solver.volume_integral, solver, cache)
             @test_approx (du_gpu, du)
             @test_equal (u_gpu, u)
         end
@@ -123,8 +122,7 @@ include("../test_macros.jl")
 
         @testset "Prolong Boundaries" begin
             TrixiCUDA.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu,
-                                               equations_gpu,
-                                               cache_gpu)
+                                               equations_gpu, cache_gpu)
             Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
             @test_approx (cache_gpu.boundaries.u, cache.boundaries.u)
             @test_equal (u_gpu, u)
@@ -133,8 +131,7 @@ include("../test_macros.jl")
         @testset "Boundary Flux" begin
             TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
                                           Trixi.have_nonconservative_terms(equations_gpu),
-                                          equations_gpu,
-                                          solver_gpu, cache_gpu)
+                                          equations_gpu, solver_gpu, cache_gpu)
             Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                       solver.surface_integral, solver)
             @test_approx (cache_gpu.elements.surface_flux_values,
@@ -144,8 +141,8 @@ include("../test_macros.jl")
 
         @testset "Surface Integral" begin
             TrixiCUDA.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
-            Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral, solver,
-                                         cache)
+            Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral,
+                                         solver, cache)
             @test_approx (du_gpu, du)
             @test_equal (u_gpu, u)
         end
@@ -158,8 +155,8 @@ include("../test_macros.jl")
         end
 
         @testset "Apply Sources" begin
-            TrixiCUDA.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu,
-                                    cache_gpu)
+            TrixiCUDA.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu,
+                                    equations_gpu, cache_gpu)
             Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
             @test_approx (du_gpu, du)
             @test_equal (u_gpu, u)

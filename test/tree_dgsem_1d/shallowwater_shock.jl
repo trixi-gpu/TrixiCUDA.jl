@@ -1,64 +1,68 @@
-module TestBurgersRarefaction1D
+module TestShallowWaterShock1D
 
 include("../test_macros.jl")
 
-@testset "Burgers Rarefaction 1D" begin
-    equations = InviscidBurgersEquation1D()
+@testset "Shallow Water Shock 1D" begin
+    equations = ShallowWaterEquations1D(gravity_constant = 9.812, H0 = 1.75)
 
-    basis = LobattoLegendreBasis(3)
-    # Use shock capturing techniques to suppress oscillations at discontinuities
+    function initial_condition_stone_throw_discontinuous_bottom(x, t,
+                                                                equations::ShallowWaterEquations1D)
+        # Flat lake
+        H = equations.H0
+
+        # Discontinuous velocity
+        v = 0.0
+        if x[1] >= -0.75 && x[1] <= 0.0
+            v = -1.0
+        elseif x[1] >= 0.0 && x[1] <= 0.75
+            v = 1.0
+        end
+
+        b = (1.5 / exp(0.5 * ((x[1] - 1.0)^2)) +
+             0.75 / exp(0.5 * ((x[1] + 1.0)^2)))
+
+        # Force a discontinuous bottom topography
+        if x[1] >= -1.5 && x[1] <= 0.0
+            b = 0.5
+        end
+
+        return prim2cons(SVector(H, v, b), equations)
+    end
+
+    initial_condition = initial_condition_stone_throw_discontinuous_bottom
+
+    boundary_condition = boundary_condition_slip_wall
+
+    volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
+    surface_flux = (FluxHydrostaticReconstruction(flux_lax_friedrichs,
+                                                  hydrostatic_reconstruction_audusse_etal),
+                    flux_nonconservative_audusse_etal)
+    basis = LobattoLegendreBasis(4)
+
     indicator_sc = IndicatorHennemannGassner(equations, basis,
-                                             alpha_max = 1.0,
+                                             alpha_max = 0.5,
                                              alpha_min = 0.001,
                                              alpha_smooth = true,
-                                             variable = first)
-
-    volume_flux = flux_ec
-    surface_flux = flux_lax_friedrichs
-
+                                             variable = waterheight_pressure)
     volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                      volume_flux_dg = volume_flux,
                                                      volume_flux_fv = surface_flux)
 
     solver = DGSEM(basis, surface_flux, volume_integral)
 
-    coordinate_min = 0.0
-    coordinate_max = 1.0
-
-    mesh = TreeMesh(coordinate_min, coordinate_max,
-                    initial_refinement_level = 6,
+    coordinates_min = -3.0
+    coordinates_max = 3.0
+    mesh = TreeMesh(coordinates_min, coordinates_max,
+                    initial_refinement_level = 3,
                     n_cells_max = 10_000,
                     periodicity = false)
 
-    # Discontinuous initial condition (Riemann Problem) leading to a rarefaction fan.
-    function initial_condition_rarefaction(x, t, equation::InviscidBurgersEquation1D)
-        scalar = x[1] < 0.5 ? 0.5 : 1.5
-
-        return SVector(scalar)
-    end
-
-    boundary_condition_inflow = BoundaryConditionDirichlet(initial_condition_rarefaction)
-
-    function boundary_condition_outflow(u_inner, orientation, normal_direction, x, t,
-                                        surface_flux_function,
-                                        equations::InviscidBurgersEquation1D)
-        # Calculate the boundary flux entirely from the internal solution state
-        flux = Trixi.flux(u_inner, normal_direction, equations)
-
-        return flux
-    end
-
-    boundary_conditions = (x_neg = boundary_condition_inflow,
-                           x_pos = boundary_condition_outflow)
-
-    initial_condition = initial_condition_rarefaction
-
     semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                        boundary_conditions = boundary_conditions)
+                                        boundary_conditions = boundary_condition)
     semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
-                                               boundary_conditions = boundary_conditions)
+                                               boundary_conditions = boundary_condition)
 
-    tspan = (0.0, 0.2)
+    tspan = (0.0, 3.0)
 
     ode = semidiscretize(semi, tspan)
     u_ode = copy(ode.u0)

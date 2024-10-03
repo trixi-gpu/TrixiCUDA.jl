@@ -5,23 +5,6 @@ using Test: @test, @testset
 
 # Macro to test the type Float64 or Float32 ?
 
-# Macro to time the execution of a kernel
-# macro timed_kernel(kernel, args...; kwargs...)
-#     quote
-#         # Time the kernel
-#         local start = CUDA.Event()
-#         local stop = CUDA.Event()
-#         CUDA.@synchronize
-#         CUDA.record!(start)
-#         $kernel(args...; kwargs...)
-#         CUDA.@synchronize
-#         CUDA.record!(stop)
-#         CUDA.@synchronize
-#         local elapsed_time = CUDA.elapsed_time(start, stop)
-#         elapsed_time
-#     end
-# end
-
 # Macro to test the exact equality of two arrays, which can be from the CPU, GPU, 
 # or a combination of both
 macro test_equal(expr)
@@ -82,7 +65,6 @@ macro test_approx(expr)
             # Direct comparison
             @test _array1 ≈ _array2
         else # one has NaN and the other does not
-
             # Truth table 
             # -------------------------------
             #   Entry   |   Entry   | Result

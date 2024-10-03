@@ -106,7 +106,7 @@ include("../test_macros.jl")
             @test_equal (u_gpu, u)
         end
 
-        @testset "Prolong mortars" begin
+        @testset "Prolong Mortars" begin
             TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
                                             TrixiCUDA.check_cache_mortars(cache_gpu),
                                             solver_gpu, cache_gpu)

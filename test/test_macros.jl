@@ -5,6 +5,23 @@ using Test: @test, @testset
 
 # Macro to test the type Float64 or Float32 ?
 
+# Macro to time the execution of a kernel
+macro timed_kernel(kernel, args...; kwargs...)
+    quote
+        # Time the kernel
+        local start = CUDA.Event()
+        local stop = CUDA.Event()
+        CUDA.@synchronize
+        CUDA.record!(start)
+        $kernel(args...; kwargs...)
+        CUDA.@synchronize
+        CUDA.record!(stop)
+        CUDA.@synchronize
+        local elapsed_time = CUDA.elapsed_time(start, stop)
+        elapsed_time
+    end
+end
+
 # Macro to test the exact equality of arrays from GPU and CPU
 macro test_equal(expr)
     # Parse the expression and check that it is of the form 

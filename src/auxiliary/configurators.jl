@@ -1,6 +1,8 @@
 # Kernel configurators are used for determining the number of threads and 
 # blocks to be used in the kernel, which optimizes the use of GPU resources.
 
+# Start implementation of kernel configurators with 32, 32 x 32, and 32 x 32 x 1
+
 # Kernel configurator for 1D CUDA array
 function configurator_1d(kernel::HostKernel, array::CuArray{<:Any, 1})
     config = launch_configuration(kernel.fun)

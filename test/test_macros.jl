@@ -6,40 +6,41 @@ using Test: @test, @testset
 # Macro to test the type Float64 or Float32 ?
 
 # Macro to time the execution of a kernel
-macro timed_kernel(kernel, args...; kwargs...)
-    quote
-        # Time the kernel
-        local start = CUDA.Event()
-        local stop = CUDA.Event()
-        CUDA.@synchronize
-        CUDA.record!(start)
-        $kernel(args...; kwargs...)
-        CUDA.@synchronize
-        CUDA.record!(stop)
-        CUDA.@synchronize
-        local elapsed_time = CUDA.elapsed_time(start, stop)
-        elapsed_time
-    end
-end
+# macro timed_kernel(kernel, args...; kwargs...)
+#     quote
+#         # Time the kernel
+#         local start = CUDA.Event()
+#         local stop = CUDA.Event()
+#         CUDA.@synchronize
+#         CUDA.record!(start)
+#         $kernel(args...; kwargs...)
+#         CUDA.@synchronize
+#         CUDA.record!(stop)
+#         CUDA.@synchronize
+#         local elapsed_time = CUDA.elapsed_time(start, stop)
+#         elapsed_time
+#     end
+# end
 
-# Macro to test the exact equality of arrays from GPU and CPU
+# Macro to test the exact equality of two arrays, which can be from the CPU, GPU, 
+# or a combination of both
 macro test_equal(expr)
     # Parse the expression and check that it is of the form 
     # @test_equal (array1, array2)
     if expr.head != :tuple || length(expr.args) != 2
-        error("Usage: @test_equal (gpu, cpu)")
+        error("Incorrect usage. Expected syntax: @test_approx(array1, array2)")
     end
 
-    local gpu = esc(expr.args[1])
-    local cpu = esc(expr.args[2])
+    local array1 = esc(expr.args[1])
+    local array2 = esc(expr.args[2])
 
     quote
         # Convert to arrays to avoid using CUDA.@allowscalar 
         # to access the elements of some arrays
-        local gpu_arr = Array($gpu)
-        local cpu_arr = Array($cpu)
+        local _array1 = Array($array1)
+        local _array2 = Array($array2)
 
-        @test gpu_arr == cpu_arr
+        @test _array1 == _array2
     end
 end
 
@@ -48,63 +49,72 @@ macro test_approx(expr)
     # Parse the expression and check that it is of the form 
     # @test_approx (array1, array2)
     if expr.head != :tuple || length(expr.args) != 2
-        error("Usage: @test_approx (gpu, cpu)")
+        error("Incorrect usage. Expected syntax: @test_approx(array1, array2)")
     end
 
-    local gpu = esc(expr.args[1])
-    local cpu = esc(expr.args[2])
+    local array1 = esc(expr.args[1])
+    local array2 = esc(expr.args[2])
 
     quote
         # Convert to arrays to avoid using CUDA.@allowscalar 
         # to access the elements of some arrays
-        local gpu_arr = Array($gpu)
-        local cpu_arr = Array($cpu)
+        local _array1 = Array($array1)
+        local _array2 = Array($array2)
 
         # Check if the arrays have NaN
-        local has_nan_gpu = any(isnan, gpu_arr)
-        local has_nan_cpu = any(isnan, cpu_arr)
+        local has_nan_arr1 = any(isnan, _array1)
+        local has_nan_arr2 = any(isnan, _array2)
 
-        if has_nan_gpu && has_nan_cpu # both have NaN
+        if has_nan_arr1 && has_nan_arr2 # both have NaN
             # Condition 1: Check if NaNs are at the same position
-            local cond1 = isnan.(gpu_arr) == isnan.(cpu_arr)
+            local cond1 = isnan.(_array1) == isnan.(_array2)
 
             # Replace NaNs with 0.0
-            local _gpu_arr = replace(gpu_arr, NaN => 0.0)
-            local _cpu_arr = replace(cpu_arr, NaN => 0.0)
+            local __array1 = replace(_array1, NaN => 0.0)
+            local __array2 = replace(_array2, NaN => 0.0)
 
             # Condition 2: Check if the arrays are approximately equal
-            local cond2 = _gpu_arr ≈ _cpu_arr
+            local cond2 = __array1 ≈ __array2
 
             @test cond1 && cond2
-        elseif !has_nan_gpu && !has_nan_cpu # neither has NaN
+        elseif !has_nan_arr1 && !has_nan_arr2 # neither has NaN
 
             # Direct comparison
-            @test gpu_arr ≈ cpu_arr
+            @test _array1 ≈ _array2
         else # one has NaN and the other does not
 
-            # Typically, the array from CPU has NaN and the array from 
-            # GPU does not have NaN, since the NaN values are replaced 
-            # with zeros in the GPU kernels to avoid control flow divergence 
-            # when dealing with NaNs. 
-
-            # Condition 1's truth table:
+            # Truth table 
             # -------------------------------
-            # Entry-CPU | Entry-GPU | Result
+            #   Entry   |   Entry   | Result
             # -------------------------------
-            #  NaN      |   zero    |   1
-            #  NaN      |  non-zero |   0
+            #    NaN    |   zero    |   1
+            #    NaN    |  non-zero |   0
             #  non-NaN  |   zero    |   1
             #  non-NaN  |  non-zero |   1
             # -------------------------------
-            local cond1 = all(.!(isnan.(cpu_arr) .&& (gpu_arr .!= 0.0)))
+            if has_nan_arr1
+                # Condition 1: Check truth table above
+                local cond1 = all(.!(isnan.(_array1) .&& (_array2 .!= 0.0)))
 
-            # Replace NaNs with 0.0
-            local _cpu_arr = replace(cpu_arr, NaN => 0.0)
+                # Replace NaNs with 0.0
+                local __array1 = replace(_array1, NaN => 0.0)
 
-            # Condition 2: Check if the arrays are approximately equal
-            local cond2 = gpu_arr ≈ _cpu_arr
+                # Condition 2: Check if the arrays are approximately equal
+                local cond2 = _array2 ≈ __array1
 
-            @test cond1 && cond2
+                @test cond1 && cond2
+            else  # has_nan_arr2
+                # Condition 1: Check truth table above
+                local cond1 = all(.!(isnan.(_array2) .&& (_array1 .!= 0.0)))
+
+                # Replace NaNs with 0.0
+                local __array2 = replace(_array2, NaN => 0.0)
+
+                # Condition 2: Check if the arrays are approximately equal
+                local cond2 = _array1 ≈ __array2
+
+                @test cond1 && cond2
+            end
         end
     end
 end

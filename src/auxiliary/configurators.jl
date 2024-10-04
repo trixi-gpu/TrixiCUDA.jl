@@ -57,29 +57,30 @@ function kernel_configurator_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
 end
 
 # Deprecated old kernel configurators below
-function configurator_1d(kernel::HostKernel, array::CuArray{<:Any, 1})
-    config = launch_configuration(kernel.fun)
 
-    threads = min(length(array), config.threads)
-    blocks = cld(length(array), threads)
+# function configurator_1d(kernel::HostKernel, array::CuArray{<:Any, 1})
+#     config = launch_configuration(kernel.fun)
 
-    return (threads = threads, blocks = blocks)
-end
+#     threads = min(length(array), config.threads)
+#     blocks = cld(length(array), threads)
 
-function configurator_2d(kernel::HostKernel, array::CuArray{<:Any, 2})
-    config = launch_configuration(kernel.fun)
+#     return (threads = threads, blocks = blocks)
+# end
 
-    threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 2))), 2))
-    blocks = map(cld, size(array), threads)
+# function configurator_2d(kernel::HostKernel, array::CuArray{<:Any, 2})
+#     config = launch_configuration(kernel.fun)
 
-    return (threads = threads, blocks = blocks)
-end
+#     threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 2))), 2))
+#     blocks = map(cld, size(array), threads)
 
-function configurator_3d(kernel::HostKernel, array::CuArray{<:Any, 3})
-    config = launch_configuration(kernel.fun)
+#     return (threads = threads, blocks = blocks)
+# end
 
-    threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 3))), 3))
-    blocks = map(cld, size(array), threads)
+# function configurator_3d(kernel::HostKernel, array::CuArray{<:Any, 3})
+#     config = launch_configuration(kernel.fun)
 
-    return (threads = threads, blocks = blocks)
-end
+#     threads = Tuple(fill(Int(floor((min(maximum(size(array)), config.threads))^(1 / 3))), 3))
+#     blocks = map(cld, size(array), threads)
+
+#     return (threads = threads, blocks = blocks)
+# end

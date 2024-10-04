@@ -1536,7 +1536,7 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DG
                                                                                                 orientations)
     prolong_mortars_large2small_kernel(u_upper, u_lower, u, forward_upper, forward_lower,
                                        neighbor_ids, large_sides, orientations;
-                                       kernel_configurator_3d(prolong_mortars_small2small_kernel,
+                                       kernel_configurator_3d(prolong_mortars_large2small_kernel,
                                                               size(u_upper, 2), size(u_upper, 3),
                                                               size(u_upper, 4))...)
 

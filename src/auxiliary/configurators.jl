@@ -1,9 +1,62 @@
 # Kernel configurators are used for determining the number of threads and 
 # blocks to be used in the kernel, which optimizes the use of GPU resources.
 
-# Start implementation of kernel configurators with 32, 32 x 32, and 32 x 32 x 1
+# 1D kernel configurator
+# We hardcode 32 threads per block for 1D kernels
+function kernel_configurator_1d(kernel::HostKernel, x::Int)
+    # config = launch_configuration(kernel.fun) # not used in this case
 
-# Kernel configurator for 1D CUDA array
+    threads = 32 # warp size is 32, if block size is less than 32, it will be padded to 32
+    blocks = cld(x, threads[1])
+
+    return (threads = threads, blocks = blocks)
+end
+
+# 2D kernel configurator
+# We hardcode 32 threads for x dimension per block, and y dimension is determined 
+# by the number of threads returned by the launch configuration
+function kernel_configurator_2d(kernel::HostKernel, x::Int, y::Int)
+    config = launch_configuration(kernel.fun) # get the number of threads
+
+    # y dimension
+    dims_y1 = cld(x * y, 32)
+    dims_y2 = max(fld(config.threads, 32), 1)
+
+    dims_y = min(dims_y1, dims_y2)
+
+    # x dimension is hardcoded to warp size 32
+    threads = (32, dims_y)
+    blocks = (cld(x, threads[1]), cld(y, threads[2]))
+
+    return (threads = threads, blocks = blocks)
+end
+
+# 3D kernel configurator
+# We hardcode 32 threads for x dimension per block, y and z dimensions are determined 
+# by the number of threads returned by the launch configuration
+function kernel_configurator_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
+    config = launch_configuration(kernel.fun) # get the number of threads
+
+    # y dimension
+    dims_y1 = cld(x * y, 32)
+    dims_y2 = max(fld(config.threads, 32), 1)
+
+    dims_y = min(dims_y1, dims_y2)
+
+    # z dimension
+    dims_z1 = cld(x * y * z, 32 * dims_y)
+    dims_z2 = max(fld(config.threads, 32 * dims_y), 1)
+
+    dims_z = min(dims_z1, dims_z2)
+
+    # x dimension is hardcoded to warp size 32
+    threads = (32, dims_y, dims_z)
+    blocks = (cld(x, threads[1]), cld(y, threads[2]), cld(z, threads[3]))
+
+    return (threads = threads, blocks = blocks)
+end
+
+# Deprecated old kernel configurators below
 function configurator_1d(kernel::HostKernel, array::CuArray{<:Any, 1})
     config = launch_configuration(kernel.fun)
 
@@ -13,7 +66,6 @@ function configurator_1d(kernel::HostKernel, array::CuArray{<:Any, 1})
     return (threads = threads, blocks = blocks)
 end
 
-# Kernel configurator for 2D CUDA array 
 function configurator_2d(kernel::HostKernel, array::CuArray{<:Any, 2})
     config = launch_configuration(kernel.fun)
 
@@ -23,7 +75,6 @@ function configurator_2d(kernel::HostKernel, array::CuArray{<:Any, 2})
     return (threads = threads, blocks = blocks)
 end
 
-# Kernel configurator for 3D CUDA array
 function configurator_3d(kernel::HostKernel, array::CuArray{<:Any, 3})
     config = launch_configuration(kernel.fun)
 

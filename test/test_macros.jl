@@ -64,8 +64,8 @@ macro test_approx(expr)
 
             # Direct comparison
             @test _array1 ≈ _array2
-        else # one has NaN and the other does not
-            # Truth table 
+
+            # Truth table for below cases
             # -------------------------------
             #   Entry   |   Entry   | Result
             # -------------------------------
@@ -74,29 +74,38 @@ macro test_approx(expr)
             #  non-NaN  |   zero    |   1
             #  non-NaN  |  non-zero |   1
             # -------------------------------
-            if has_nan_arr1
-                # Condition 1: Check truth table above
-                local cond1 = all(.!(isnan.(_array1) .&& (_array2 .!= 0.0)))
+        elseif has_nan_arr1 # only the first array has NaN
+            # Condition 1: Check truth table above
+            local cond1 = all(.!(isnan.(_array1) .&& (_array2 .!= 0.0)))
 
-                # Replace NaNs with 0.0
-                local __array1 = replace(_array1, NaN => 0.0)
+            # Replace NaNs with 0.0
+            local __array1 = replace(_array1, NaN => 0.0)
 
-                # Condition 2: Check if the arrays are approximately equal
-                local cond2 = _array2 ≈ __array1
+            # Condition 2: Check if the arrays are approximately equal
+            local cond2 = _array2 ≈ __array1
 
-                @test cond1 && cond2
-            else  # has_nan_arr2
-                # Condition 1: Check truth table above
-                local cond1 = all(.!(isnan.(_array2) .&& (_array1 .!= 0.0)))
+            @test cond1 && cond2
+        elseif has_nan_arr2 # only the second array has NaN
+            # Condition 1: Check truth table above
+            local cond1 = all(.!(isnan.(_array2) .&& (_array1 .!= 0.0)))
 
-                # Replace NaNs with 0.0
-                local __array2 = replace(_array2, NaN => 0.0)
+            # Replace NaNs with 0.0
+            local __array2 = replace(_array2, NaN => 0.0)
 
-                # Condition 2: Check if the arrays are approximately equal
-                local cond2 = _array1 ≈ __array2
+            # Condition 2: Check if the arrays are approximately equal
+            local cond2 = _array1 ≈ __array2
 
-                @test cond1 && cond2
-            end
+            @test cond1 && cond2
         end
     end
 end
+
+# Truth table 
+# -------------------------------
+#   Entry   |   Entry   | Result
+# -------------------------------
+#    NaN    |   zero    |   1
+#    NaN    |  non-zero |   0
+#  non-NaN  |   zero    |   1
+#  non-NaN  |  non-zero |   1
+# -------------------------------

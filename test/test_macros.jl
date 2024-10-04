@@ -99,13 +99,3 @@ macro test_approx(expr)
         end
     end
 end
-
-# Truth table 
-# -------------------------------
-#   Entry   |   Entry   | Result
-# -------------------------------
-#    NaN    |   zero    |   1
-#    NaN    |  non-zero |   0
-#  non-NaN  |   zero    |   1
-#  non-NaN  |  non-zero |   1
-# -------------------------------

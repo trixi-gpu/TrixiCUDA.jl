@@ -633,6 +633,35 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
     return nothing
 end
 
+# Kernel for calculating surface and both nonconservative fluxes 
+function surface_noncons_flux_kernel!(surface_flux_arr, noncons_left_arr, noncons_right_arr,
+                                      interfaces_u, orientations, equations::AbstractEquations{3},
+                                      surface_flux::Any, nonconservative_flux::Any)
+    j1 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j2 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
+        k <= size(surface_flux_arr, 4))
+        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
+        orientation = orientations[k]
+
+        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
+        noncons_left_node = nonconservative_flux(u_ll, u_rr, orientation, equations)
+        noncons_right_node = nonconservative_flux(u_rr, u_ll, orientation, equations)
+
+        @inbounds begin
+            for ii in axes(surface_flux_arr, 1)
+                surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
+                noncons_left_arr[ii, j1, j2, k] = noncons_left_node[ii]
+                noncons_right_arr[ii, j1, j2, k] = noncons_right_node[ii]
+            end
+        end
+    end
+
+    return nothing
+end
+
 # Kernel for setting interface fluxes
 function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_ids, orientations,
                                 equations::AbstractEquations{3})
@@ -655,6 +684,41 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
             surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k]
             surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
                                                                                          k]
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for setting interface fluxes
+function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
+                                noncons_right_arr, neighbor_ids, orientations,
+                                equations::AbstractEquations{3})
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2)^2 &&
+        k <= size(surface_flux_arr, 4))
+        j1 = div(j - 1, size(surface_flux_arr, 2)) + 1
+        j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
+
+        left_id = neighbor_ids[1, k]
+        right_id = neighbor_ids[2, k]
+
+        left_direction = 2 * orientations[k]
+        right_direction = 2 * orientations[k] - 1
+
+        @inbounds begin
+            surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2,
+                                                                                       k] +
+                                                                      0.5 *
+                                                                      noncons_left_arr[i, j1, j2, k]
+            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
+                                                                                         k] +
+                                                                        0.5 *
+                                                                        noncons_right_arr[i, j1, j2,
+                                                                                          k]
         end
     end
 
@@ -1322,19 +1386,16 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
     flux_arr2 = similar(u)
     flux_arr3 = similar(u)
 
-    size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 5))
-
     flux_kernel = @cuda launch=false flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u, equations,
                                                   flux)
     flux_kernel(flux_arr1, flux_arr2, flux_arr3, u, equations, flux;
-                configurator_2d(flux_kernel, size_arr)...)
-
-    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
+                kernel_configurator_2d(flux_kernel, size(u, 2)^3, size(u, 5))...)
 
     weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr1,
                                                             flux_arr2, flux_arr3)
     weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2, flux_arr3;
-                     configurator_3d(weak_form_kernel, size_arr)...)
+                     kernel_configurator_3d(weak_form_kernel, size(du, 1), size(du, 2)^3,
+                                            size(du, 5))...)
 
     return nothing
 end
@@ -1355,16 +1416,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     volume_flux_arr3 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                         size(u, 2), size(u, 5))
 
-    size_arr = CuArray{Float64}(undef, size(u, 2)^4, size(u, 5))
-
     volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2,
                                                                 volume_flux_arr3, u, equations,
                                                                 volume_flux)
     volume_flux_kernel(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3, u, equations,
                        volume_flux;
-                       configurator_2d(volume_flux_kernel, size_arr)...)
-
-    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
+                       kernel_configurator_2d(volume_flux_kernel, size(u, 2)^4, size(u, 5))...)
 
     volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
                                                                         volume_flux_arr1,
@@ -1372,7 +1429,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                         volume_flux_arr3, equations)
     volume_integral_kernel(du, derivative_split, volume_flux_arr1, volume_flux_arr2,
                            volume_flux_arr3, equations;
-                           configurator_3d(volume_integral_kernel, size_arr)...)
+                           kernel_configurator_3d(volume_integral_kernel, size(du, 1),
+                                                  size(du, 2)^3, size(du, 5))...)
 
     return nothing
 end
@@ -1399,8 +1457,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     noncons_flux_arr3 = CuArray{Float64}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                          size(u, 2), size(u, 5))
 
-    size_arr = CuArray{Float64}(undef, size(u, 2)^4, size(u, 5))
-
     symmetric_noncons_flux_kernel = @cuda launch=false symmetric_noncons_flux_kernel!(symmetric_flux_arr1,
                                                                                       symmetric_flux_arr2,
                                                                                       symmetric_flux_arr3,
@@ -1415,10 +1471,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     symmetric_noncons_flux_kernel(symmetric_flux_arr1, symmetric_flux_arr2, symmetric_flux_arr3,
                                   noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3, u,
                                   derivative_split, equations, symmetric_flux, nonconservative_flux;
-                                  configurator_2d(symmetric_noncons_flux_kernel, size_arr)...)
+                                  kernel_configurator_2d(symmetric_noncons_flux_kernel,
+                                                         size(u, 2)^4, size(u, 5))...)
 
     derivative_split = CuArray{Float64}(dg.basis.derivative_split) # use original `derivative_split`
-    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
 
     volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
                                                                         symmetric_flux_arr1,
@@ -1430,7 +1486,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     volume_integral_kernel(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2,
                            symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2,
                            noncons_flux_arr3;
-                           configurator_3d(volume_integral_kernel, size_arr)...)
+                           kernel_configurator_3d(volume_integral_kernel, size(du, 1),
+                                                  size(du, 2)^3, size(du, 5))...)
 
     return nothing
 end
@@ -1443,22 +1500,23 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     indicator = dg.volume_integral.indicator
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = indicator(Array(u), mesh, equations, dg, cache)
+    # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
+    alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
     alpha = CuArray{Float64}(alpha)
 
     # For `Float64`, this gives 1.8189894035458565e-12
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
-
-    element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
-    element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
+    element_ids_dg = CUDA.zeros(Int, length(alpha))
+    element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
                                                                                               alpha,
                                                                                               atol)
     pure_blended_element_count_kernel(element_ids_dg, element_ids_dgfv, alpha, atol;
-                                      configurator_1d(pure_blended_element_count_kernel, alpha)...)
+                                      kernel_configurator_1d(pure_blended_element_count_kernel,
+                                                             length(alpha))...)
 
     derivative_split = dg.basis.derivative_split
     set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
@@ -1479,8 +1537,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     fstar3_L = cache.fstar3_L
     fstar3_R = cache.fstar3_R
 
-    size_arr = CuArray{Float64}(undef, size(u, 2)^4, size(u, 5))
-
     volume_flux_dgfv_kernel = @cuda launch=false volume_flux_dgfv_kernel!(volume_flux_arr1,
                                                                           volume_flux_arr2,
                                                                           volume_flux_arr3,
@@ -1495,9 +1551,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     volume_flux_dgfv_kernel(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3, fstar1_L,
                             fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R, u, element_ids_dgfv,
                             equations, volume_flux_dg, volume_flux_fv;
-                            configurator_2d(volume_flux_dgfv_kernel, size_arr)...)
-
-    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
+                            kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^4,
+                                                   size(u, 5))...)
 
     volume_integral_dg_kernel = @cuda launch=false volume_integral_dg_kernel!(du, element_ids_dg,
                                                                               element_ids_dgfv,
@@ -1509,9 +1564,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                               equations)
     volume_integral_dg_kernel(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
                               volume_flux_arr1, volume_flux_arr2, volume_flux_arr3, equations;
-                              configurator_3d(volume_integral_dg_kernel, size_arr)...)
-
-    size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 5))
+                              kernel_configurator_3d(volume_integral_dg_kernel, size(du, 1),
+                                                     size(du, 2)^3, size(du, 5))...)
 
     volume_integral_fv_kernel = @cuda launch=false volume_integral_fv_kernel!(du, fstar1_L,
                                                                               fstar1_R,
@@ -1522,7 +1576,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                               alpha)
     volume_integral_fv_kernel(du, fstar1_L, fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R,
                               inverse_weights, element_ids_dgfv, alpha;
-                              configurator_2d(volume_integral_fv_kernel, size_arr)...)
+                              kernel_configurator_2d(volume_integral_fv_kernel, size(u, 2)^3,
+                                                     size(u, 5))...)
 
     return nothing
 end
@@ -1535,22 +1590,23 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     indicator = dg.volume_integral.indicator
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = indicator(Array(u), mesh, equations, dg, cache)
+    # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
+    alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
     alpha = CuArray{Float64}(alpha)
 
     # For `Float64`, this gives 1.8189894035458565e-12
     # For `Float32`, this gives 1.1920929f-5
     atol = 1.8189894035458565e-12 # see also `pure_and_blended_element_ids!` in Trixi.jl
-
-    element_ids_dg = zero(CuArray{Int64}(undef, length(alpha)))
-    element_ids_dgfv = zero(CuArray{Int64}(undef, length(alpha)))
+    element_ids_dg = CUDA.zeros(Int, length(alpha))
+    element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
                                                                                               alpha,
                                                                                               atol)
     pure_blended_element_count_kernel(element_ids_dg, element_ids_dgfv, alpha, atol;
-                                      configurator_1d(pure_blended_element_count_kernel, alpha)...)
+                                      kernel_configurator_1d(pure_blended_element_count_kernel,
+                                                             length(alpha))...)
 
     derivative_split = dg.basis.derivative_split
     set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
@@ -1577,8 +1633,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     fstar3_L = cache.fstar3_L
     fstar3_R = cache.fstar3_R
 
-    size_arr = CuArray{Float64}(undef, size(u, 2)^4, size(u, 5))
-
     volume_flux_dgfv_kernel = @cuda launch=false volume_flux_dgfv_kernel!(volume_flux_arr1,
                                                                           volume_flux_arr2,
                                                                           volume_flux_arr3,
@@ -1600,11 +1654,10 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                             fstar1_L, fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R,
                             u, element_ids_dgfv, derivative_split, equations, volume_flux_dg,
                             nonconservative_flux_dg, volume_flux_fv, nonconservative_flux_fv;
-                            configurator_2d(volume_flux_dgfv_kernel, size_arr)...)
+                            kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^4,
+                                                   size(u, 5))...)
 
     derivative_split = CuArray{Float64}(dg.basis.derivative_split) # use original `derivative_split`
-
-    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
 
     volume_integral_dg_kernel = @cuda launch=false volume_integral_dg_kernel!(du, element_ids_dg,
                                                                               element_ids_dgfv,
@@ -1620,9 +1673,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     volume_integral_dg_kernel(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
                               volume_flux_arr1, volume_flux_arr2, volume_flux_arr3,
                               noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3, equations;
-                              configurator_3d(volume_integral_dg_kernel, size_arr)...)
-
-    size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 5))
+                              kernel_configurator_3d(volume_integral_dg_kernel, size(du, 1),
+                                                     size(du, 2)^3, size(du, 5))...)
 
     volume_integral_fv_kernel = @cuda launch=false volume_integral_fv_kernel!(du, fstar1_L,
                                                                               fstar1_R,
@@ -1633,28 +1685,27 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                               alpha)
     volume_integral_fv_kernel(du, fstar1_L, fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R,
                               inverse_weights, element_ids_dgfv, alpha;
-                              configurator_2d(volume_integral_fv_kernel, size_arr)...)
+                              kernel_configurator_2d(volume_integral_fv_kernel, size(u, 2)^3,
+                                                     size(u, 5))...)
 
     return nothing
 end
 
 # Pack kernels to prolonging solution to interfaces
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{3}, equations, cache)
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    orientations = CuArray{Int64}(cache.interfaces.orientations)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
-
-    size_arr = CuArray{Float64}(undef, size(interfaces_u, 2) * size(interfaces_u, 3)^2,
-                                size(interfaces_u, 5))
+    neighbor_ids = cache.interfaces.neighbor_ids
+    orientations = cache.interfaces.orientations
+    interfaces_u = cache.interfaces.u
 
     prolong_interfaces_kernel = @cuda launch=false prolong_interfaces_kernel!(interfaces_u, u,
                                                                               neighbor_ids,
                                                                               orientations,
                                                                               equations)
     prolong_interfaces_kernel(interfaces_u, u, neighbor_ids, orientations, equations;
-                              configurator_2d(prolong_interfaces_kernel, size_arr)...)
-
-    cache.interfaces.u = interfaces_u  # copy back to host automatically
+                              kernel_configurator_2d(prolong_interfaces_kernel,
+                                                     size(interfaces_u, 2) *
+                                                     size(interfaces_u, 3)^2,
+                                                     size(interfaces_u, 5))...)
 
     return nothing
 end
@@ -1664,23 +1715,19 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False, e
                               cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    orientations = CuArray{Int64}(cache.interfaces.orientations)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    neighbor_ids = cache.interfaces.neighbor_ids
+    orientations = cache.interfaces.orientations
+    interfaces_u = cache.interfaces.u
+    surface_flux_values = cache.elements.surface_flux_values
     surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
-
-    size_arr = CuArray{Float64}(undef, size(interfaces_u, 3), size(interfaces_u, 4),
-                                size(interfaces_u, 5))
 
     surface_flux_kernel = @cuda launch=false surface_flux_kernel!(surface_flux_arr, interfaces_u,
                                                                   orientations, equations,
                                                                   surface_flux)
     surface_flux_kernel(surface_flux_arr, interfaces_u, orientations, equations, surface_flux;
-                        configurator_3d(surface_flux_kernel, size_arr)...)
-
-    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 1), size(interfaces_u, 3)^2,
-                                size(interfaces_u, 5))
+                        kernel_configurator_3d(surface_flux_kernel, size(interfaces_u, 3),
+                                               size(interfaces_u, 4),
+                                               size(interfaces_u, 5))...)
 
     interface_flux_kernel = @cuda launch=false interface_flux_kernel!(surface_flux_values,
                                                                       surface_flux_arr,
@@ -1688,73 +1735,10 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::False, e
                                                                       equations)
     interface_flux_kernel(surface_flux_values, surface_flux_arr, neighbor_ids, orientations,
                           equations;
-                          configurator_3d(interface_flux_kernel, size_arr)...)
-
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
-
-    return nothing
-end
-
-# Kernel for calculating surface and both nonconservative fluxes 
-function surface_noncons_flux_kernel!(surface_flux_arr, noncons_left_arr, noncons_right_arr,
-                                      interfaces_u, orientations, equations::AbstractEquations{3},
-                                      surface_flux::Any, nonconservative_flux::Any)
-    j1 = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j2 = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
-        k <= size(surface_flux_arr, 4))
-        u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
-        orientation = orientations[k]
-
-        surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
-        noncons_left_node = nonconservative_flux(u_ll, u_rr, orientation, equations)
-        noncons_right_node = nonconservative_flux(u_rr, u_ll, orientation, equations)
-
-        @inbounds begin
-            for ii in axes(surface_flux_arr, 1)
-                surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
-                noncons_left_arr[ii, j1, j2, k] = noncons_left_node[ii]
-                noncons_right_arr[ii, j1, j2, k] = noncons_right_node[ii]
-            end
-        end
-    end
-
-    return nothing
-end
-
-# Kernel for setting interface fluxes
-function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_left_arr,
-                                noncons_right_arr, neighbor_ids, orientations,
-                                equations::AbstractEquations{3})
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2)^2 &&
-        k <= size(surface_flux_arr, 4))
-        j1 = div(j - 1, size(surface_flux_arr, 2)) + 1
-        j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
-
-        left_id = neighbor_ids[1, k]
-        right_id = neighbor_ids[2, k]
-
-        left_direction = 2 * orientations[k]
-        right_direction = 2 * orientations[k] - 1
-
-        @inbounds begin
-            surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2,
-                                                                                       k] +
-                                                                      0.5 *
-                                                                      noncons_left_arr[i, j1, j2, k]
-            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
-                                                                                         k] +
-                                                                        0.5 *
-                                                                        noncons_right_arr[i, j1, j2,
-                                                                                          k]
-        end
-    end
+                          kernel_configurator_3d(interface_flux_kernel,
+                                                 size(surface_flux_values, 1),
+                                                 size(interfaces_u, 3)^2,
+                                                 size(interfaces_u, 5))...)
 
     return nothing
 end
@@ -1764,16 +1748,14 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, eq
                               cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.interfaces.neighbor_ids)
-    orientations = CuArray{Int64}(cache.interfaces.orientations)
-    interfaces_u = CuArray{Float64}(cache.interfaces.u)
+    neighbor_ids = cache.interfaces.neighbor_ids
+    orientations = cache.interfaces.orientations
+    interfaces_u = cache.interfaces.u
+    surface_flux_values = cache.elements.surface_flux_values
+
     surface_flux_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     noncons_left_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
     noncons_right_arr = CuArray{Float64}(undef, size(interfaces_u)[2:end]...)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
-
-    size_arr = CuArray{Float64}(undef, size(interfaces_u, 3), size(interfaces_u, 4),
-                                size(interfaces_u, 5))
 
     surface_noncons_flux_kernel = @cuda launch=false surface_noncons_flux_kernel!(surface_flux_arr,
                                                                                   noncons_left_arr,
@@ -1785,10 +1767,10 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, eq
                                                                                   nonconservative_flux)
     surface_noncons_flux_kernel(surface_flux_arr, noncons_left_arr, noncons_right_arr, interfaces_u,
                                 orientations, equations, surface_flux, nonconservative_flux;
-                                configurator_3d(surface_noncons_flux_kernel, size_arr)...)
-
-    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 1), size(interfaces_u, 3)^2,
-                                size(interfaces_u, 5))
+                                kernel_configurator_3d(surface_noncons_flux_kernel,
+                                                       size(interfaces_u, 3),
+                                                       size(interfaces_u, 4),
+                                                       size(interfaces_u, 5))...)
 
     interface_flux_kernel = @cuda launch=false interface_flux_kernel!(surface_flux_values,
                                                                       surface_flux_arr,
@@ -1799,9 +1781,10 @@ function cuda_interface_flux!(mesh::TreeMesh{3}, nonconservative_terms::True, eq
     interface_flux_kernel(surface_flux_values, surface_flux_arr, noncons_left_arr,
                           noncons_right_arr,
                           neighbor_ids, orientations, equations;
-                          configurator_3d(interface_flux_kernel, size_arr)...)
-
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+                          kernel_configurator_3d(interface_flux_kernel,
+                                                 size(surface_flux_values, 1),
+                                                 size(interfaces_u, 3)^2,
+                                                 size(interfaces_u, 5))...)
 
     return nothing
 end
@@ -1815,13 +1798,10 @@ end
 # Pack kernels for prolonging solution to boundaries
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{3}, boundary_conditions::NamedTuple, equations,
                                   cache)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    orientations = CuArray{Int64}(cache.boundaries.orientations)
-    boundaries_u = CuArray{Float64}(cache.boundaries.u)
-
-    size_arr = CuArray{Float64}(undef, size(boundaries_u, 2) * size(boundaries_u, 3)^2,
-                                size(boundaries_u, 5))
+    neighbor_ids = cache.boundaries.neighbor_ids
+    neighbor_sides = cache.boundaries.neighbor_sides
+    orientations = cache.boundaries.orientations
+    boundaries_u = cache.boundaries.u
 
     prolong_boundaries_kernel = @cuda launch=false prolong_boundaries_kernel!(boundaries_u, u,
                                                                               neighbor_ids,
@@ -1830,9 +1810,10 @@ function cuda_prolong2boundaries!(u, mesh::TreeMesh{3}, boundary_conditions::Nam
                                                                               equations)
     prolong_boundaries_kernel(boundaries_u, u, neighbor_ids, neighbor_sides, orientations,
                               equations;
-                              configurator_2d(prolong_boundaries_kernel, size_arr)...)
-
-    cache.boundaries.u = boundaries_u  # copy back to host automatically
+                              kernel_configurator_2d(prolong_boundaries_kernel,
+                                                     size(boundaries_u, 2) *
+                                                     size(boundaries_u, 3)^2,
+                                                     size(boundaries_u, 5))...)
 
     return nothing
 end
@@ -1848,28 +1829,27 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
                              nonconservative_terms, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    n_boundaries_per_direction = CuArray{Int64}(cache.boundaries.n_boundaries_per_direction)
-    neighbor_ids = CuArray{Int64}(cache.boundaries.neighbor_ids)
-    neighbor_sides = CuArray{Int64}(cache.boundaries.neighbor_sides)
-    orientations = CuArray{Int64}(cache.boundaries.orientations)
-    boundaries_u = CuArray{Float64}(cache.boundaries.u)
-    node_coordinates = CuArray{Float64}(cache.boundaries.node_coordinates)
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    n_boundaries_per_direction = cache.boundaries.n_boundaries_per_direction
+    neighbor_ids = cache.boundaries.neighbor_ids
+    neighbor_sides = cache.boundaries.neighbor_sides
+    orientations = cache.boundaries.orientations
+    boundaries_u = cache.boundaries.u
+    node_coordinates = cache.boundaries.node_coordinates
+    surface_flux_values = cache.elements.surface_flux_values
 
+    # Create new arrays on the GPU
     lasts = zero(n_boundaries_per_direction)
     firsts = zero(n_boundaries_per_direction)
 
+    # May introduce kernel launching overhead
     last_first_indices_kernel = @cuda launch=false last_first_indices_kernel!(lasts, firsts,
                                                                               n_boundaries_per_direction)
     last_first_indices_kernel(lasts, firsts, n_boundaries_per_direction;
-                              configurator_1d(last_first_indices_kernel, lasts)...)
+                              kernel_configurator_1d(last_first_indices_kernel, length(lasts))...)
 
-    lasts, firsts = Array(lasts), Array(firsts)
-    boundary_arr = CuArray{Int64}(firsts[1]:lasts[6])
-    indices_arr = CuArray{Int64}([firsts[1], firsts[2], firsts[3], firsts[4], firsts[5], firsts[6]])
+    boundary_arr = CuArray{Int}(Array(firsts)[1]:Array(lasts)[end])
+    indices_arr = firsts
     boundary_conditions_callable = replace_boundary_conditions(boundary_conditions)
-
-    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 2)^2, length(boundary_arr))
 
     boundary_flux_kernel = @cuda launch=false boundary_flux_kernel!(surface_flux_values,
                                                                     boundaries_u, node_coordinates,
@@ -1881,9 +1861,9 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{3}, boundary_conditions::NamedTup
     boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                          indices_arr, neighbor_ids, neighbor_sides, orientations,
                          boundary_conditions_callable, equations, surface_flux;
-                         configurator_2d(boundary_flux_kernel, size_arr)...)
-
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+                         kernel_configurator_2d(boundary_flux_kernel,
+                                                size(surface_flux_values, 2)^2,
+                                                length(boundary_arr))...)
 
     return nothing
 end
@@ -1895,20 +1875,17 @@ end
 
 # Pack kernels for prolonging solution to mortars
 function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DGSEM, cache)
-    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
-    large_sides = CuArray{Int64}(cache.mortars.large_sides)
-    orientations = CuArray{Int64}(cache.mortars.orientations)
+    neighbor_ids = cache.mortars.neighbor_ids
+    large_sides = cache.mortars.large_sides
+    orientations = cache.mortars.orientations
 
-    u_upper_left = zero(CuArray{Float64}(cache.mortars.u_upper_left)) # NaN to zero
-    u_upper_right = zero(CuArray{Float64}(cache.mortars.u_upper_right)) # NaN to zero
-    u_lower_left = zero(CuArray{Float64}(cache.mortars.u_lower_left)) # NaN to zero
-    u_lower_right = zero(CuArray{Float64}(cache.mortars.u_lower_right)) # NaN to zero
-
+    # The original CPU arrays hold NaNs
+    u_upper_left = cache.mortars.u_upper_left
+    u_upper_right = cache.mortars.u_upper_right
+    u_lower_left = cache.mortars.u_lower_left
+    u_lower_right = cache.mortars.u_lower_right
     forward_upper = CuArray{Float64}(dg.mortar.forward_upper)
     forward_lower = CuArray{Float64}(dg.mortar.forward_lower)
-
-    size_arr = CuArray{Float64}(undef, size(u_upper_left, 2), size(u_upper_left, 3)^2,
-                                size(u_upper_left, 5))
 
     prolong_mortars_small2small_kernel = @cuda launch=false prolong_mortars_small2small_kernel!(u_upper_left,
                                                                                                 u_upper_right,
@@ -1920,8 +1897,11 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DG
                                                                                                 orientations)
     prolong_mortars_small2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u,
                                        neighbor_ids, large_sides, orientations;
-                                       configurator_3d(prolong_mortars_small2small_kernel,
-                                                       size_arr)...)
+                                       kernel_configurator_3d(prolong_mortars_small2small_kernel,
+                                                              size(u_upper_left, 2),
+                                                              size(u_upper_left, 3)^2,
+                                                              size(u_upper_left, 5))...)
+
     tmp_upper_left = zero(similar(u_upper_left)) # undef to zero
     tmp_upper_right = zero(similar(u_upper_right)) # undef to zero
     tmp_lower_left = zero(similar(u_lower_left)) # undef to zero
@@ -1941,8 +1921,10 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DG
     prolong_mortars_large2small_kernel(tmp_upper_left, tmp_upper_right, tmp_lower_left,
                                        tmp_lower_right, u, forward_upper, forward_lower,
                                        neighbor_ids, large_sides, orientations;
-                                       configurator_3d(prolong_mortars_large2small_kernel,
-                                                       size_arr)...)
+                                       kernel_configurator_3d(prolong_mortars_large2small_kernel,
+                                                              size(u_upper_left, 2),
+                                                              size(u_upper_left, 3)^2,
+                                                              size(u_upper_left, 5))...)
 
     prolong_mortars_large2small_kernel = @cuda launch=false prolong_mortars_large2small_kernel!(u_upper_left,
                                                                                                 u_upper_right,
@@ -1959,13 +1941,10 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DG
                                        tmp_upper_left, tmp_upper_right, tmp_lower_left,
                                        tmp_lower_right,
                                        forward_upper, forward_lower, large_sides;
-                                       configurator_3d(prolong_mortars_large2small_kernel,
-                                                       size_arr)...)
-
-    cache.mortars.u_upper_left = u_upper_left # copy back to host automatically
-    cache.mortars.u_upper_right = u_upper_right # copy back to host automatically
-    cache.mortars.u_lower_left = u_lower_left # copy back to host automatically
-    cache.mortars.u_lower_right = u_lower_right # copy back to host automatically
+                                       kernel_configurator_3d(prolong_mortars_large2small_kernel,
+                                                              size(u_upper_left, 2),
+                                                              size(u_upper_left, 3)^2,
+                                                              size(u_upper_left, 5))...)
 
     return nothing
 end
@@ -1981,27 +1960,25 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                            equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
-    large_sides = CuArray{Int64}(cache.mortars.large_sides)
-    orientations = CuArray{Int64}(cache.mortars.orientations)
+    neighbor_ids = cache.mortars.neighbor_ids
+    large_sides = cache.mortars.large_sides
+    orientations = cache.mortars.orientations
 
-    u_upper_left = CuArray{Float64}(cache.mortars.u_upper_left)
-    u_upper_right = CuArray{Float64}(cache.mortars.u_upper_right)
-    u_lower_left = CuArray{Float64}(cache.mortars.u_lower_left)
-    u_lower_right = CuArray{Float64}(cache.mortars.u_lower_right)
+    # The original CPU arrays hold NaNs
+    u_upper_left = cache.mortars.u_upper_left
+    u_upper_right = cache.mortars.u_upper_right
+    u_lower_left = cache.mortars.u_lower_left
+    u_lower_right = cache.mortars.u_lower_right
     reverse_upper = CuArray{Float64}(dg.mortar.reverse_upper)
     reverse_lower = CuArray{Float64}(dg.mortar.reverse_lower)
 
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    surface_flux_values = cache.elements.surface_flux_values
     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
 
     fstar_upper_left = cache.fstar_upper_left
     fstar_upper_right = cache.fstar_upper_right
     fstar_lower_left = cache.fstar_lower_left
     fstar_lower_right = cache.fstar_lower_right
-
-    size_arr = CuArray{Float64}(undef, size(u_upper_left, 3), size(u_upper_left, 4),
-                                length(orientations))
 
     mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_upper_left, fstar_upper_right,
                                                                 fstar_lower_left, fstar_lower_right,
@@ -2012,15 +1989,14 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     mortar_flux_kernel(fstar_upper_left, fstar_upper_right, fstar_lower_left, fstar_lower_right,
                        u_upper_left, u_upper_right, u_lower_left, u_lower_right, orientations,
                        equations, surface_flux;
-                       configurator_3d(mortar_flux_kernel, size_arr)...)
+                       kernel_configurator_3d(mortar_flux_kernel, size(u_upper_left, 3),
+                                              size(u_upper_left, 4),
+                                              length(orientations))...)
 
     tmp_upper_left = zero(similar(surface_flux_values)) # undef to zero
     tmp_upper_right = zero(similar(surface_flux_values)) # undef to zero
     tmp_lower_left = zero(similar(surface_flux_values)) # undef to zero
     tmp_lower_right = zero(similar(surface_flux_values)) # undef to zero
-
-    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 1), size(surface_flux_values, 2)^2,
-                                length(orientations))
 
     # TODO: Combine these two kernels into one (synchronization)
     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
@@ -2041,7 +2017,10 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                tmp_lower_right, fstar_upper_left, fstar_upper_right,
                                fstar_lower_left, fstar_lower_right, reverse_upper, reverse_lower,
                                neighbor_ids, large_sides, orientations;
-                               configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
+                               kernel_configurator_3d(mortar_flux_copy_to_kernel,
+                                                      size(surface_flux_values, 1),
+                                                      size(surface_flux_values, 2)^2,
+                                                      length(orientations))...)
 
     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
                                                                                 tmp_surface_flux_values,
@@ -2057,9 +2036,10 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, tmp_upper_left,
                                tmp_upper_right, tmp_lower_left, tmp_lower_right, reverse_upper,
                                reverse_lower, neighbor_ids, large_sides, orientations;
-                               configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
-
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+                               kernel_configurator_3d(mortar_flux_copy_to_kernel,
+                                                      size(surface_flux_values, 1),
+                                                      size(surface_flux_values, 2)^2,
+                                                      length(orientations))...)
 
     return nothing
 end
@@ -2069,27 +2049,24 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                            equations, dg::DGSEM, cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
-    neighbor_ids = CuArray{Int64}(cache.mortars.neighbor_ids)
-    large_sides = CuArray{Int64}(cache.mortars.large_sides)
-    orientations = CuArray{Int64}(cache.mortars.orientations)
+    neighbor_ids = cache.mortars.neighbor_ids
+    large_sides = cache.mortars.large_sides
+    orientations = cache.mortars.orientations
 
-    u_upper_left = CuArray{Float64}(cache.mortars.u_upper_left)
-    u_upper_right = CuArray{Float64}(cache.mortars.u_upper_right)
-    u_lower_left = CuArray{Float64}(cache.mortars.u_lower_left)
-    u_lower_right = CuArray{Float64}(cache.mortars.u_lower_right)
+    # The original CPU arrays hold NaNs
+    u_upper_left = cache.mortars.u_upper_left
+    u_upper_right = cache.mortars.u_upper_right
+    u_lower_left = cache.mortars.u_lower_left
+    u_lower_right = cache.mortars.u_lower_right
     reverse_upper = CuArray{Float64}(dg.mortar.reverse_upper)
     reverse_lower = CuArray{Float64}(dg.mortar.reverse_lower)
 
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
+    surface_flux_values = cache.elements.surface_flux_values
     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
-
     fstar_upper_left = cache.fstar_upper_left
     fstar_upper_right = cache.fstar_upper_right
     fstar_lower_left = cache.fstar_lower_left
     fstar_lower_right = cache.fstar_lower_right
-
-    size_arr = CuArray{Float64}(undef, size(u_upper_left, 3), size(u_upper_left, 4),
-                                length(orientations))
 
     mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_upper_left, fstar_upper_right,
                                                                 fstar_lower_left, fstar_lower_right,
@@ -2101,15 +2078,14 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     mortar_flux_kernel(fstar_upper_left, fstar_upper_right, fstar_lower_left, fstar_lower_right,
                        u_upper_left, u_upper_right, u_lower_left, u_lower_right, orientations,
                        large_sides, equations, surface_flux, nonconservative_flux;
-                       configurator_3d(mortar_flux_kernel, size_arr)...)
+                       kernel_configurator_3d(mortar_flux_kernel, size(u_upper_left, 3),
+                                              size(u_upper_left, 4),
+                                              length(orientations))...)
 
     tmp_upper_left = zero(similar(surface_flux_values)) # undef to zero
     tmp_upper_right = zero(similar(surface_flux_values)) # undef to zero
     tmp_lower_left = zero(similar(surface_flux_values)) # undef to zero
     tmp_lower_right = zero(similar(surface_flux_values)) # undef to zero
-
-    size_arr = CuArray{Float64}(undef, size(surface_flux_values, 1), size(surface_flux_values, 2)^2,
-                                length(orientations))
 
     # TODO: Combine these two kernels into one (synchronization)
     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
@@ -2130,7 +2106,10 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                tmp_lower_right, fstar_upper_left, fstar_upper_right,
                                fstar_lower_left, fstar_lower_right, reverse_upper, reverse_lower,
                                neighbor_ids, large_sides, orientations;
-                               configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
+                               kernel_configurator_3d(mortar_flux_copy_to_kernel,
+                                                      size(surface_flux_values, 1),
+                                                      size(surface_flux_values, 2)^2,
+                                                      length(orientations))...)
 
     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
                                                                                 tmp_surface_flux_values,
@@ -2146,9 +2125,10 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, tmp_upper_left,
                                tmp_upper_right, tmp_lower_left, tmp_lower_right, reverse_upper,
                                reverse_lower, neighbor_ids, large_sides, orientations;
-                               configurator_3d(mortar_flux_copy_to_kernel, size_arr)...)
-
-    cache.elements.surface_flux_values = surface_flux_values # copy back to host automatically
+                               kernel_configurator_3d(mortar_flux_copy_to_kernel,
+                                                      size(surface_flux_values, 1),
+                                                      size(surface_flux_values, 2)^2,
+                                                      length(orientations))...)
 
     return nothing
 end
@@ -2159,27 +2139,26 @@ function cuda_surface_integral!(du, mesh::TreeMesh{3}, equations, dg::DGSEM, cac
                                       dg.basis.boundary_interpolation[1, 1],
                                       dg.basis.boundary_interpolation[size(du, 2), 2]
                                   ])
-    surface_flux_values = CuArray{Float64}(cache.elements.surface_flux_values)
-
-    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
+    surface_flux_values = cache.elements.surface_flux_values
 
     surface_integral_kernel = @cuda launch=false surface_integral_kernel!(du, factor_arr,
                                                                           surface_flux_values,
                                                                           equations)
     surface_integral_kernel(du, factor_arr, surface_flux_values, equations;
-                            configurator_3d(surface_integral_kernel, size_arr)...)
+                            kernel_configurator_3d(surface_integral_kernel, size(du, 1),
+                                                   size(du, 2)^3, size(du, 5))...)
 
     return nothing
 end
 
 # Pack kernels for applying Jacobian to reference element
 function cuda_jacobian!(du, mesh::TreeMesh{3}, equations, cache)
-    inverse_jacobian = CuArray{Float64}(cache.elements.inverse_jacobian)
-
-    size_arr = CuArray{Float64}(undef, size(du, 1), size(du, 2)^3, size(du, 5))
+    inverse_jacobian = cache.elements.inverse_jacobian
 
     jacobian_kernel = @cuda launch=false jacobian_kernel!(du, inverse_jacobian, equations)
-    jacobian_kernel(du, inverse_jacobian, equations; configurator_3d(jacobian_kernel, size_arr)...)
+    jacobian_kernel(du, inverse_jacobian, equations;
+                    kernel_configurator_3d(jacobian_kernel, size(du, 1), size(du, 2)^3,
+                                           size(du, 5))...)
 
     return nothing
 end
@@ -2191,14 +2170,12 @@ end
 
 # Pack kernels for calculating source terms 
 function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{3}, cache)
-    node_coordinates = CuArray{Float64}(cache.elements.node_coordinates)
-
-    size_arr = CuArray{Float64}(undef, size(u, 2)^3, size(u, 5))
+    node_coordinates = cache.elements.node_coordinates
 
     source_terms_kernel = @cuda launch=false source_terms_kernel!(du, u, node_coordinates, t,
                                                                   equations, source_terms)
     source_terms_kernel(du, u, node_coordinates, t, equations, source_terms;
-                        configurator_2d(source_terms_kernel, size_arr)...)
+                        kernel_configurator_2d(source_terms_kernel, size(u, 2)^3, size(u, 5))...)
 
     return nothing
 end
@@ -2208,7 +2185,7 @@ end
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
-    du, u = copy_to_device!(du_cpu, u_cpu)
+    du, u = copy_to_gpu!(du_cpu, u_cpu)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg, cache)
@@ -2233,7 +2210,7 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{3}, equations, boundary_condi
 
     cuda_sources!(du, u, t, source_terms, equations, cache)
 
-    du_computed, _ = copy_to_host!(du, u)
+    du_computed, _ = copy_to_cpu!(du, u)
     du_cpu .= du_computed
 
     return nothing

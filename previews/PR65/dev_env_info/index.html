@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Development Environment Information · TrixiCUDA.jl</title><meta name="title" content="Development Environment Information · TrixiCUDA.jl"/><meta property="og:title" content="Development Environment Information · TrixiCUDA.jl"/><meta property="twitter:title" content="Development Environment Information · TrixiCUDA.jl"/><meta name="description" content="Documentation for TrixiCUDA.jl."/><meta property="og:description" content="Documentation for TrixiCUDA.jl."/><meta property="twitter:description" content="Documentation for TrixiCUDA.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="TrixiCUDA.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">TrixiCUDA.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../aws_gpu_setup/">Tutorial 1</a></li><li><a class="tocitem" href="../nsys_profiling/">Tutorial 2</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Development Environment Information</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Development Environment Information</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/trixi-gpu/TrixiCUDA.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/trixi-gpu/TrixiCUDA.jl/blob/main/docs/src/dev_env_info.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Development-Environment-Information"><a class="docs-heading-anchor" href="#Development-Environment-Information">Development Environment Information</a><a id="Development-Environment-Information-1"></a><a class="docs-heading-anchor-permalink" href="#Development-Environment-Information" title="Permalink"></a></h1><h2 id="Recent-Update"><a class="docs-heading-anchor" href="#Recent-Update">Recent Update</a><a id="Recent-Update-1"></a><a class="docs-heading-anchor-permalink" href="#Recent-Update" title="Permalink"></a></h2><p>The hardware has been updated for this project recently. The new NVIDIA GeForce Series has been launched to continue implementation and testing of this project. Here is the detailed environment information for this project now.</p><p>The following shows the specific CPU information.</p><pre><code class="language-Bash hljs">huiyu@huiyuxps15:~$ lscpu
+Architecture:            x86_64
+  CPU op-mode(s):        32-bit, 64-bit
+  Address sizes:         46 bits physical, 48 bits virtual
+  Byte Order:            Little Endian
+CPU(s):                  20
+  On-line CPU(s) list:   0-19
+Vendor ID:               GenuineIntel
+  Model name:            13th Gen Intel(R) Core(TM) i9-13900H
+    CPU family:          6
+    Model:               186
+    Thread(s) per core:  2
+    Core(s) per socket:  10
+    Socket(s):           1
+    Stepping:            2
+    BogoMIPS:            5990.39
+    Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse ss
+                         e2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology tsc_reliable nonstop
+                         _tsc cpuid pni pclmulqdq vmx ssse3 fma cx16 sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_time
+                         r aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dnowprefetch ssbd ibrs ibpb stibp ibrs_enha
+                         nced tpr_shadow vnmi ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdsee
+                         d adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves avx_vnni umip waitpkg gfni vae
+                         s vpclmulqdq rdpid movdiri movdir64b fsrm md_clear serialize flush_l1d arch_capabilities
+Virtualization features:
+  Virtualization:        VT-x
+  Hypervisor vendor:     Microsoft
+  Virtualization type:   full
+Caches (sum of all):
+  L1d:                   480 KiB (10 instances)
+  L1i:                   320 KiB (10 instances)
+  L2:                    12.5 MiB (10 instances)
+  L3:                    24 MiB (1 instance)
+Vulnerabilities:
+  Gather data sampling:  Not affected
+  Itlb multihit:         Not affected
+  L1tf:                  Not affected
+  Mds:                   Not affected
+  Meltdown:              Not affected
+  Mmio stale data:       Not affected
+  Retbleed:              Mitigation; Enhanced IBRS
+  Spec rstack overflow:  Not affected
+  Spec store bypass:     Mitigation; Speculative Store Bypass disabled via prctl and seccomp
+  Spectre v1:            Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+  Spectre v2:            Mitigation; Enhanced IBRS, IBPB conditional, RSB filling, PBRSB-eIBRS SW sequence
+  Srbds:                 Not affected
+  Tsx async abort:       Not affected</code></pre><p>The following shows the specific GPU information.</p><pre><code class="language-Bash hljs">huiyu@huiyuxps15:~$ nvidia-smi
+Thu May 16 17:26:16 2024
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 545.23.07              Driver Version: 546.12       CUDA Version: 12.3     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA GeForce RTX 4060 ...    On  | 00000000:01:00.0 Off |                  N/A |
+| N/A   43C    P3              11W /  45W |      0MiB /  8188MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|  No running processes found                                                           |
++---------------------------------------------------------------------------------------+</code></pre><h2 id="Legacy-(AWS)"><a class="docs-heading-anchor" href="#Legacy-(AWS)">Legacy (AWS)</a><a id="Legacy-(AWS)-1"></a><a class="docs-heading-anchor-permalink" href="#Legacy-(AWS)" title="Permalink"></a></h2><p>This project were implemented and tested on AWS EC2 instances. So far, types of EC2 instances used in this project include: <code>p3.2xlarge</code> (single-GPU) and <code>g4dn.12xlarge</code> (multi-GPU). For more information about the EC2 instances, please refer to <a href="https://aws.amazon.com/ec2/instance-types/">AWS EC2 Instance Types</a>.</p><p>The following information is about the environment of the EC2 instances used in this project.</p><h3 id="AWS-p3.2xlarge"><a class="docs-heading-anchor" href="#AWS-p3.2xlarge">AWS <code>p3.2xlarge</code></a><a id="AWS-p3.2xlarge-1"></a><a class="docs-heading-anchor-permalink" href="#AWS-p3.2xlarge" title="Permalink"></a></h3><p>The following shows the specific CPU information of the <code>p3.2xlarge</code> instance used in this project.</p><pre><code class="language-Bash hljs">ubuntu@ip-172-31-7-163:~/trixi_cuda$ lscpu
+Architecture:            x86_64
+  CPU op-mode(s):        32-bit, 64-bit
+  Address sizes:         46 bits physical, 48 bits virtual
+  Byte Order:            Little Endian
+CPU(s):                  8
+  On-line CPU(s) list:   0-7
+Vendor ID:               GenuineIntel
+  Model name:            Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz
+    CPU family:          6
+    Model:               79
+    Thread(s) per core:  2
+    Core(s) per socket:  4
+    Socket(s):           1
+    Stepping:            1
+    CPU max MHz:         3000.0000
+    CPU min MHz:         1200.0000
+    BogoMIPS:            4600.04
+    Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscal
+                         l nx pdpe1gb rdtscp lm constant_tsc rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni
+                          pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdra
+                         nd hypervisor lahf_lm abm 3dnowprefetch cpuid_fault invpcid_single pti fsgsbase bmi1 hle avx2 smep bmi2 erm
+                         s invpcid rtm rdseed adx xsaveopt
+Virtualization features: 
+  Hypervisor vendor:     Xen
+  Virtualization type:   full
+Caches (sum of all):     
+  L1d:                   128 KiB (4 instances)
+  L1i:                   128 KiB (4 instances)
+  L2:                    1 MiB (4 instances)
+  L3:                    45 MiB (1 instance)
+NUMA:                    
+  NUMA node(s):          1
+  NUMA node0 CPU(s):     0-7
+Vulnerabilities:         
+  Itlb multihit:         KVM: Mitigation: VMX unsupported
+  L1tf:                  Mitigation; PTE Inversion
+  Mds:                   Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
+  Meltdown:              Mitigation; PTI
+  Mmio stale data:       Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
+  Retbleed:              Not affected
+  Spec store bypass:     Vulnerable
+  Spectre v1:            Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+  Spectre v2:            Mitigation; Retpolines, STIBP disabled, RSB filling, PBRSB-eIBRS Not affected
+  Srbds:                 Not affected
+  Tsx async abort:       Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown</code></pre><p>The following shows the specific GPU information of the <code>p3.2xlarge</code> instance used in this project.</p><pre><code class="language-Bash hljs">ubuntu@ip-172-31-7-163:~/trixi_cuda$ nvidia-smi
+Sat Aug 26 00:38:06 2023       
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 530.30.02              Driver Version: 530.30.02    CUDA Version: 12.1     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                  Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf            Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  Tesla V100-SXM2-16GB            On | 00000000:00:1E.0 Off |                    0 |
+| N/A   47C    P0               25W / 300W|      0MiB / 16384MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+                                                                                         
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|  No running processes found                                                           |
++---------------------------------------------------------------------------------------+</code></pre><h3 id="AWS-g4dn.12xlarge"><a class="docs-heading-anchor" href="#AWS-g4dn.12xlarge">AWS <code>g4dn.12xlarge</code></a><a id="AWS-g4dn.12xlarge-1"></a><a class="docs-heading-anchor-permalink" href="#AWS-g4dn.12xlarge" title="Permalink"></a></h3><p>The following shows the specific CPU information of the <code>g4dn.12xlarge</code> instance used in this project.</p><pre><code class="language-Bash hljs">ubuntu@ip-172-31-4-230:~/trixi_cuda$ lscpu
+Architecture:            x86_64
+  CPU op-mode(s):        32-bit, 64-bit
+  Address sizes:         46 bits physical, 48 bits virtual
+  Byte Order:            Little Endian
+CPU(s):                  48
+  On-line CPU(s) list:   0-47
+Vendor ID:               GenuineIntel
+  Model name:            Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz
+    CPU family:          6
+    Model:               85
+    Thread(s) per core:  2
+    Core(s) per socket:  24
+    Socket(s):           1
+    Stepping:            7
+    BogoMIPS:            4999.99
+    Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clf
+                         lush mmx fxsr sse sse2 ss ht syscall nx pdpe1gb rdtscp lm constant_tsc arch
+                         _perfmon rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_fre
+                         q pni pclmulqdq monitor ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popc
+                         nt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm 3dno
+                         wprefetch invpcid_single pti fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms i
+                         nvpcid mpx avx512f avx512dq rdseed adx smap clflushopt clwb avx512cd avx512
+                         bw avx512vl xsaveopt xsavec xgetbv1 xsaves ida arat pku ospke avx512_vnni
+Virtualization features: 
+  Hypervisor vendor:     KVM
+  Virtualization type:   full
+Caches (sum of all):     
+  L1d:                   768 KiB (24 instances)
+  L1i:                   768 KiB (24 instances)
+  L2:                    24 MiB (24 instances)
+  L3:                    35.8 MiB (1 instance)
+NUMA:                    
+  NUMA node(s):          1
+  NUMA node0 CPU(s):     0-47
+Vulnerabilities:         
+  Gather data sampling:  Unknown: Dependent on hypervisor status
+  Itlb multihit:         KVM: Mitigation: VMX unsupported
+  L1tf:                  Mitigation; PTE Inversion
+  Mds:                   Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unkno
+                         wn
+  Meltdown:              Mitigation; PTI
+  Mmio stale data:       Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unkno
+                         wn
+  Retbleed:              Vulnerable
+  Spec rstack overflow:  Not affected
+  Spec store bypass:     Vulnerable
+  Spectre v1:            Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+  Spectre v2:            Mitigation; Retpolines, STIBP disabled, RSB filling, PBRSB-eIBRS Not affect
+                         ed
+  Srbds:                 Not affected
+  Tsx async abort:       Not affected</code></pre><p>The following shows the specific GPU information of the <code>g4dn.12xlarge</code> instance used in this project.</p><pre><code class="language-Bash hljs">ubuntu@ip-172-31-4-230:~/trixi_cuda$ nvidia-smi
+Sat Dec 30 20:19:54 2023       
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 545.23.08              Driver Version: 545.23.08    CUDA Version: 12.3     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  Tesla T4                       On  | 00000000:00:1B.0 Off |                    0 |
+| N/A   20C    P8               8W /  70W |      2MiB / 15360MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   1  Tesla T4                       On  | 00000000:00:1C.0 Off |                    0 |
+| N/A   20C    P8              10W /  70W |      2MiB / 15360MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   2  Tesla T4                       On  | 00000000:00:1D.0 Off |                    0 |
+| N/A   21C    P8               9W /  70W |      2MiB / 15360MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+|   3  Tesla T4                       On  | 00000000:00:1E.0 Off |                    0 |
+| N/A   20C    P8               9W /  70W |      2MiB / 15360MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+                                                                                         
++---------------------------------------------------------------------------------------+
+| Processes:                                                                            |
+|  GPU   GI   CI        PID   Type   Process name                            GPU Memory |
+|        ID   ID                                                             Usage      |
+|=======================================================================================|
+|  No running processes found                                                           |
++---------------------------------------------------------------------------------------+</code></pre></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.7.0 on <span class="colophon-date" title="Monday 7 October 2024 13:01">Monday 7 October 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

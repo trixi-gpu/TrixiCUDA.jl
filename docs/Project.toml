@@ -1,5 +1,8 @@
 [deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
+TrixiBase = "9a0f1c46-06d5-4909-a5a3-ce25d3fa3284"
 
 [extras]
 Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"

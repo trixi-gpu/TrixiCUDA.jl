@@ -1,5 +1,3 @@
-include("advection_amr_nonperiodic.jl")
-include("advection_amr.jl")
 include("advection_basic.jl")
 include("advection_extended.jl")
 include("burgers_basic.jl")

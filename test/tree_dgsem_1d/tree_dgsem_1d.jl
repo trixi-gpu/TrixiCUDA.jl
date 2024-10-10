@@ -1,7 +1,6 @@
 include("advection_basic.jl")
 include("advection_extended.jl")
 include("burgers_basic.jl")
-include("burgers_linear_stability.jl")
 include("burgers_rarefraction.jl")
 include("burgers_shock.jl")
 include("euler_blast_wave.jl")

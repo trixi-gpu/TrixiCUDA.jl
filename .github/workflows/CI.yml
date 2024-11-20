@@ -36,9 +36,7 @@ jobs:
           - windows-latest
         arch:
           - x64
-          # Failed to precompile Trixi Julia 1.10 - windows-latest - x86
-          # No binaries for Julia 1.10 - macOS-latest - x86
-          # - x86
+          - x86
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v2

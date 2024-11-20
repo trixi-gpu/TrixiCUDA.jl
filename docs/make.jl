@@ -8,9 +8,7 @@ DocMeta.setdocmeta!(TrixiCUDA, :DocTestSetup, :(using TrixiCUDA); recursive = tr
 
 makedocs(sitename = "TrixiCUDA.jl",
          pages = [
-             "Home" => "index.md",
-             "Tutorial 1" => "aws_gpu_setup.md",
-             "Tutorial 2" => "nsys_profiling.md"
+             "Home" => "index.md"
          ],
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   assets = ["assets/favicon.ico"]))

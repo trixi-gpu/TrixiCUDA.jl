@@ -3,8 +3,8 @@ name: Documentation
 on:
   push:
     branches:
-      - main # update to match your development branch (master, main, dev, trunk, ...)
-    tags: "*"
+      - main # update to match your development branch
+    tags: '*'
   pull_request:
 
 jobs:
@@ -16,14 +16,21 @@ jobs:
       statuses: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Julia
+        uses: julia-actions/setup-julia@v2
         with:
-          version: "1.10"
-      - uses: julia-actions/cache@v2
-      - name: Install dependencies
+          version: '1.10'
+
+      - name: Cache Julia Dependencies
+        uses: julia-actions/cache@v2
+
+      - name: Install Dependencies
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
-      - name: Build and deploy
+
+      - name: Build and Deploy Documentation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # If authenticating with GitHub Actions token
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }} # If authenticating with SSH deploy key

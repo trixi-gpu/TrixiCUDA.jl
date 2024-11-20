@@ -18,7 +18,7 @@ CUDA = "5"
 SciMLBase = "2"
 StaticArrays = "1"
 StrideArrays = "0.1"
-Trixi = "0.8"
+Trixi = "0.8, 0.9"
 TrixiBase = "0.1"
 julia = "1.10"
 

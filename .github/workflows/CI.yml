@@ -1,4 +1,5 @@
 name: CI
+
 on:
   push:
     branches:
@@ -31,11 +32,11 @@ jobs:
           - '1.10'
         os:
           - ubuntu-latest
-          - macOS-latest
           - windows-latest
         arch:
           - x64
-          # No binaries for Julia 1.10 - macOS-latest - x86
+          # CUDA.jl only supports 64-bit Linux and Windows
+          # See https://github.com/JuliaGPU/CUDA.jl?tab=readme-ov-file#requirements
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

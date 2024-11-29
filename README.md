@@ -16,6 +16,7 @@ TrixiCUDA.jl offers CUDA acceleration for solving hyperbolic PDEs.
 *Update on Sep 16, 2024*:
 - GPU-related tests are run now locally rather than on CI. Once the package is ready to publish, we will set up JuliaGPU CI infrastructure to run tests on a system with a GPU using [JuliaGPU Buildkite](https://github.com/JuliaGPU/buildkite).
 
+
 # Package Installation
 The package is now in pre-release status and will be registered once the initial release version is published. We want to make sure most key features are ready and optimizations are done before we roll out the first release.
 

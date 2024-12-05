@@ -4,11 +4,18 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![dev docs](https://img.shields.io/badge/docs-dev-orange.svg)](https://trixi-gpu.github.io/TrixiCUDA.jl/dev)
 
-**TrixiCUDA.jl** is a component package of the [**Trixi.jl**](https://github.com/trixi-framework/Trixi.jl) ecosystem and provides GPU acceleration support for solving hyperbolic partial differential equations (PDEs). This package was initialized through the [**Google Summer of Code**](https://summerofcode.withgoogle.com/archive/2023/projects/upstR7K2) program in 2023 and is under active development and testing.
+TrixiCUDA.jl offers CUDA acceleration for solving hyperbolic PDEs.
 
-The acceleration focus of this package is currently on the semidiscretization part (with plans to extend to other parts) of the PDE solvers, and [**CUDA.jl**](https://github.com/JuliaGPU/CUDA.jl) is our primary support (will expand to more types of GPUs using [**AMDGPU.jl**](https://github.com/JuliaGPU/AMDGPU.jl), [**OneAPI.jl**](https://github.com/JuliaGPU/oneAPI.jl), and [**Metal.jl**](https://github.com/JuliaGPU/Metal.jl) in the future). 
+*Update on Nov 21, 2024*: 
+- Due to the [issue](https://github.com/trixi-framework/Trixi.jl/issues/2108) from upstream with Trixi.jl and CUDA.jl in Julia v1.11, this package now supports only Julia v1.10. Using or developing this package with Julia v1.11 will result in precompilation errors. To fix this, downgrade to Julia v1.10. If you have any other problems, please file issues [here](https://github.com/trixi-gpu/TrixiCUDA.jl/issues).
 
-The complete documentation for this project (and now is available as a package) can be accessed here [**GSoC**](https://huiyuxie.github.io/gsoc23/). Please note that this package is intended to be part of the [**trixi-framework**](https://github.com/trixi-framework) organization in the end. Due to constrained GPU resources and ease of development, it is now under a temporary organization. 
+*Update on Oct 30, 2024*: 
+- The general documentation is now available at https://trixi-gpu.github.io (in development).  
+- Documentation specific to this package can be found at https://trixi-gpu.github.io/TrixiCUDA.jl/dev (in development).
+
+*Update on Sep 16, 2024*:
+- GPU-related tests are run now locally rather than on CI. Once the package is ready to publish, we will set up JuliaGPU CI infrastructure to run tests on a system with a GPU using [JuliaGPU Buildkite](https://github.com/JuliaGPU/buildkite).
+
 
 # Package Installation
 The package is now in pre-release status and will be registered once the initial release version is published. We want to make sure most key features are ready and optimizations are done before we roll out the first release.
@@ -34,8 +41,6 @@ Then enter the Julia REPL in the package directory, activate and instantiate the
 ```julia
 julia> using Pkg; Pkg.activate("."); Pkg.instantiate()
 ```
-
-Please note that GPU-related tests are run locally rather than on CI remotely due to constrained resources. Once the repository is ready to be transferred back to the organization, we are going to set up JuliaGPU CI infrastructure to run tests on a system with a GPU using [**JuliaGPU Buildkite**](https://github.com/JuliaGPU/buildkite).
 
 # Supported Mesh and Solver Types
 Our current focus is on the semidiscretization of PDEs. The table below shows the status of this work across different mesh types and solvers. Looking ahead, we plan to extend parallelization to include mesh initialization and callbacks on the GPU. 

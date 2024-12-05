@@ -31,8 +31,6 @@ import Trixi: get_node_vars, get_node_coords, get_surface_node_vars,
 
 using SciMLBase: ODEProblem, FullSpecialize
 
-using StrideArrays: PtrArray
-
 using StaticArrays: SVector
 
 # Include other source files

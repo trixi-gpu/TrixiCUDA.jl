@@ -879,15 +879,17 @@ function mortar_flux_kernel!(fstar_primary_upper, fstar_primary_lower, fstar_sec
                                                           equations)
         noncons_flux_primary_lower = nonconservative_flux(u_lower1, u_lower2, orientation,
                                                           equations)
-        noncons_secondary_upper = nonconservative_flux(u_upper2, u_upper1, orientation, equations)
-        noncons_secondary_lower = nonconservative_flux(u_lower2, u_lower1, orientation, equations)
+        noncons_flux_secondary_upper = nonconservative_flux(u_upper2, u_upper1, orientation,
+                                                            equations)
+        noncons_flux_secondary_lower = nonconservative_flux(u_lower2, u_lower1, orientation,
+                                                            equations)
 
         @inbounds begin
             for ii in axes(fstar_primary_upper, 1)
                 fstar_primary_upper[ii, j, k] += 0.5 * noncons_flux_primary_upper[ii]
                 fstar_primary_lower[ii, j, k] += 0.5 * noncons_flux_primary_lower[ii]
-                fstar_secondary_upper[ii, j, k] += 0.5 * noncons_secondary_upper[ii]
-                fstar_secondary_lower[ii, j, k] += 0.5 * noncons_secondary_lower[ii]
+                fstar_secondary_upper[ii, j, k] += 0.5 * noncons_flux_secondary_upper[ii]
+                fstar_secondary_lower[ii, j, k] += 0.5 * noncons_flux_secondary_lower[ii]
             end
         end
     end
@@ -900,7 +902,7 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
                                      fstar_primary_upper, fstar_primary_lower,
                                      fstar_secondary_upper, fstar_secondary_lower,
                                      reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                                     orientations)
+                                     orientations, equations::AbstractEquations{2})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -1611,11 +1613,12 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
                                                                                 reverse_lower,
                                                                                 neighbor_ids,
                                                                                 large_sides,
-                                                                                orientations)
+                                                                                orientations,
+                                                                                equations)
     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_primary_upper,
                                fstar_primary_lower, fstar_secondary_upper, fstar_secondary_lower,
                                reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                               orientations;
+                               orientations, equations;
                                kernel_configurator_3d(mortar_flux_copy_to_kernel,
                                                       size(surface_flux_values, 1),
                                                       size(surface_flux_values, 2),
@@ -1670,11 +1673,12 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
                                                                                 reverse_lower,
                                                                                 neighbor_ids,
                                                                                 large_sides,
-                                                                                orientations)
+                                                                                orientations,
+                                                                                equations)
     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_primary_upper,
                                fstar_primary_lower, fstar_secondary_upper, fstar_secondary_lower,
                                reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                               orientations;
+                               orientations, equations;
                                kernel_configurator_3d(mortar_flux_copy_to_kernel,
                                                       size(surface_flux_values, 1),
                                                       size(surface_flux_values, 2),

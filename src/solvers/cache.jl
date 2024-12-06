@@ -198,15 +198,25 @@ end
 
 function create_cache_gpu(mesh::TreeMesh{3}, equations,
                           mortar_l2::LobattoLegendreMortarL2, uEltype, cache)
-    fstar_upper_left = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
-                                  nnodes(mortar_l2), nmortars(cache.mortars))
-    fstar_upper_right = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
-                                   nnodes(mortar_l2), nmortars(cache.mortars))
-    fstar_lower_left = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
-                                  nnodes(mortar_l2), nmortars(cache.mortars))
-    fstar_lower_right = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
-                                   nnodes(mortar_l2), nmortars(cache.mortars))
+    fstar_primary_upper_left = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                          nnodes(mortar_l2), nmortars(cache.mortars))
+    fstar_primary_upper_right = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                           nnodes(mortar_l2), nmortars(cache.mortars))
+    fstar_primary_lower_left = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                          nnodes(mortar_l2), nmortars(cache.mortars))
+    fstar_primary_lower_right = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                           nnodes(mortar_l2), nmortars(cache.mortars))
+    fstar_secondary_upper_left = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                            nnodes(mortar_l2), nmortars(cache.mortars))
+    fstar_secondary_upper_right = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                             nnodes(mortar_l2), nmortars(cache.mortars))
+    fstar_secondary_lower_left = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                            nnodes(mortar_l2), nmortars(cache.mortars))
+    fstar_secondary_lower_right = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                             nnodes(mortar_l2), nmortars(cache.mortars))
 
     # Temporary arrays can also be created here
-    (; fstar_upper_left, fstar_upper_right, fstar_lower_left, fstar_lower_right)
+    (; fstar_primary_upper_left, fstar_primary_upper_right, fstar_primary_lower_left,
+     fstar_primary_lower_right, fstar_secondary_upper_left, fstar_secondary_upper_right,
+     fstar_secondary_lower_left, fstar_secondary_lower_right)
 end

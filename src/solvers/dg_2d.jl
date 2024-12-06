@@ -815,7 +815,8 @@ function prolong_mortars_large2small_kernel!(u_upper, u_lower, u, forward_upper,
 end
 
 # Kernel for calculating mortar fluxes
-function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orientations,
+function mortar_flux_kernel!(fstar_primary_upper, fstar_primary_lower, fstar_secondary_upper,
+                             fstar_secondary_lower, u_upper, u_lower, orientations,
                              equations::AbstractEquations{2}, surface_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -829,9 +830,11 @@ function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orienta
         flux_lower_node = surface_flux(u_lower_ll, u_lower_rr, orientation, equations)
 
         @inbounds begin
-            for ii in axes(fstar_upper, 1)
-                fstar_upper[ii, j, k] = flux_upper_node[ii]
-                fstar_lower[ii, j, k] = flux_lower_node[ii]
+            for ii in axes(fstar_primary_upper, 1)
+                fstar_primary_upper[ii, j, k] = flux_upper_node[ii]
+                fstar_primary_lower[ii, j, k] = flux_lower_node[ii]
+                fstar_secondary_upper[ii, j, k] = flux_upper_node[ii]
+                fstar_secondary_lower[ii, j, k] = flux_lower_node[ii]
             end
         end
     end
@@ -840,7 +843,8 @@ function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orienta
 end
 
 # Kernel for calculating mortar fluxes and adding nonconservative fluxes
-function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orientations, large_sides,
+function mortar_flux_kernel!(fstar_primary_upper, fstar_primary_lower, fstar_secondary_upper,
+                             fstar_secondary_lower, u_upper, u_lower, orientations, large_sides,
                              equations::AbstractEquations{2}, surface_flux::Any,
                              nonconservative_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -857,9 +861,11 @@ function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orienta
         flux_lower_node = surface_flux(u_lower_ll, u_lower_rr, orientation, equations)
 
         @inbounds begin
-            for ii in axes(fstar_upper, 1)
-                fstar_upper[ii, j, k] = flux_upper_node[ii]
-                fstar_lower[ii, j, k] = flux_lower_node[ii]
+            for ii in axes(fstar_primary_upper, 1)
+                fstar_primary_upper[ii, j, k] = flux_upper_node[ii]
+                fstar_primary_lower[ii, j, k] = flux_lower_node[ii]
+                fstar_secondary_upper[ii, j, k] = flux_upper_node[ii]
+                fstar_secondary_lower[ii, j, k] = flux_lower_node[ii]
             end
         end
 
@@ -869,13 +875,19 @@ function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orienta
         u_lower1 = (2 - large_side) * u_lower_ll + (large_side - 1) * u_lower_rr
         u_lower2 = (large_side - 1) * u_lower_ll + (2 - large_side) * u_lower_rr
 
-        noncons_flux_upper = nonconservative_flux(u_upper1, u_upper2, orientation, equations)
-        noncons_flux_lower = nonconservative_flux(u_lower1, u_lower2, orientation, equations)
+        noncons_flux_primary_upper = nonconservative_flux(u_upper1, u_upper2, orientation,
+                                                          equations)
+        noncons_flux_primary_lower = nonconservative_flux(u_lower1, u_lower2, orientation,
+                                                          equations)
+        noncons_secondary_upper = nonconservative_flux(u_upper2, u_upper1, orientation, equations)
+        noncons_secondary_lower = nonconservative_flux(u_lower2, u_lower1, orientation, equations)
 
         @inbounds begin
-            for ii in axes(fstar_upper, 1)
-                fstar_upper[ii, j, k] += 0.5 * noncons_flux_upper[ii]
-                fstar_lower[ii, j, k] += 0.5 * noncons_flux_lower[ii]
+            for ii in axes(fstar_primary_upper, 1)
+                fstar_primary_upper[ii, j, k] += 0.5 * noncons_flux_primary_upper[ii]
+                fstar_primary_lower[ii, j, k] += 0.5 * noncons_flux_primary_lower[ii]
+                fstar_secondary_upper[ii, j, k] += 0.5 * noncons_secondary_upper[ii]
+                fstar_secondary_lower[ii, j, k] += 0.5 * noncons_secondary_lower[ii]
             end
         end
     end
@@ -884,9 +896,11 @@ function mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper, u_lower, orienta
 end
 
 # Kernel for copying mortar fluxes small to small and small to large
-function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_values, fstar_upper,
-                                     fstar_lower, reverse_upper, reverse_lower, neighbor_ids,
-                                     large_sides, orientations)
+function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_values,
+                                     fstar_primary_upper, fstar_primary_lower,
+                                     fstar_secondary_upper, fstar_secondary_lower,
+                                     reverse_upper, reverse_lower, neighbor_ids, large_sides,
+                                     orientations)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -907,8 +921,8 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
         #  (large_side - 1) * (orientation - 1) * 4`.
         direction = large_side + 2 * orientation - 2
 
-        surface_flux_values[i, j, direction, upper_element] = fstar_upper[i, j, k]
-        surface_flux_values[i, j, direction, lower_element] = fstar_lower[i, j, k]
+        surface_flux_values[i, j, direction, upper_element] = fstar_primary_upper[i, j, k]
+        surface_flux_values[i, j, direction, lower_element] = fstar_primary_lower[i, j, k]
 
         # Use math expression to enhance performance (against control flow), it is equivalent to,
         # `(2 - large_side) * (2 - orientation) * 2 + 
@@ -919,10 +933,14 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
 
         @inbounds begin
             for ii in axes(reverse_upper, 2) # i.e., ` for ii in axes(reverse_lower, 2)`
-                tmp_surface_flux_values[i, j, direction, large_element] += reverse_upper[j, ii] *
-                                                                           fstar_upper[i, ii, k] +
-                                                                           reverse_lower[j, ii] *
-                                                                           fstar_lower[i, ii, k]
+                tmp_surface_flux_values[i, j, direction, large_element] += fstar_secondary_upper[i,
+                                                                                                 ii,
+                                                                                                 k] *
+                                                                           reverse_upper[j, ii] +
+                                                                           fstar_secondary_lower[i,
+                                                                                                 ii,
+                                                                                                 k] *
+                                                                           reverse_lower[j, ii]
             end
 
             surface_flux_values[i, j, direction, large_element] = tmp_surface_flux_values[i, j,
@@ -1566,28 +1584,37 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
 
     surface_flux_values = cache.elements.surface_flux_values
     tmp_surface_flux_values = zero(similar(surface_flux_values))
-    fstar_upper = cache.fstar_upper
-    fstar_lower = cache.fstar_lower
+    fstar_primary_upper = cache.fstar_primary_upper
+    fstar_primary_lower = cache.fstar_primary_lower
+    fstar_secondary_upper = cache.fstar_secondary_upper
+    fstar_secondary_lower = cache.fstar_secondary_lower
 
-    mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper,
-                                                                u_lower, orientations, equations,
-                                                                surface_flux)
-    mortar_flux_kernel(fstar_upper, fstar_lower, u_upper, u_lower, orientations, equations,
+    mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_primary_upper,
+                                                                fstar_primary_lower,
+                                                                fstar_secondary_upper,
+                                                                fstar_secondary_lower,
+                                                                u_upper, u_lower, orientations,
+                                                                equations, surface_flux)
+    mortar_flux_kernel(fstar_primary_upper, fstar_primary_lower, fstar_secondary_upper,
+                       fstar_secondary_lower, u_upper, u_lower, orientations, equations,
                        surface_flux;
                        kernel_configurator_2d(mortar_flux_kernel, size(u_upper, 3),
                                               length(orientations))...)
 
     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
                                                                                 tmp_surface_flux_values,
-                                                                                fstar_upper,
-                                                                                fstar_lower,
+                                                                                fstar_primary_upper,
+                                                                                fstar_primary_lower,
+                                                                                fstar_secondary_upper,
+                                                                                fstar_secondary_lower,
                                                                                 reverse_upper,
                                                                                 reverse_lower,
                                                                                 neighbor_ids,
                                                                                 large_sides,
                                                                                 orientations)
-    mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_upper,
-                               fstar_lower, reverse_upper, reverse_lower, neighbor_ids, large_sides,
+    mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_primary_upper,
+                               fstar_primary_lower, fstar_secondary_upper, fstar_secondary_lower,
+                               reverse_upper, reverse_lower, neighbor_ids, large_sides,
                                orientations;
                                kernel_configurator_3d(mortar_flux_copy_to_kernel,
                                                       size(surface_flux_values, 1),
@@ -1614,29 +1641,39 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
 
     surface_flux_values = cache.elements.surface_flux_values
     tmp_surface_flux_values = zero(similar(surface_flux_values))
-    fstar_upper = cache.fstar_upper
-    fstar_lower = cache.fstar_lower
+    fstar_primary_upper = cache.fstar_primary_upper
+    fstar_primary_lower = cache.fstar_primary_lower
+    fstar_secondary_upper = cache.fstar_secondary_upper
+    fstar_secondary_lower = cache.fstar_secondary_lower
 
-    mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_upper, fstar_lower, u_upper,
+    mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_primary_upper,
+                                                                fstar_primary_lower,
+                                                                fstar_secondary_upper,
+                                                                fstar_secondary_lower,
+                                                                u_upper,
                                                                 u_lower, orientations, large_sides,
                                                                 equations, surface_flux,
                                                                 nonconservative_flux)
-    mortar_flux_kernel(fstar_upper, fstar_lower, u_upper, u_lower, orientations, large_sides,
+    mortar_flux_kernel(fstar_primary_upper, fstar_primary_lower, fstar_secondary_upper,
+                       fstar_secondary_lower, u_upper, u_lower, orientations, large_sides,
                        equations, surface_flux, nonconservative_flux;
                        kernel_configurator_2d(mortar_flux_kernel, size(u_upper, 3),
                                               length(orientations))...)
 
     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
                                                                                 tmp_surface_flux_values,
-                                                                                fstar_upper,
-                                                                                fstar_lower,
+                                                                                fstar_primary_upper,
+                                                                                fstar_primary_lower,
+                                                                                fstar_secondary_upper,
+                                                                                fstar_secondary_lower,
                                                                                 reverse_upper,
                                                                                 reverse_lower,
                                                                                 neighbor_ids,
                                                                                 large_sides,
                                                                                 orientations)
-    mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_upper,
-                               fstar_lower, reverse_upper, reverse_lower, neighbor_ids, large_sides,
+    mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_primary_upper,
+                               fstar_primary_lower, fstar_secondary_upper, fstar_secondary_lower,
+                               reverse_upper, reverse_lower, neighbor_ids, large_sides,
                                orientations;
                                kernel_configurator_3d(mortar_flux_copy_to_kernel,
                                                       size(surface_flux_values, 1),
@@ -1696,9 +1733,9 @@ end
 # Put everything together into a single function.
 
 # See also `rhs!` function in Trixi.jl
-function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, boundary_conditions,
+function rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
-    du, u = copy_to_gpu!(du_cpu, u_cpu)
+    reset_du!(du)
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg, cache)
@@ -1722,9 +1759,6 @@ function rhs_gpu!(du_cpu, u_cpu, t, mesh::TreeMesh{2}, equations, boundary_condi
     cuda_jacobian!(du, mesh, equations, cache)
 
     cuda_sources!(du, u, t, source_terms, equations, cache)
-
-    du_computed, _ = copy_to_cpu!(du, u)
-    du_cpu .= du_computed
 
     return nothing
 end

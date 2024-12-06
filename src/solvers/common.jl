@@ -1,7 +1,7 @@
 # Some common functions that are shared between the solvers.
 
 # Copy data from CPU to GPU
-function reset_du!(du::CuArray)
+function reset_du!(du::CuArray{Float64})
     du_zero = zero(du)
     du .= du_zero # no scalar indexing
 

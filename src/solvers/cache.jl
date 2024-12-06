@@ -121,12 +121,16 @@ end
 
 function create_cache_gpu(mesh::TreeMesh{2}, equations,
                           mortar_l2::LobattoLegendreMortarL2, uEltype, cache)
-    fstar_upper = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
-                             nmortars(cache.mortars))
-    fstar_lower = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
-                             nmortars(cache.mortars))
+    fstar_primary_upper = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                     nmortars(cache.mortars))
+    fstar_primary_lower = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                     nmortars(cache.mortars))
+    fstar_secondary_upper = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                       nmortars(cache.mortars))
+    fstar_secondary_lower = CUDA.zeros(Float64, nvariables(equations), nnodes(mortar_l2),
+                                       nmortars(cache.mortars))
 
-    (; fstar_upper, fstar_lower)
+    (; fstar_primary_upper, fstar_primary_lower, fstar_secondary_upper, fstar_secondary_lower)
 end
 
 # Create cache specialized for 3D tree mesh

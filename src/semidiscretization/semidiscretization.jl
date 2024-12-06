@@ -14,7 +14,7 @@ function compute_coefficients_gpu(u_ode, func, t, semi::AbstractSemidiscretizati
     u = wrap_array(u_ode, semi)
     u = CuArray(u)
 
-    # Call `compute_coefficients_gpu` defined by the solver
+    # Call `compute_coefficients_gpu` defined in `src/solvers/dg.jl`
     u_computed = compute_coefficients_gpu(u, func, t, mesh_equations_solver_cache(semi)...)
     return u_computed
 end

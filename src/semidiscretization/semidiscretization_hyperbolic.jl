@@ -31,6 +31,6 @@ end
 # Similar to `compute_coefficients` in Trixi.jl but calls GPU kernel
 function compute_coefficients_gpu(t, semi::SemidiscretizationHyperbolic)
 
-    # Call `compute_coefficients_gpu` in `src/semidiscretization/semidiscretization.jl`
+    # Call `compute_coefficients_gpu` defined in `src/semidiscretization/semidiscretization.jl`
     compute_coefficients_gpu(semi.initial_condition, t, semi)
 end

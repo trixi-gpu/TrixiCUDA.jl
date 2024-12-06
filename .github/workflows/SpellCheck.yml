@@ -4,12 +4,13 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   typos-check:
-    name: Spell Check with Typos
+    name: Run Spell Check with Typos
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Actions Repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Check spelling
-        uses: crate-ci/typos@v1.25.0
+
+      - name: Run Typo and Spelling Check
+        uses: crate-ci/typos@v1.28.1
         with:
-          config: .typos.toml # specify the custom config file
+          config: .typos.toml # Specify the custom configuration file

@@ -1,4 +1,5 @@
-name: TagBot
+name: Tag Bot
+
 on:
   issue_comment:
     types:
@@ -6,7 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       lookback:
-        default: "3"
+        default: '3'
+
 permissions:
   actions: read
   checks: read
@@ -20,12 +22,15 @@ permissions:
   repository-projects: read
   security-events: read
   statuses: read
+
 jobs:
   TagBot:
+    name: Automate Tag Process
     if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
     runs-on: ubuntu-latest
     steps:
-      - uses: JuliaRegistries/TagBot@v1
+      - name: Run Julia TagBot
+        uses: JuliaRegistries/TagBot@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ssh: ${{ secrets.DOCUMENTER_KEY }}

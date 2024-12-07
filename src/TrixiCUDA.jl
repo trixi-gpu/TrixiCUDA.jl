@@ -33,14 +33,14 @@ using SciMLBase: ODEProblem, FullSpecialize
 
 using StaticArrays: SVector
 
+# Change to use the Base.log and Base.sqrt - need to be fixed to avoid outputs
+set_log_type!("log_Base")
+set_sqrt_type!("sqrt_Base")
+
 # Include other source files
 include("auxiliary/auxiliary.jl")
 include("semidiscretization/semidiscretization.jl")
 include("solvers/solvers.jl")
-
-# Change to use the Base.log and Base.sqrt - need to be fixed to avoid outputs
-set_log_type!("log_Base")
-set_sqrt_type!("sqrt_Base")
 
 # Export the public APIs
 export SemidiscretizationHyperbolicGPU

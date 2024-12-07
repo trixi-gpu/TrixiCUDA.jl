@@ -9,15 +9,13 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
-TrixiBase = "9a0f1c46-06d5-4909-a5a3-ce25d3fa3284"
 
 [compat]
 BenchmarkTools = "1"
 CUDA = "5"
 SciMLBase = "2"
 StaticArrays = "1"
-Trixi = "0.8, 0.9"
-TrixiBase = "0.1"
+Trixi = "0.8, 0.9.8 - 0.9.8"
 julia = "1.10"
 
 [extras]

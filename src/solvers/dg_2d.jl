@@ -935,13 +935,9 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
 
         @inbounds begin
             for ii in axes(reverse_upper, 2) # i.e., ` for ii in axes(reverse_lower, 2)`
-                tmp_surface_flux_values[i, j, direction, large_element] += fstar_secondary_upper[i,
-                                                                                                 ii,
-                                                                                                 k] *
+                tmp_surface_flux_values[i, j, direction, large_element] += fstar_secondary_upper[i, ii, k] *
                                                                            reverse_upper[j, ii] +
-                                                                           fstar_secondary_lower[i,
-                                                                                                 ii,
-                                                                                                 k] *
+                                                                           fstar_secondary_lower[i, ii, k] *
                                                                            reverse_lower[j, ii]
             end
 

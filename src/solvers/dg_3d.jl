@@ -96,11 +96,10 @@ function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr
 end
 
 # Kernel for calculating symmetric and nonconservative fluxes
-function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2,
-                                        symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2,
-                                        noncons_flux_arr3, u, derivative_split,
-                                        equations::AbstractEquations{3}, symmetric_flux::Any,
-                                        nonconservative_flux::Any)
+function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2, symmetric_flux_arr3,
+                                        noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3,
+                                        u, derivative_split, equations::AbstractEquations{3},
+                                        symmetric_flux::Any, nonconservative_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -174,9 +173,9 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
 end
 
 # Kernel for calculating symmetric and nonconservative volume integrals
-function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2,
-                                 symmetric_flux_arr3, noncons_flux_arr1, noncons_flux_arr2,
-                                 noncons_flux_arr3)
+function volume_integral_kernel!(du, derivative_split,
+                                 symmetric_flux_arr1, symmetric_flux_arr2, symmetric_flux_arr3,
+                                 noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -598,10 +597,8 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
                                                left_element]
             interfaces_u[2, j1, j2, j3, k] = u[j1,
                                                isequal(orientation, 1) + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
-                                               isequal(orientation, 1) * j2 + isequal(orientation,
-                                                                                      2) + isequal(orientation, 3) * j3,
-                                               isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation,
-                                                                                                                     3),
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) + isequal(orientation, 3) * j3,
+                                               isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation, 3),
                                                right_element]
         end
     end
@@ -682,8 +679,7 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
 
         @inbounds begin
             surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k]
-            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
-                                                                                         k]
+            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2, k]
         end
     end
 
@@ -710,15 +706,12 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_l
         right_direction = 2 * orientations[k] - 1
 
         @inbounds begin
-            surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2,
-                                                                                       k] +
+            surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k] +
                                                                       0.5 *
                                                                       noncons_left_arr[i, j1, j2, k]
-            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2,
-                                                                                         k] +
+            surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2, k] +
                                                                         0.5 *
-                                                                        noncons_right_arr[i, j1, j2,
-                                                                                          k]
+                                                                        noncons_right_arr[i, j1, j2, k]
         end
     end
 
@@ -750,10 +743,8 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
                                                element] * (2 - side) # Set to 0 instead of NaN
             boundaries_u[2, j1, j2, j3, k] = u[j1,
                                                isequal(orientation, 1) + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
-                                               isequal(orientation, 1) * j2 + isequal(orientation,
-                                                                                      2) + isequal(orientation, 3) * j3,
-                                               isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation,
-                                                                                                                     3),
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) + isequal(orientation, 3) * j3,
+                                               isequal(orientation, 1) * j3 + isequal(orientation, 2) * j3 + isequal(orientation, 3),
                                                element] * (side - 1) # Set to 0 instead of NaN
         end
     end
@@ -848,34 +839,26 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
         @inbounds begin
             u_upper_left[2, i, j1, j2, k] = u[i,
                                               isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
-                                              isequal(orientation, 1) * j1 + isequal(orientation,
-                                                                                     2) + isequal(orientation, 3) * j2,
-                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-                                                                                                                    3),
+                                              isequal(orientation, 1) * j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
                                               upper_left_element] * (2 - large_side)
 
             u_upper_right[2, i, j1, j2, k] = u[i,
                                                isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
-                                               isequal(orientation, 1) * j1 + isequal(orientation,
-                                                                                      2) + isequal(orientation, 3) * j2,
-                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-                                                                                                                     3),
+                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
                                                upper_right_element] * (2 - large_side)
 
             u_lower_left[2, i, j1, j2, k] = u[i,
                                               isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
-                                              isequal(orientation, 1) * j1 + isequal(orientation,
-                                                                                     2) + isequal(orientation, 3) * j2,
-                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-                                                                                                                    3),
+                                              isequal(orientation, 1) * j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
                                               lower_left_element] * (2 - large_side)
 
             u_lower_right[2, i, j1, j2, k] = u[i,
                                                isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
-                                               isequal(orientation, 1) * j1 + isequal(orientation,
-                                                                                      2) + isequal(orientation, 3) * j2,
-                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-                                                                                                                     3),
+                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                               isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
                                                lower_right_element] * (2 - large_side)
 
             u_upper_left[1, i, j1, j2, k] = u[i,
@@ -963,37 +946,29 @@ function prolong_mortars_large2small_kernel!(tmp_upper_left, tmp_upper_right, tm
                 tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
                                                            u[i,
                                                              isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                             isequal(orientation, 1) * j1j1 + isequal(orientation,
-                                                                                                      2) + isequal(orientation, 3) * j2,
-                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-                                                                                                                                   3),
+                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
                                                              large_element] * (large_side - 1)
 
                 tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
                                                             u[i,
                                                               isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                              isequal(orientation, 1) * j1j1 + isequal(orientation,
-                                                                                                       2) + isequal(orientation, 3) * j2,
-                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-                                                                                                                                    3),
+                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
                                                               large_element] * (large_side - 1)
 
                 tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
                                                            u[i,
                                                              isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                             isequal(orientation, 1) * j1j1 + isequal(orientation,
-                                                                                                      2) + isequal(orientation, 3) * j2,
-                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-                                                                                                                                   3),
+                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
                                                              large_element] * (large_side - 1)
 
                 tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
                                                             u[i,
                                                               isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                              isequal(orientation, 1) * j1j1 + isequal(orientation,
-                                                                                                       2) + isequal(orientation, 3) * j2,
-                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-                                                                                                                                    3),
+                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
                                                               large_element] * (large_side - 1)
             end
         end
@@ -1053,11 +1028,9 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
 
     if (i <= size(u_upper_left, 3) && j <= size(u_upper_left, 4) && k <= length(orientations))
         u_upper_left_ll, u_upper_left_rr = get_surface_node_vars(u_upper_left, equations, i, j, k)
-        u_upper_right_ll, u_upper_right_rr = get_surface_node_vars(u_upper_right, equations, i, j,
-                                                                   k)
+        u_upper_right_ll, u_upper_right_rr = get_surface_node_vars(u_upper_right, equations, i, j, k)
         u_lower_left_ll, u_lower_left_rr = get_surface_node_vars(u_lower_left, equations, i, j, k)
-        u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j,
-                                                                   k)
+        u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j, k)
 
         orientation = orientations[k]
 
@@ -1101,11 +1074,9 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
 
     if (i <= size(u_upper_left, 3) && j <= size(u_upper_left, 4) && k <= length(orientations))
         u_upper_left_ll, u_upper_left_rr = get_surface_node_vars(u_upper_left, equations, i, j, k)
-        u_upper_right_ll, u_upper_right_rr = get_surface_node_vars(u_upper_right, equations, i, j,
-                                                                   k)
+        u_upper_right_ll, u_upper_right_rr = get_surface_node_vars(u_upper_right, equations, i, j, k)
         u_lower_left_ll, u_lower_left_rr = get_surface_node_vars(u_lower_left, equations, i, j, k)
-        u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j,
-                                                                   k)
+        u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j, k)
 
         orientation = orientations[k]
         large_side = large_sides[k]
@@ -1145,29 +1116,21 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         u_lower_right2 = (large_side - 1) * u_lower_right_ll + (2 - large_side) * u_lower_right_rr
 
         noncons_flux_primary_upper_left = nonconservative_flux(u_upper_left1, u_upper_left2,
-                                                               orientation,
-                                                               equations)
+                                                               orientation, equations)
         noncons_flux_primary_upper_right = nonconservative_flux(u_upper_right1, u_upper_right2,
-                                                                orientation,
-                                                                equations)
+                                                                orientation, equations)
         noncons_flux_primary_lower_left = nonconservative_flux(u_lower_left1, u_lower_left2,
-                                                               orientation,
-                                                               equations)
+                                                               orientation, equations)
         noncons_flux_primary_lower_right = nonconservative_flux(u_lower_right1, u_lower_right2,
-                                                                orientation,
-                                                                equations)
+                                                                orientation, equations)
         noncons_flux_secondary_upper_left = nonconservative_flux(u_upper_left2, u_upper_left1,
-                                                                 orientation,
-                                                                 equations)
+                                                                 orientation, equations)
         noncons_flux_secondary_upper_right = nonconservative_flux(u_upper_right2, u_upper_right1,
-                                                                  orientation,
-                                                                  equations)
+                                                                  orientation, equations)
         noncons_flux_secondary_lower_left = nonconservative_flux(u_lower_left2, u_lower_left1,
-                                                                 orientation,
-                                                                 equations)
+                                                                 orientation, equations)
         noncons_flux_secondary_lower_right = nonconservative_flux(u_lower_right2, u_lower_right1,
-                                                                  orientation,
-                                                                  equations)
+                                                                  orientation, equations)
 
         @inbounds begin
             for ii in axes(fstar_primary_upper_left, 1)
@@ -1175,14 +1138,10 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
                 fstar_primary_upper_right[ii, i, j, k] += 0.5 * noncons_flux_primary_upper_right[ii]
                 fstar_primary_lower_left[ii, i, j, k] += 0.5 * noncons_flux_primary_lower_left[ii]
                 fstar_primary_lower_right[ii, i, j, k] += 0.5 * noncons_flux_primary_lower_right[ii]
-                fstar_secondary_upper_left[ii, i, j, k] += 0.5 *
-                                                           noncons_flux_secondary_upper_left[ii]
-                fstar_secondary_upper_right[ii, i, j, k] += 0.5 *
-                                                            noncons_flux_secondary_upper_right[ii]
-                fstar_secondary_lower_left[ii, i, j, k] += 0.5 *
-                                                           noncons_flux_secondary_lower_left[ii]
-                fstar_seondary_lower_right[ii, i, j, k] += 0.5 *
-                                                           noncons_flux_secondary_lower_right[ii]
+                fstar_secondary_upper_left[ii, i, j, k] += 0.5 * noncons_flux_secondary_upper_left[ii]
+                fstar_secondary_upper_right[ii, i, j, k] += 0.5 * noncons_flux_secondary_upper_right[ii]
+                fstar_secondary_lower_left[ii, i, j, k] += 0.5 * noncons_flux_secondary_lower_left[ii]
+                fstar_seondary_lower_right[ii, i, j, k] += 0.5 * noncons_flux_secondary_lower_right[ii]
             end
         end
     end
@@ -1227,22 +1186,10 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_upper_left, tmp_up
         # Please also check the original code in Trixi.jl when you modify this code.
         direction = 2 * orientation + large_side - 2
 
-        surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i,
-                                                                                                 j1,
-                                                                                                 j2,
-                                                                                                 k]
-        surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i,
-                                                                                                   j1,
-                                                                                                   j2,
-                                                                                                   k]
-        surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i,
-                                                                                                 j1,
-                                                                                                 j2,
-                                                                                                 k]
-        surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i,
-                                                                                                   j1,
-                                                                                                   j2,
-                                                                                                   k]
+        surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
+        surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
+        surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
+        surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
 
         # Use simple math expression to enhance the performance (against control flow), 
         # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
@@ -1257,25 +1204,13 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_upper_left, tmp_up
         @inbounds begin
             for j1j1 in axes(reverse_upper, 2)
                 tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-                                                                       fstar_secondary_upper_left[i,
-                                                                                                  j1j1,
-                                                                                                  j2,
-                                                                                                  k]
+                                                                       fstar_secondary_upper_left[i, j1j1, j2, k]
                 tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-                                                                        fstar_secondary_upper_right[i,
-                                                                                                    j1j1,
-                                                                                                    j2,
-                                                                                                    k]
+                                                                        fstar_secondary_upper_right[i, j1j1, j2, k]
                 tmp_lower_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-                                                                       fstar_secondary_lower_left[i,
-                                                                                                  j1j1,
-                                                                                                  j2,
-                                                                                                  k]
+                                                                       fstar_secondary_lower_left[i, j1j1, j2, k]
                 tmp_lower_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-                                                                        fstar_secondary_lower_right[i,
-                                                                                                    j1j1,
-                                                                                                    j2,
-                                                                                                    k]
+                                                                        fstar_secondary_lower_right[i, j1j1, j2, k]
             end
         end
     end
@@ -1307,39 +1242,25 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
 
         @inbounds begin
             for j2j2 in axes(reverse_lower, 2)
-                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2,
-                                                                                              j2j2] *
-                                                                                tmp_upper_left[i,
-                                                                                               j1,
-                                                                                               j2j2,
+                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
+                                                                                tmp_upper_left[i, j1, j2j2,
                                                                                                direction,
                                                                                                large_element]
-                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2,
-                                                                                              j2j2] *
-                                                                                tmp_upper_right[i,
-                                                                                                j1,
-                                                                                                j2j2,
+                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
+                                                                                tmp_upper_right[i, j1, j2j2,
                                                                                                 direction,
                                                                                                 large_element]
-                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2,
-                                                                                              j2j2] *
-                                                                                tmp_lower_left[i,
-                                                                                               j1,
-                                                                                               j2j2,
+                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
+                                                                                tmp_lower_left[i, j1, j2j2,
                                                                                                direction,
                                                                                                large_element]
-                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2,
-                                                                                              j2j2] *
-                                                                                tmp_lower_right[i,
-                                                                                                j1,
-                                                                                                j2j2,
+                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
+                                                                                tmp_lower_right[i, j1, j2j2,
                                                                                                 direction,
                                                                                                 large_element]
             end
 
-            surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i,
-                                                                                               j1,
-                                                                                               j2,
+            surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
                                                                                                direction,
                                                                                                large_element]
         end
@@ -1367,10 +1288,8 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values,
                                      surface_flux_values[i, j1, j3, 3, k] * isequal(j2, 1) +
                                      surface_flux_values[i, j1, j2, 5, k] * isequal(j3, 1)) *
                                     factor_arr[1]
-            du[i, j1, j2, j3, k] += (surface_flux_values[i, j2, j3, 2, k] *
-                                     isequal(j1, u2) +
-                                     surface_flux_values[i, j1, j3, 4, k] *
-                                     isequal(j2, u2) +
+            du[i, j1, j2, j3, k] += (surface_flux_values[i, j2, j3, 2, k] * isequal(j1, u2) +
+                                     surface_flux_values[i, j1, j3, 4, k] * isequal(j2, u2) +
                                      surface_flux_values[i, j1, j2, 6, k] * isequal(j3, u2)) *
                                     factor_arr[2]
         end

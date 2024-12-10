@@ -23,7 +23,7 @@ include("../test_macros.jl")
     semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition_convergence_test,
                                                solver)
 
-    tspan = (0.0, 1.0)
+    tspan = tspan_gpu = (0.0, 1.0)
     t = t_gpu = 0.0
 
     # Semi on CPU
@@ -43,7 +43,7 @@ include("../test_macros.jl")
     du = Trixi.wrap_array(du_ode, mesh, equations, solver, cache)
 
     # ODE on GPU
-    ode_gpu = semidiscretizeGPU(semi_gpu, tspan)
+    ode_gpu = semidiscretizeGPU(semi_gpu, tspan_gpu)
     u_gpu = copy(ode_gpu.u0)
     du_gpu = similar(u_gpu)
 

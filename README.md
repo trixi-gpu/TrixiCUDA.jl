@@ -56,7 +56,7 @@ Our current focus is on the semidiscretization of PDEs. The table below shows th
 | `DGMultiMesh`      | 1D, 2D, 3D        | `DGMulti`   | 🟡 Planned      |
 
 # Example of PDE Semidiscretization on GPU
-Let's take a look at a simple example to see how to use **TrixiCUDA.jl** to run the simulation on the GPU (now only CUDA-compatible).
+Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the simulation on the GPU (now only CUDA-compatible).
 
 ```julia
 # Take 1D linear advection equation as an example

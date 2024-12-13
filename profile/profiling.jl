@@ -53,39 +53,39 @@ TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                 equations_gpu, solver_gpu.volume_integral, solver_gpu,
                                 cache_gpu)
 
-# Prolong to interfaces test
-TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
+# # Prolong to interfaces test
+# TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
 
-# Interface flux test
-TrixiCUDA.cuda_interface_flux!(mesh_gpu,
-                               Trixi.have_nonconservative_terms(equations_gpu),
-                               equations_gpu, solver_gpu, cache_gpu)
+# # Interface flux test
+# TrixiCUDA.cuda_interface_flux!(mesh_gpu,
+#                                Trixi.have_nonconservative_terms(equations_gpu),
+#                                equations_gpu, solver_gpu, cache_gpu)
 
-# Prolong to boundaries test
-TrixiCUDA.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu,
-                                   equations_gpu, cache_gpu)
+# # Prolong to boundaries test
+# TrixiCUDA.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu,
+#                                    equations_gpu, cache_gpu)
 
-# Boundary flux test
-TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
-                              Trixi.have_nonconservative_terms(equations_gpu),
-                              equations_gpu, solver_gpu, cache_gpu)
+# # Boundary flux test
+# TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
+#                               Trixi.have_nonconservative_terms(equations_gpu),
+#                               equations_gpu, solver_gpu, cache_gpu)
 
-# Prolong to mortars test
-TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
-                                TrixiCUDA.check_cache_mortars(cache_gpu),
-                                solver_gpu, cache_gpu)
+# # Prolong to mortars test
+# TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
+#                                 TrixiCUDA.check_cache_mortars(cache_gpu),
+#                                 solver_gpu, cache_gpu)
 
-# Mortar flux test
-TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
-                            Trixi.have_nonconservative_terms(equations_gpu),
-                            equations_gpu, solver_gpu, cache_gpu)
+# # Mortar flux test
+# TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+#                             Trixi.have_nonconservative_terms(equations_gpu),
+#                             equations_gpu, solver_gpu, cache_gpu)
 
-# Surface integral test
-TrixiCUDA.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
+# # Surface integral test
+# TrixiCUDA.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
-# Jacobian test
-TrixiCUDA.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
+# # Jacobian test
+# TrixiCUDA.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
 
-# Sources test
-TrixiCUDA.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu,
-                        equations_gpu, cache_gpu)
+# # Sources test
+# TrixiCUDA.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu,
+#                         equations_gpu, cache_gpu)

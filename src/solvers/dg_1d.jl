@@ -704,7 +704,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     element_ids_dg = CUDA.zeros(Int, length(alpha))
     element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
-    # See `pure_and_blended_element_ids!` in Trixi.jl
+    # See `pure_and_blended_element_ids!` in Trixi.jl (now deprecated)
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
                                                                                               alpha,
@@ -773,7 +773,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     element_ids_dg = CUDA.zeros(Int, length(alpha))
     element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
-    # See `pure_and_blended_element_ids!` in Trixi.jl
+    # See `pure_and_blended_element_ids!` in Trixi.jl (now deprecated)
     pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
                                                                                               element_ids_dgfv,
                                                                                               alpha,

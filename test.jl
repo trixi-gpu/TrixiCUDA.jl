@@ -2,7 +2,7 @@ using Trixi, TrixiCUDA
 
 RealT = Float32 # set precision
 
-equations = CompressibleEulerEquations1D(1.4f0)
+equations = CompressibleEulerEquations2D(1.4f0)
 
 initial_condition = initial_condition_weak_blast_wave
 
@@ -19,8 +19,8 @@ volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                  volume_flux_fv = surface_flux)
 solver = DGSEM(basis, surface_flux, volume_integral)
 
-coordinates_min = -2.0f0
-coordinates_max = 2.0f0
+coordinates_min = (-2.0f0, -2.0f0)
+coordinates_max = (2.0f0, 2.0f0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 5,
                 n_cells_max = 10_000, RealT = RealT)
@@ -81,6 +81,19 @@ TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
                               equations_gpu, solver_gpu, cache_gpu)
 Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                           solver.surface_integral, solver)
+
+TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
+                                TrixiCUDA.check_cache_mortars(cache_gpu),
+                                solver_gpu, cache_gpu)
+Trixi.prolong2mortars!(cache, u, mesh, equations, solver.mortar,
+                       solver.surface_integral, solver)
+
+TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                            Trixi.have_nonconservative_terms(equations_gpu),
+                            equations_gpu, solver_gpu, cache_gpu)
+Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+                        Trixi.have_nonconservative_terms(equations), equations,
+                        solver.mortar, solver.surface_integral, solver, cache)
 
 TrixiCUDA.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral,

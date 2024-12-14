@@ -1,7 +1,7 @@
 # Some common functions that are shared between the solvers.
 
 # Copy data from CPU to GPU
-function reset_du!(du::CuArray{Float64})
+function reset_du!(du::CuArray)
     du_zero = zero(du)
     du .= du_zero # no scalar indexing
 
@@ -9,10 +9,10 @@ function reset_du!(du::CuArray{Float64})
 end
 
 # Set diagonal entries of a matrix to zeros
-function set_diagonal_to_zero!(A::Array{Float64})
+function set_diagonal_to_zero!(A::Array)
     n = min(size(A)...)
     for i in 1:n
-        A[i, i] = 0.0 # change back to `Float32`
+        A[i, i] = zero(eltype(A))
     end
     return nothing
 end

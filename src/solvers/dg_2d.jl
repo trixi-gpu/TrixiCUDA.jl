@@ -1048,6 +1048,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
+
     derivative_split = dg.basis.derivative_split
     set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
 
@@ -1078,6 +1079,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     RealT = eltype(du)
 
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
+
     derivative_split = dg.basis.derivative_split
     set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
 
@@ -1321,7 +1323,7 @@ end
 # Pack kernels for calculating interface fluxes
 function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False, equations, dg::DGSEM,
                               cache)
-    RealT = real(dg)
+    RealT = eltype(cache.elements)
 
     surface_flux = dg.surface_integral.surface_flux
 
@@ -1355,7 +1357,7 @@ end
 # Pack kernels for calculating interface fluxes
 function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::True, equations, dg::DGSEM,
                               cache)
-    RealT = real(dg)
+    RealT = eltype(cache.elements)
 
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 

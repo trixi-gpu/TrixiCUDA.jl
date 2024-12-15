@@ -13,7 +13,7 @@ end
 
 # Create cache specialized for 1D tree mesh
 function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DGSEM, RealT, uEltype)
-    # Get cells for which an element needs to be created (i.e. all leaf cells)
+    # Get cells for which an element needs to be created (i.e., all leaf cells)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
     elements = init_elements(leaf_cell_ids, mesh, equations, dg.basis, RealT, uEltype)
@@ -63,7 +63,7 @@ end
 # Create cache specialized for 2D tree mesh
 function create_cache_gpu(mesh::TreeMesh{2}, equations,
                           dg::DGSEM, RealT, uEltype)
-    # Get cells for which an element needs to be created (i.e. all leaf cells)
+    # Get cells for which an element needs to be created (i.e., all leaf cells)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
     elements = init_elements(leaf_cell_ids, mesh, equations, dg.basis, RealT, uEltype)
@@ -136,7 +136,7 @@ end
 # Create cache specialized for 3D tree mesh
 function create_cache_gpu(mesh::TreeMesh{3}, equations,
                           dg::DGSEM, RealT, uEltype)
-    # Get cells for which an element needs to be created (i.e. all leaf cells)
+    # Get cells for which an element needs to be created (i.e., all leaf cells)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
     elements = init_elements(leaf_cell_ids, mesh, equations, dg.basis, RealT, uEltype)

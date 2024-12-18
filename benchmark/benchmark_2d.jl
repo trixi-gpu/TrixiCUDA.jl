@@ -71,7 +71,7 @@ CUDA.@time TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                            Trixi.have_nonconservative_terms(equations_gpu),
                                            equations_gpu, solver_gpu.volume_integral, solver_gpu,
                                            cache_gpu)
-@info "Time for calc_volume_integral! on CPU"
+@info "Time for volume_integral! on CPU"
 @time Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                   equations, solver.volume_integral, solver, cache)
 
@@ -86,7 +86,7 @@ CUDA.@time TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, ca
 CUDA.@time TrixiCUDA.cuda_interface_flux!(mesh_gpu,
                                           Trixi.have_nonconservative_terms(equations_gpu),
                                           equations_gpu, solver_gpu, cache_gpu)
-@info "Time for calc_interface_flux! on CPU"
+@info "Time for interface_flux! on CPU"
 @time Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
                                  Trixi.have_nonconservative_terms(equations), equations,
                                  solver.surface_integral, solver, cache)
@@ -103,7 +103,7 @@ CUDA.@time TrixiCUDA.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditio
 CUDA.@time TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
                                          Trixi.have_nonconservative_terms(equations_gpu),
                                          equations_gpu, solver_gpu, cache_gpu)
-@info "Time for calc_boundary_flux! on CPU"
+@info "Time for boundary_flux! on CPU"
 @time Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                 solver.surface_integral, solver)
 
@@ -121,7 +121,7 @@ CUDA.@time TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
 CUDA.@time TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
                                        Trixi.have_nonconservative_terms(equations_gpu),
                                        equations_gpu, solver_gpu, cache_gpu)
-@info "Time for calc_mortar_flux! on CPU"
+@info "Time for mortar_flux! on CPU"
 @time Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
                               Trixi.have_nonconservative_terms(equations), equations,
                               solver.mortar, solver.surface_integral, solver, cache)
@@ -129,21 +129,21 @@ CUDA.@time TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(c
 # Surface integral
 @info "Time for surface_integral! on GPU"
 CUDA.@time TrixiCUDA.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
-@info "Time for calc_surface_integral! on CPU"
+@info "Time for surface_integral! on CPU"
 @time Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral,
                                    solver, cache)
 
 # Jacobian
 @info "Time for jacobian! on GPU"
 CUDA.@time TrixiCUDA.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
-@info "Time for apply_jacobian! on CPU"
+@info "Time for jacobian! on CPU"
 @time Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
 
 # Sources terms
 @info "Time for sources! on GPU"
 CUDA.@time TrixiCUDA.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu,
                                    equations_gpu, cache_gpu)
-@info "Time for calc_sources! on CPU"
+@info "Time for sources! on CPU"
 @time Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
 
 # Semidiscretization process

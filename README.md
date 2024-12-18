@@ -15,8 +15,12 @@ TrixiCUDA.jl offers CUDA acceleration for solving hyperbolic PDEs.
 - The general documentation is now available at https://trixi-gpu.github.io (in development).  
 - Documentation specific to this package can be found at https://trixi-gpu.github.io/TrixiCUDA.jl/dev (in development).
 
-*Update on Sep 16, 2024*:
-- GPU-related tests are run now locally rather than on CI. Once the package is ready to publish, we will set up JuliaGPU CI infrastructure to run tests on a system with a GPU using [JuliaGPU Buildkite](https://github.com/JuliaGPU/buildkite).
+*Update on Oct 11, 2024*:
+
+- Development on Julia v1.11 is currently on hold due to an [incompatibility issue](https://github.com/trixi-framework/Trixi.jl/issues/2108) between the latest version of CUDA.jl and Trixi.jl. The fix is in progress.
+    - Trace the root issue in [Trixi.jl Issue #1789](https://github.com/trixi-framework/Trixi.jl/issues/1789): SciMLBase.jl has dropped support for arrays of `SVector`.
+    - [Trixi.jl PR #2150](https://github.com/trixi-framework/Trixi.jl/pull/2150) is opened to replace arrays of `SVector` using RecursiveArrayTools.jl
+    - It requires updating RecursiveArrayTools.jl, which is compatible with Julia >= v1.10. However, Trixi.jl has some legacy tests relying on Julia v1.8 and v1.9. See more discussions in [Trixi.jl PR #2194](https://github.com/trixi-framework/Trixi.jl/pull/2194).
 
 
 # Package Installation
@@ -56,6 +60,9 @@ Our current focus is on the semidiscretization of PDEs. The table below shows th
 | `DGMultiMesh`      | 1D, 2D, 3D        | `DGMulti`   | 🟡 Planned      |
 
 # Example of PDE Semidiscretization on GPU
+
+⚠️ **Warning:** Due to the cache initialization process being moved to the GPU for performance optimization, some examples may raise errors because of mismatched CPU and GPU APIs. Please wait for an update.
+
 Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the simulation on the GPU (now only CUDA-compatible).
 
 ```julia
@@ -108,7 +115,8 @@ summary_callback()
 ```
 
 # Benchmarks
-Please check benchmark branch and this part will be updated soon.
+Please refer to the benchmark directory to conduct your own benchmarking. For example, check out [example.jl](./benchmark/example.jl) under the benchmark. The official benchmarking report for the semidiscretization process will be updated soon.
+
 
 # Show Your Support
 We always welcome new contributors to join us in future development. Please feel free to reach out if you would like to get involved!

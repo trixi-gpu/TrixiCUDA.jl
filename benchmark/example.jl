@@ -5,28 +5,19 @@ using BenchmarkTools
 # Set the precision
 RealT = Float32
 
-# Set up the problem
-equations = CompressibleEulerEquations1D(1.4f0)
+equations = IdealGlmMhdEquations3D(RealT(5 / 3))
 
-initial_condition = initial_condition_weak_blast_wave
+initial_condition = initial_condition_convergence_test
 
-surface_flux = flux_lax_friedrichs
-volume_flux = flux_shima_etal
-basis = LobattoLegendreBasis(RealT, 3)
-indicator_sc = IndicatorHennemannGassner(equations, basis,
-                                         alpha_max = 0.5f0,
-                                         alpha_min = 0.001f0,
-                                         alpha_smooth = true,
-                                         variable = density_pressure)
-volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
-                                                 volume_flux_dg = volume_flux,
-                                                 volume_flux_fv = surface_flux)
-solver = DGSEM(basis, surface_flux, volume_integral)
+volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+solver = DGSEM(polydeg = 3,
+               surface_flux = (flux_lax_friedrichs, flux_nonconservative_powell),
+               volume_integral = VolumeIntegralFluxDifferencing(volume_flux), RealT = RealT)
 
-coordinates_min = -2.0f0
-coordinates_max = 2.0f0
+coordinates_min = (-1.0f0, -1.0f0, -1.0f0)
+coordinates_max = (1.0f0, 1.0f0, 1.0f0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 5,
+                initial_refinement_level = 2,
                 n_cells_max = 10_000, RealT = RealT)
 
 # Cache initialization
@@ -35,7 +26,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 @info "Time for cache initialization on GPU"
 CUDA.@time semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
 
-tspan = tspan_gpu = (0.0f0, 0.4f0)
+tspan = tspan_gpu = (0.0f0, 1.0f0)
 t = t_gpu = 0.0f0
 
 # Semi on CPU
@@ -106,6 +97,25 @@ CUDA.@time TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gp
 @info "Time for boundary_flux! on CPU"
 @time Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                 solver.surface_integral, solver)
+
+# Prolong to mortars
+@info "Time for prolong2mortars! on GPU"
+CUDA.@time TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
+                                           TrixiCUDA.check_cache_mortars(cache_gpu),
+                                           solver_gpu, cache_gpu)
+@info "Time for prolong2mortars! on CPU"
+@time Trixi.prolong2mortars!(cache, u, mesh, equations,
+                             solver.mortar, solver.surface_integral, solver)
+
+# Mortar flux
+@info "Time for mortar_flux! on GPU"
+CUDA.@time TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                                       Trixi.have_nonconservative_terms(equations_gpu),
+                                       equations_gpu, solver_gpu, cache_gpu)
+@info "Time for mortar_flux! on CPU"
+@time Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+                              Trixi.have_nonconservative_terms(equations), equations,
+                              solver.mortar, solver.surface_integral, solver, cache)
 
 # Surface integral
 @info "Time for surface_integral! on GPU"

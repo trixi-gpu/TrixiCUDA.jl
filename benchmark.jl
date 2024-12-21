@@ -2,24 +2,27 @@ using Trixi, TrixiCUDA
 using CUDA
 using BenchmarkTools
 
-equations = CompressibleEulerEquations3D(1.4)
+equations = IdealGlmMhdEquations3D(5 / 3)
 
 initial_condition = initial_condition_convergence_test
-solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
-coordinates_min = (0.0, 0.0, 0.0)
-coordinates_max = (2.0, 2.0, 2.0)
-refinement_patches = ((type = "box", coordinates_min = (0.5, 0.5, 0.5),
-                       coordinates_max = (1.5, 1.5, 1.5)),)
+volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+solver = DGSEM(polydeg = 3,
+               surface_flux = (flux_hlle,
+                               flux_nonconservative_powell),
+               volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+
+coordinates_min = (-1.0, -1.0, -1.0)
+coordinates_max = (1.0, 1.0, 1.0)
+refinement_patches = ((type = "box", coordinates_min = (-0.5, -0.5, -0.5),
+                       coordinates_max = (0.5, 0.5, 0.5)),)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 2,
                 refinement_patches = refinement_patches,
                 n_cells_max = 10_000)
 
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                    source_terms = source_terms_convergence_test)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
-                                           source_terms = source_terms_convergence_test)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
 
 tspan = tspan_gpu = (0.0, 1.0)
 t = t_gpu = 0.0
@@ -73,11 +76,10 @@ TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
                               equations_gpu, solver_gpu, cache_gpu)
 
 # Prolong to mortars test
-@benchmark CUDA.@sync TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
-                                                      TrixiCUDA.check_cache_mortars(cache_gpu),
-                                                      solver_gpu, cache_gpu)
+TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
+                                TrixiCUDA.check_cache_mortars(cache_gpu),
+                                solver_gpu, cache_gpu)
 
-# # Mortar flux test
-# @benchmark CUDA.@sync TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
-#                             Trixi.have_nonconservative_terms(equations_gpu),
-#                             equations_gpu, solver_gpu, cache_gpu)
+@benchmark CUDA.@sync TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                                                  Trixi.have_nonconservative_terms(equations_gpu),
+                                                  equations_gpu, solver_gpu, cache_gpu)

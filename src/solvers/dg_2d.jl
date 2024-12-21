@@ -902,7 +902,7 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
                                      fstar_primary_upper, fstar_primary_lower,
                                      fstar_secondary_upper, fstar_secondary_lower,
                                      reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                                     orientations, equations::AbstractEquations{2})
+                                     orientations)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -1619,12 +1619,11 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
                                                                                 reverse_lower,
                                                                                 neighbor_ids,
                                                                                 large_sides,
-                                                                                orientations,
-                                                                                equations)
+                                                                                orientations)
     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_primary_upper,
                                fstar_primary_lower, fstar_secondary_upper, fstar_secondary_lower,
                                reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                               orientations, equations;
+                               orientations;
                                kernel_configurator_3d(mortar_flux_copy_to_kernel,
                                                       size(surface_flux_values, 1),
                                                       size(surface_flux_values, 2),
@@ -1679,12 +1678,11 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
                                                                                 reverse_lower,
                                                                                 neighbor_ids,
                                                                                 large_sides,
-                                                                                orientations,
-                                                                                equations)
+                                                                                orientations)
     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, fstar_primary_upper,
                                fstar_primary_lower, fstar_secondary_upper, fstar_secondary_lower,
                                reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                               orientations, equations;
+                               orientations;
                                kernel_configurator_3d(mortar_flux_copy_to_kernel,
                                                       size(surface_flux_values, 1),
                                                       size(surface_flux_values, 2),

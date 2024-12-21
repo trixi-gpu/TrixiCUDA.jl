@@ -2,7 +2,7 @@
 # blocks to be used in the kernel, which optimizes the use of GPU resources.
 
 # 1D kernel configurator
-# We hardcode 32 threads per block for 1D kernels
+# We hardcode 32 threads per block for 1D kernels.
 function kernel_configurator_1d(kernel::HostKernel, x::Int)
     # config = launch_configuration(kernel.fun) # not used in this case
 
@@ -12,9 +12,25 @@ function kernel_configurator_1d(kernel::HostKernel, x::Int)
     return (threads = threads, blocks = blocks)
 end
 
+# 1D kernel configurator for cooperative launch
+# Note that cooperative kernels can only launch as many blocks as there are SMs on the device, 
+# so we need to query the SM count first. Also, kernels launched with cooperative launch have 
+# to use stride loops to handle the constrained launch size.
+function kernel_configurator_coop_1d(kernel::HostKernel, x::Int)
+    # config = launch_configuration(kernel.fun) # not used in this case
+    # Maybe pack properties into a struct
+    device = CUDA.device()
+    sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
+
+    threads = 32 # warp size is 32, if block size is less than 32, it will be padded to 32
+    blocks = min(cld(x, threads), sm_count)
+
+    return (threads = threads, blocks = blocks)
+end
+
 # 2D kernel configurator
 # We hardcode 32 threads for x dimension per block, and y dimension is determined 
-# by the number of threads returned by the launch configuration
+# by the number of threads returned by the launch configuration.
 function kernel_configurator_2d(kernel::HostKernel, x::Int, y::Int)
     config = launch_configuration(kernel.fun) # get the number of threads
 
@@ -31,9 +47,35 @@ function kernel_configurator_2d(kernel::HostKernel, x::Int, y::Int)
     return (threads = threads, blocks = blocks)
 end
 
+# 2D kernel configurator for cooperative launch
+# Note that cooperative kernels can only launch as many blocks as there are SMs on the device, 
+# so we need to query the SM count first. Also, kernels launched with cooperative launch have 
+# to use stride loops to handle the constrained launch size.
+function kernel_configurator_coop_2d(kernel::HostKernel, x::Int, y::Int)
+    config = launch_configuration(kernel.fun) # get the number of threads
+    # Maybe pack properties into a struct
+    device = CUDA.device()
+    sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
+
+    # y dimension
+    dims_y1 = cld(x * y, 32)
+    dims_y2 = max(fld(config.threads, 32), 1)
+
+    dims_y = min(dims_y1, dims_y2)
+
+    # x dimension is hardcoded to warp size 32
+    threads = (32, dims_y)
+    blocks_x = cld(x, threads[1])
+    blocks_y = min(cld(y, threads[2]), fld(sm_count, blocks_x))
+
+    blocks = (blocks_x, blocks_y)
+
+    return (threads = threads, blocks = blocks)
+end
+
 # 3D kernel configurator
 # We hardcode 32 threads for x dimension per block, y and z dimensions are determined 
-# by the number of threads returned by the launch configuration
+# by the number of threads returned by the launch configuration.
 function kernel_configurator_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
     config = launch_configuration(kernel.fun) # get the number of threads
 
@@ -52,6 +94,39 @@ function kernel_configurator_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
     # x dimension is hardcoded to warp size 32
     threads = (32, dims_y, dims_z)
     blocks = (cld(x, threads[1]), cld(y, threads[2]), cld(z, threads[3]))
+
+    return (threads = threads, blocks = blocks)
+end
+
+# 3D kernel configurator for cooperative launch
+# Note that cooperative kernels can only launch as many blocks as there are SMs on the device, 
+# so we need to query the SM count first. Also, kernels launched with cooperative launch have 
+# to use stride loops to handle the constrained launch size.
+function kernel_configurator_coop_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
+    config = launch_configuration(kernel.fun) # get the number of threads
+    # Maybe pack properties into a struct
+    device = CUDA.device()
+    sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
+
+    # y dimension
+    dims_y1 = cld(x * y, 32)
+    dims_y2 = max(fld(config.threads, 32), 1)
+
+    dims_y = min(dims_y1, dims_y2)
+
+    # z dimension
+    dims_z1 = cld(x * y * z, 32 * dims_y)
+    dims_z2 = max(fld(config.threads, 32 * dims_y), 1)
+
+    dims_z = min(dims_z1, dims_z2)
+
+    # x dimension is hardcoded to warp size 32
+    threads = (32, dims_y, dims_z)
+    blocks_x = cld(x, threads[1])
+    blocks_y = min(cld(y, threads[2]), fld(sm_count, blocks_x))
+    blocks_z = min(cld(z, threads[3]), fld(sm_count, blocks_x * blocks_y))
+
+    blocks = (blocks_x, blocks_y, blocks_z)
 
     return (threads = threads, blocks = blocks)
 end

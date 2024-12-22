@@ -2536,7 +2536,7 @@ end
 #     return nothing
 # end
 
-# Pack kernels for calculating mortar fluxes
+# Pack kernels for calculating mortar fluxes (optimized)
 function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DGSEM, cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux

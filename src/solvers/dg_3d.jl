@@ -23,8 +23,8 @@ function flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u, equations::AbstractEqu
         flux_node2 = flux(u_node, 2, equations)
         flux_node3 = flux(u_node, 3, equations)
 
-        @inbounds begin
-            for ii in axes(u, 1)
+        for ii in axes(u, 1)
+            @inbounds begin
                 flux_arr1[ii, j1, j2, j3, k] = flux_node1[ii]
                 flux_arr2[ii, j1, j2, j3, k] = flux_node2[ii]
                 flux_arr3[ii, j1, j2, j3, k] = flux_node3[ii]
@@ -48,8 +48,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2, flux_arr3)
         j2 = div(rem(j - 1, u2^2), u2) + 1
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
-        @inbounds begin
-            for ii in axes(du, 2)
+        for ii in axes(du, 2)
+            @inbounds begin
                 du[i, j1, j2, j3, k] += derivative_dhat[j1, ii] * flux_arr1[i, ii, j2, j3, k]
                 du[i, j1, j2, j3, k] += derivative_dhat[j2, ii] * flux_arr2[i, j1, ii, j3, k]
                 du[i, j1, j2, j3, k] += derivative_dhat[j3, ii] * flux_arr3[i, j1, j2, ii, k]
@@ -83,8 +83,8 @@ function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr
         volume_flux_node2 = volume_flux(u_node, u_node2, 2, equations)
         volume_flux_node3 = volume_flux(u_node, u_node3, 3, equations)
 
-        @inbounds begin
-            for ii in axes(u, 1)
+        for ii in axes(u, 1)
+            @inbounds begin
                 volume_flux_arr1[ii, j1, j4, j2, j3, k] = volume_flux_node1[ii]
                 volume_flux_arr2[ii, j1, j2, j4, j3, k] = volume_flux_node2[ii]
                 volume_flux_arr3[ii, j1, j2, j3, j4, k] = volume_flux_node3[ii]
@@ -124,8 +124,8 @@ function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2
         noncons_flux_node2 = nonconservative_flux(u_node, u_node2, 2, equations)
         noncons_flux_node3 = nonconservative_flux(u_node, u_node3, 3, equations)
 
-        @inbounds begin
-            for ii in axes(u, 1)
+        for ii in axes(u, 1)
+            @inbounds begin
                 symmetric_flux_arr1[ii, j1, j4, j2, j3, k] = derivative_split[j1, j4] *
                                                              symmetric_flux_node1[ii]
                 symmetric_flux_arr2[ii, j1, j2, j4, j3, k] = derivative_split[j2, j4] *
@@ -157,8 +157,8 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
         j2 = div(rem(j - 1, u2^2), u2) + 1
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
-        @inbounds begin
-            for ii in axes(du, 2)
+        for ii in axes(du, 2)
+            @inbounds begin
                 du[i, j1, j2, j3, k] += derivative_split[j1, ii] *
                                         volume_flux_arr1[i, j1, ii, j2, j3, k]
                 du[i, j1, j2, j3, k] += derivative_split[j2, ii] *
@@ -187,10 +187,10 @@ function volume_integral_kernel!(du, derivative_split,
         j2 = div(rem(j - 1, u2^2), u2) + 1
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
-        @inbounds begin
-            integral_contribution = zero(eltype(du))
+        integral_contribution = zero(eltype(du))
 
-            for ii in axes(du, 2)
+        for ii in axes(du, 2)
+            @inbounds begin
                 du[i, j1, j2, j3, k] += symmetric_flux_arr1[i, j1, ii, j2, j3, k]
                 du[i, j1, j2, j3, k] += symmetric_flux_arr2[i, j1, j2, ii, j3, k]
                 du[i, j1, j2, j3, k] += symmetric_flux_arr3[i, j1, j2, j3, ii, k]
@@ -202,9 +202,9 @@ function volume_integral_kernel!(du, derivative_split,
                 integral_contribution += derivative_split[j3, ii] *
                                          noncons_flux_arr3[i, j1, j2, j3, ii, k]
             end
-
-            du[i, j1, j2, j3, k] += 0.5f0 * integral_contribution
         end
+
+        @inbounds du[i, j1, j2, j3, k] += 0.5f0 * integral_contribution
     end
 
     return nothing
@@ -227,7 +227,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
         j3 = div(rem(j - 1, u2^2), u2) + 1
         j4 = rem(j - 1, u2) + 1
 
-        element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
+        @inbounds element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
 
         # The sets of `get_node_vars` operations may be combined
         # into a single set of operation for better performance (to be explored).
@@ -241,8 +241,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
         volume_flux_node2 = volume_flux_dg(u_node, u_node2, 2, equations)
         volume_flux_node3 = volume_flux_dg(u_node, u_node3, 3, equations)
 
-        @inbounds begin
-            for ii in axes(u, 1)
+        for ii in axes(u, 1)
+            @inbounds begin
                 volume_flux_arr1[ii, j1, j4, j2, j3, k] = volume_flux_node1[ii]
                 volume_flux_arr2[ii, j1, j2, j4, j3, k] = volume_flux_node2[ii]
                 volume_flux_arr3[ii, j1, j2, j3, j4, k] = volume_flux_node3[ii]
@@ -254,8 +254,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
             flux_fv_node1 = volume_flux_fv(u_ll, u_rr, 1, equations)
 
-            @inbounds begin
-                for ii in axes(u, 1)
+            for ii in axes(u, 1)
+                @inbounds begin
                     fstar1_L[ii, j1, j2, j3, element_dgfv] = flux_fv_node1[ii]
                     fstar1_R[ii, j1, j2, j3, element_dgfv] = flux_fv_node1[ii]
                 end
@@ -267,8 +267,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
             flux_fv_node2 = volume_flux_fv(u_ll, u_rr, 2, equations)
 
-            @inbounds begin
-                for ii in axes(u, 1)
+            for ii in axes(u, 1)
+                @inbounds begin
                     fstar2_L[ii, j1, j2, j3, element_dgfv] = flux_fv_node2[ii]
                     fstar2_R[ii, j1, j2, j3, element_dgfv] = flux_fv_node2[ii]
                 end
@@ -280,8 +280,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
             flux_fv_node3 = volume_flux_fv(u_ll, u_rr, 3, equations)
 
-            @inbounds begin
-                for ii in axes(u, 1)
+            for ii in axes(u, 1)
+                @inbounds begin
                     fstar3_L[ii, j1, j2, j3, element_dgfv] = flux_fv_node3[ii]
                     fstar3_R[ii, j1, j2, j3, element_dgfv] = flux_fv_node3[ii]
                 end
@@ -308,13 +308,15 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
         j2 = div(rem(j - 1, u2^2), u2) + 1
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
-        element_dg = element_ids_dg[k] # check if `element_dg` is zero
-        element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
-        alpha_element = alpha[k]
-
         @inbounds begin
-            if element_dg != 0 # bad
-                for ii in axes(du, 2)
+            element_dg = element_ids_dg[k] # check if `element_dg` is zero
+            element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
+            alpha_element = alpha[k]
+        end
+
+        if element_dg != 0 # bad
+            for ii in axes(du, 2)
+                @inbounds begin
                     du[i, j1, j2, j3, element_dg] += derivative_split[j1, ii] *
                                                      volume_flux_arr1[i, j1, ii, j2, j3, element_dg]
                     du[i, j1, j2, j3, element_dg] += derivative_split[j2, ii] *
@@ -323,9 +325,11 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
                                                      volume_flux_arr3[i, j1, j2, j3, ii, element_dg]
                 end
             end
+        end
 
-            if element_dgfv != 0 # bad
-                for ii in axes(du, 2)
+        if element_dgfv != 0 # bad
+            for ii in axes(du, 2)
+                @inbounds begin
                     du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) *
                                                        derivative_split[j1, ii] *
                                                        volume_flux_arr1[i, j1, ii, j2, j3,
@@ -366,7 +370,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
         j3 = div(rem(j - 1, u2^2), u2) + 1
         j4 = rem(j - 1, u2) + 1
 
-        element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
+        @inbounds element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
 
         # The sets of `get_node_vars` operations may be combined
         # into a single set of operation for better performance (to be explored).
@@ -384,8 +388,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
         noncons_flux_node2 = nonconservative_flux_dg(u_node, u_node2, 2, equations)
         noncons_flux_node3 = nonconservative_flux_dg(u_node, u_node3, 3, equations)
 
-        @inbounds begin
-            for ii in axes(u, 1)
+        for ii in axes(u, 1)
+            @inbounds begin
                 volume_flux_arr1[ii, j1, j4, j2, j3, k] = derivative_split[j1, j4] *
                                                           volume_flux_node1[ii]
                 volume_flux_arr2[ii, j1, j2, j4, j3, k] = derivative_split[j2, j4] *
@@ -408,8 +412,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             f1_L_node = nonconservative_flux_fv(u_ll, u_rr, 1, equations)
             f1_R_node = nonconservative_flux_fv(u_rr, u_ll, 1, equations)
 
-            @inbounds begin
-                for ii in axes(u, 1)
+            for ii in axes(u, 1)
+                @inbounds begin
                     fstar1_L[ii, j1, j2, j3, element_dgfv] = f1_node[ii] + 0.5f0 * f1_L_node[ii]
                     fstar1_R[ii, j1, j2, j3, element_dgfv] = f1_node[ii] + 0.5f0 * f1_R_node[ii]
                 end
@@ -425,8 +429,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             f2_L_node = nonconservative_flux_fv(u_ll, u_rr, 2, equations)
             f2_R_node = nonconservative_flux_fv(u_rr, u_ll, 2, equations)
 
-            @inbounds begin
-                for ii in axes(u, 1)
+            for ii in axes(u, 1)
+                @inbounds begin
                     fstar2_L[ii, j1, j2, j3, element_dgfv] = f2_node[ii] + 0.5f0 * f2_L_node[ii]
                     fstar2_R[ii, j1, j2, j3, element_dgfv] = f2_node[ii] + 0.5f0 * f2_R_node[ii]
                 end
@@ -442,8 +446,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             f3_L_node = nonconservative_flux_fv(u_ll, u_rr, 3, equations)
             f3_R_node = nonconservative_flux_fv(u_rr, u_ll, 3, equations)
 
-            @inbounds begin
-                for ii in axes(u, 1)
+            for ii in axes(u, 1)
+                @inbounds begin
                     fstar3_L[ii, j1, j2, j3, element_dgfv] = f3_node[ii] + 0.5f0 * f3_L_node[ii]
                     fstar3_R[ii, j1, j2, j3, element_dgfv] = f3_node[ii] + 0.5f0 * f3_R_node[ii]
                 end
@@ -471,15 +475,17 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
         j2 = div(rem(j - 1, u2^2), u2) + 1
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
-        element_dg = element_ids_dg[k] # check if `element_dg` is zero
-        element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
-        alpha_element = alpha[k]
-
         @inbounds begin
-            if element_dg != 0 # bad
-                integral_contribution = zero(eltype(du))
+            element_dg = element_ids_dg[k] # check if `element_dg` is zero
+            element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
+            alpha_element = alpha[k]
+        end
 
-                for ii in axes(du, 2)
+        if element_dg != 0 # bad
+            integral_contribution = zero(eltype(du))
+
+            for ii in axes(du, 2)
+                @inbounds begin
                     du[i, j1, j2, j3, element_dg] += volume_flux_arr1[i, j1, ii, j2, j3, element_dg]
                     du[i, j1, j2, j3, element_dg] += volume_flux_arr2[i, j1, j2, ii, j3, element_dg]
                     du[i, j1, j2, j3, element_dg] += volume_flux_arr3[i, j1, j2, j3, ii, element_dg]
@@ -494,14 +500,16 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
                                              noncons_flux_arr3[i, j1, j2, j3, ii,
                                                                element_dg]
                 end
-
-                du[i, j1, j2, j3, element_dg] += 0.5f0 * integral_contribution
             end
 
-            if element_dgfv != 0 # bad
-                integral_contribution = zero(eltype(du))
+            @inbounds du[i, j1, j2, j3, element_dg] += 0.5f0 * integral_contribution
+        end
 
-                for ii in axes(du, 2)
+        if element_dgfv != 0 # bad
+            integral_contribution = zero(eltype(du))
+
+            for ii in axes(du, 2)
+                @inbounds begin
                     du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) *
                                                        volume_flux_arr1[i, j1, ii, j2, j3,
                                                                         element_dgfv]
@@ -522,9 +530,9 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
                                              noncons_flux_arr3[i, j1, j2, j3, ii,
                                                                element_dgfv]
                 end
-
-                du[i, j1, j2, j3, element_dgfv] += 0.5f0 * (1 - alpha_element) * integral_contribution
             end
+
+            @inbounds du[i, j1, j2, j3, element_dgfv] += 0.5f0 * (1 - alpha_element) * integral_contribution
         end
     end
 
@@ -545,26 +553,26 @@ function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, fstar2_L, fstar2_R,
         j2 = div(rem(j - 1, u2^2), u2) + 1
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
-        element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
-        alpha_element = alpha[k]
+        @inbounds begin
+            element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
+            alpha_element = alpha[k]
+        end
 
         if element_dgfv != 0 # bad
-            @inbounds begin
-                for ii in axes(du, 1)
-                    du[ii, j1, j2, j3, element_dgfv] += (alpha_element *
-                                                         (inverse_weights[j1] *
-                                                          (fstar1_L[ii, j1 + 1, j2, j3,
-                                                                    element_dgfv] -
-                                                           fstar1_R[ii, j1, j2, j3, element_dgfv]) +
-                                                          inverse_weights[j2] *
-                                                          (fstar2_L[ii, j1, j2 + 1, j3,
-                                                                    element_dgfv] -
-                                                           fstar2_R[ii, j1, j2, j3, element_dgfv]) +
-                                                          inverse_weights[j3] *
-                                                          (fstar3_L[ii, j1, j2, j3 + 1,
-                                                                    element_dgfv] -
-                                                           fstar3_R[ii, j1, j2, j3, element_dgfv])))
-                end
+            for ii in axes(du, 1)
+                @inbounds du[ii, j1, j2, j3, element_dgfv] += (alpha_element *
+                                                               (inverse_weights[j1] *
+                                                                (fstar1_L[ii, j1 + 1, j2, j3,
+                                                                          element_dgfv] -
+                                                                 fstar1_R[ii, j1, j2, j3, element_dgfv]) +
+                                                                inverse_weights[j2] *
+                                                                (fstar2_L[ii, j1, j2 + 1, j3,
+                                                                          element_dgfv] -
+                                                                 fstar2_R[ii, j1, j2, j3, element_dgfv]) +
+                                                                inverse_weights[j3] *
+                                                                (fstar3_L[ii, j1, j2, j3 + 1,
+                                                                          element_dgfv] -
+                                                                 fstar3_R[ii, j1, j2, j3, element_dgfv])))
             end
         end
     end
@@ -585,11 +593,11 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
         j2 = div(rem(j - 1, u2^2), u2) + 1
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
-        orientation = orientations[k]
-        left_element = neighbor_ids[1, k]
-        right_element = neighbor_ids[2, k]
-
         @inbounds begin
+            orientation = orientations[k]
+            left_element = neighbor_ids[1, k]
+            right_element = neighbor_ids[2, k]
+
             interfaces_u[1, j1, j2, j3, k] = u[j1,
                                                isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
                                                isequal(orientation, 1) * j2 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j3,
@@ -616,14 +624,12 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
     if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
         k <= size(surface_flux_arr, 4))
         u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
-        orientation = orientations[k]
+        @inbounds orientation = orientations[k]
 
         surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
 
-        @inbounds begin
-            for ii in axes(surface_flux_arr, 1)
-                surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
-            end
+        for ii in axes(surface_flux_arr, 1)
+            @inbounds surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
         end
     end
 
@@ -641,14 +647,14 @@ function surface_noncons_flux_kernel!(surface_flux_arr, noncons_left_arr, noncon
     if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
         k <= size(surface_flux_arr, 4))
         u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
-        orientation = orientations[k]
+        @inbounds orientation = orientations[k]
 
         surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
         noncons_left_node = nonconservative_flux(u_ll, u_rr, orientation, equations)
         noncons_right_node = nonconservative_flux(u_rr, u_ll, orientation, equations)
 
-        @inbounds begin
-            for ii in axes(surface_flux_arr, 1)
+        for ii in axes(surface_flux_arr, 1)
+            @inbounds begin
                 surface_flux_arr[ii, j1, j2, k] = surface_flux_node[ii]
                 noncons_left_arr[ii, j1, j2, k] = noncons_left_node[ii]
                 noncons_right_arr[ii, j1, j2, k] = noncons_right_node[ii]
@@ -671,13 +677,13 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
         j1 = div(j - 1, size(surface_flux_arr, 2)) + 1
         j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
 
-        left_id = neighbor_ids[1, k]
-        right_id = neighbor_ids[2, k]
-
-        left_direction = 2 * orientations[k]
-        right_direction = 2 * orientations[k] - 1
-
         @inbounds begin
+            left_id = neighbor_ids[1, k]
+            right_id = neighbor_ids[2, k]
+
+            left_direction = 2 * orientations[k]
+            right_direction = 2 * orientations[k] - 1
+
             surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k]
             surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2, k]
         end
@@ -699,13 +705,13 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_l
         j1 = div(j - 1, size(surface_flux_arr, 2)) + 1
         j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
 
-        left_id = neighbor_ids[1, k]
-        right_id = neighbor_ids[2, k]
-
-        left_direction = 2 * orientations[k]
-        right_direction = 2 * orientations[k] - 1
-
         @inbounds begin
+            left_id = neighbor_ids[1, k]
+            right_id = neighbor_ids[2, k]
+
+            left_direction = 2 * orientations[k]
+            right_direction = 2 * orientations[k] - 1
+
             surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k] +
                                                                       0.5f0 *
                                                                       noncons_left_arr[i, j1, j2, k]
@@ -731,11 +737,11 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
         j2 = div(rem(j - 1, u2^2), u2) + 1
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
-        element = neighbor_ids[k]
-        side = neighbor_sides[k]
-        orientation = orientations[k]
-
         @inbounds begin
+            element = neighbor_ids[k]
+            side = neighbor_sides[k]
+            orientation = orientations[k]
+
             boundaries_u[1, j1, j2, j3, k] = u[j1,
                                                isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
                                                isequal(orientation, 1) * j2 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j3,
@@ -764,14 +770,16 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
         j1 = div(j - 1, size(surface_flux_values, 2)) + 1
         j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
 
-        boundary = boundary_arr[k]
-        direction = (indices_arr[1] <= boundary) + (indices_arr[2] <= boundary) +
-                    (indices_arr[3] <= boundary) + (indices_arr[4] <= boundary) +
-                    (indices_arr[5] <= boundary) + (indices_arr[6] <= boundary)
+        @inbounds begin
+            boundary = boundary_arr[k]
+            direction = (indices_arr[1] <= boundary) + (indices_arr[2] <= boundary) +
+                        (indices_arr[3] <= boundary) + (indices_arr[4] <= boundary) +
+                        (indices_arr[5] <= boundary) + (indices_arr[6] <= boundary)
 
-        neighbor = neighbor_ids[boundary]
-        side = neighbor_sides[boundary]
-        orientation = orientations[boundary]
+            neighbor = neighbor_ids[boundary]
+            side = neighbor_sides[boundary]
+            orientation = orientations[boundary]
+        end
 
         u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, j1, j2, boundary)
         u_inner = (2 - side) * u_ll + (side - 1) * u_rr
@@ -798,16 +806,14 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
                                                         direction, x, t, surface_flux, equations)
         end
 
-        @inbounds begin
-            for ii in axes(surface_flux_values, 1)
-                # `boundary_flux_node` can be nothing if periodic boundary condition is applied
-                surface_flux_values[ii, j1, j2, direction, neighbor] = isnothing(boundary_flux_node) ? # bad
-                                                                       surface_flux_values[ii, j1,
-                                                                                           j2,
-                                                                                           direction,
-                                                                                           neighbor] :
-                                                                       boundary_flux_node[ii]
-            end
+        for ii in axes(surface_flux_values, 1)
+            # `boundary_flux_node` can be nothing if periodic boundary condition is applied
+            @inbounds surface_flux_values[ii, j1, j2, direction, neighbor] = isnothing(boundary_flux_node) ? # bad
+                                                                             surface_flux_values[ii, j1,
+                                                                                                 j2,
+                                                                                                 direction,
+                                                                                                 neighbor] :
+                                                                             boundary_flux_node[ii]
         end
     end
 
@@ -828,15 +834,15 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
         j1 = div(j - 1, u2) + 1
         j2 = rem(j - 1, u2) + 1
 
-        large_side = large_sides[k]
-        orientation = orientations[k]
-
-        lower_left_element = neighbor_ids[1, k]
-        lower_right_element = neighbor_ids[2, k]
-        upper_left_element = neighbor_ids[3, k]
-        upper_right_element = neighbor_ids[4, k]
-
         @inbounds begin
+            large_side = large_sides[k]
+            orientation = orientations[k]
+
+            lower_left_element = neighbor_ids[1, k]
+            lower_right_element = neighbor_ids[2, k]
+            upper_left_element = neighbor_ids[3, k]
+            upper_right_element = neighbor_ids[4, k]
+
             u_upper_left[2, i, j1, j2, k] = u[i,
                                               isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1,
                                               isequal(orientation, 1) * j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
@@ -1038,14 +1044,16 @@ function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lowe
                 j1 = div(j - 1, u2) + 1
                 j2 = rem(j - 1, u2) + 1
 
-                large_side = large_sides[k]
-                orientation = orientations[k]
-                large_element = neighbor_ids[5, k]
+                @inbounds begin
+                    large_side = large_sides[k]
+                    orientation = orientations[k]
+                    large_element = neighbor_ids[5, k]
+                end
 
                 leftright = large_side
 
-                @inbounds begin
-                    for j1j1 in axes(forward_lower, 2)
+                for j1j1 in axes(forward_lower, 2)
+                    @inbounds begin
                         tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
                                                                    u[i,
                                                                      isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
@@ -1074,8 +1082,10 @@ function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lowe
                                                                       isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
                                                                       large_element] * (2 - large_side)
                     end
+                end
 
-                    for j1j1 in axes(forward_lower, 2)
+                for j1j1 in axes(forward_lower, 2)
+                    @inbounds begin
                         tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
                                                                    u[i,
                                                                      isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
@@ -1108,12 +1118,14 @@ function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lowe
                                                                                                                                             3),
                                                                       large_element] * (large_side - 1)
                     end
+                end
 
-                    # Grid scope synchronization
-                    grid = CG.this_grid()
-                    CG.sync(grid)
+                # Grid scope synchronization
+                grid = CG.this_grid()
+                CG.sync(grid)
 
-                    for j2j2 in axes(forward_upper, 2)
+                for j2j2 in axes(forward_upper, 2)
+                    @inbounds begin
                         u_upper_left[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
                                                                  tmp_upper_left[leftright, i, j1, j2j2, k]
 
@@ -1154,7 +1166,7 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         u_lower_left_ll, u_lower_left_rr = get_surface_node_vars(u_lower_left, equations, i, j, k)
         u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j, k)
 
-        orientation = orientations[k]
+        @inbounds orientation = orientations[k]
 
         flux_upper_left_node = surface_flux(u_upper_left_ll, u_upper_left_rr, orientation,
                                             equations)
@@ -1165,14 +1177,17 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         flux_lower_right_node = surface_flux(u_lower_right_ll, u_lower_right_rr, orientation,
                                              equations)
 
-        @inbounds begin
-            for ii in axes(fstar_primary_upper_left, 1)
+        for ii in axes(fstar_primary_upper_left, 1)
+            @inbounds begin
                 fstar_primary_upper_left[ii, i, j, k] = flux_upper_left_node[ii]
                 fstar_primary_upper_right[ii, i, j, k] = flux_upper_right_node[ii]
+
                 fstar_primary_lower_left[ii, i, j, k] = flux_lower_left_node[ii]
                 fstar_primary_lower_right[ii, i, j, k] = flux_lower_right_node[ii]
+
                 fstar_secondary_upper_left[ii, i, j, k] = flux_upper_left_node[ii]
                 fstar_secondary_upper_right[ii, i, j, k] = flux_upper_right_node[ii]
+
                 fstar_secondary_lower_left[ii, i, j, k] = flux_lower_left_node[ii]
                 fstar_seondary_lower_right[ii, i, j, k] = flux_lower_right_node[ii]
             end
@@ -1200,8 +1215,10 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         u_lower_left_ll, u_lower_left_rr = get_surface_node_vars(u_lower_left, equations, i, j, k)
         u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j, k)
 
-        orientation = orientations[k]
-        large_side = large_sides[k]
+        @inbounds begin
+            orientation = orientations[k]
+            large_side = large_sides[k]
+        end
 
         flux_upper_left_node = surface_flux(u_upper_left_ll, u_upper_left_rr, orientation,
                                             equations)
@@ -1212,14 +1229,17 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         flux_lower_right_node = surface_flux(u_lower_right_ll, u_lower_right_rr, orientation,
                                              equations)
 
-        @inbounds begin
-            for ii in axes(fstar_primary_upper_left, 1)
+        for ii in axes(fstar_primary_upper_left, 1)
+            @inbounds begin
                 fstar_primary_upper_left[ii, i, j, k] = flux_upper_left_node[ii]
                 fstar_primary_upper_right[ii, i, j, k] = flux_upper_right_node[ii]
+
                 fstar_primary_lower_left[ii, i, j, k] = flux_lower_left_node[ii]
                 fstar_primary_lower_right[ii, i, j, k] = flux_lower_right_node[ii]
+
                 fstar_secondary_upper_left[ii, i, j, k] = flux_upper_left_node[ii]
                 fstar_secondary_upper_right[ii, i, j, k] = flux_upper_right_node[ii]
+
                 fstar_secondary_lower_left[ii, i, j, k] = flux_lower_left_node[ii]
                 fstar_seondary_lower_right[ii, i, j, k] = flux_lower_right_node[ii]
             end
@@ -1254,14 +1274,17 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         noncons_flux_secondary_lower_right = nonconservative_flux(u_lower_right2, u_lower_right1,
                                                                   orientation, equations)
 
-        @inbounds begin
-            for ii in axes(fstar_primary_upper_left, 1)
+        for ii in axes(fstar_primary_upper_left, 1)
+            @inbounds begin
                 fstar_primary_upper_left[ii, i, j, k] += 0.5f0 * noncons_flux_primary_upper_left[ii]
                 fstar_primary_upper_right[ii, i, j, k] += 0.5f0 * noncons_flux_primary_upper_right[ii]
+
                 fstar_primary_lower_left[ii, i, j, k] += 0.5f0 * noncons_flux_primary_lower_left[ii]
                 fstar_primary_lower_right[ii, i, j, k] += 0.5f0 * noncons_flux_primary_lower_right[ii]
+
                 fstar_secondary_upper_left[ii, i, j, k] += 0.5f0 * noncons_flux_secondary_upper_left[ii]
                 fstar_secondary_upper_right[ii, i, j, k] += 0.5f0 * noncons_flux_secondary_upper_right[ii]
+
                 fstar_secondary_lower_left[ii, i, j, k] += 0.5f0 * noncons_flux_secondary_lower_left[ii]
                 fstar_seondary_lower_right[ii, i, j, k] += 0.5f0 * noncons_flux_secondary_lower_right[ii]
             end
@@ -1416,42 +1439,44 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
                 j1 = div(j - 1, size(surface_flux_values, 2)) + 1
                 j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
 
-                lower_left_element = neighbor_ids[1, k]
-                lower_right_element = neighbor_ids[2, k]
-                upper_left_element = neighbor_ids[3, k]
-                upper_right_element = neighbor_ids[4, k]
-                large_element = neighbor_ids[5, k]
-
-                large_side = large_sides[k]
-                orientation = orientations[k]
-
-                # Use simple math expression to enhance the performance (against control flow), 
-                # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
-                #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
-                #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
-                #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
-                #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
-                #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
-                # Please also check the original code in Trixi.jl when you modify this code.
-                direction = 2 * orientation + large_side - 2
-
-                surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
-                surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
-                surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
-                surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
-
-                # Use simple math expression to enhance the performance (against control flow), 
-                # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
-                #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
-                #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
-                #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
-                #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
-                #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
-                # Please also check the original code in Trixi.jl when you modify this code.
-                direction = 2 * orientation - large_side + 1
-
                 @inbounds begin
-                    for j1j1 in axes(reverse_upper, 2)
+                    lower_left_element = neighbor_ids[1, k]
+                    lower_right_element = neighbor_ids[2, k]
+                    upper_left_element = neighbor_ids[3, k]
+                    upper_right_element = neighbor_ids[4, k]
+                    large_element = neighbor_ids[5, k]
+
+                    large_side = large_sides[k]
+                    orientation = orientations[k]
+
+                    # Use simple math expression to enhance the performance (against control flow), 
+                    # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
+                    #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
+                    #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
+                    # Please also check the original code in Trixi.jl when you modify this code.
+                    direction = 2 * orientation + large_side - 2
+
+                    surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
+                    surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
+                    surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
+                    surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
+
+                    # Use simple math expression to enhance the performance (against control flow), 
+                    # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
+                    #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
+                    #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
+                    # Please also check the original code in Trixi.jl when you modify this code.
+                    direction = 2 * orientation - large_side + 1
+                end
+
+                for j1j1 in axes(reverse_upper, 2)
+                    @inbounds begin
                         tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
                                                                                fstar_secondary_upper_left[i, j1j1, j2, k]
                         tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
@@ -1467,8 +1492,8 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
                 grid = CG.this_grid()
                 CG.sync(grid)
 
-                @inbounds begin
-                    for j2j2 in axes(reverse_lower, 2)
+                for j2j2 in axes(reverse_lower, 2)
+                    @inbounds begin
                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
                                                                                         tmp_upper_left[i, j1, j2j2,
                                                                                                        direction,
@@ -1486,11 +1511,11 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
                                                                                                         direction,
                                                                                                         large_element]
                     end
-
-                    surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
-                                                                                                       direction,
-                                                                                                       large_element]
                 end
+
+                @inbounds surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
+                                                                                                             direction,
+                                                                                                             large_element]
                 k += stride_z
             end
             j += stride_y
@@ -1567,10 +1592,8 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
 
         source_terms_node = source_terms(u_local, x_local, t, equations)
 
-        @inbounds begin
-            for ii in axes(du, 1)
-                du[ii, j1, j2, j3, k] += source_terms_node[ii]
-            end
+        for ii in axes(du, 1)
+            @inbounds du[ii, j1, j2, j3, k] += source_terms_node[ii]
         end
     end
 
@@ -2536,7 +2559,7 @@ end
 #     return nothing
 # end
 
-# Pack kernels for calculating mortar fluxes
+# Pack kernels for calculating mortar fluxes (optimized)
 function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DGSEM, cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux

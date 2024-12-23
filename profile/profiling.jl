@@ -45,7 +45,8 @@ du_gpu = similar(u_gpu)
 
 # Semidiscretization process
 # Reset du test
-TrixiCUDA.reset_du!(du_gpu)
+# Function `reset_du!` is deprecated see https://github.com/trixi-gpu/TrixiCUDA.jl/pull/100
+# TrixiCUDA.reset_du!(du_gpu)
 
 # Volume integral test
 TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,

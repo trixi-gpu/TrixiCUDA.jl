@@ -59,7 +59,7 @@ ode_gpu = semidiscretizeGPU(semi_gpu, tspan_gpu)
 u_gpu = copy(ode_gpu.u0)
 du_gpu = similar(u_gpu)
 
-# Reset du
+# # Reset du
 # @info "Time for reset_du! on GPU"
 # CUDA.@time TrixiCUDA.reset_du!(du_gpu)
 # @info "Time for reset_du! on CPU"

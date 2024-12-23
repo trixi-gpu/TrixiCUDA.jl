@@ -29,6 +29,7 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr)
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
         for ii in axes(du, 2)
             @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
         end
@@ -97,6 +98,7 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr,
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
         for ii in axes(du, 2)
             @inbounds du[i, j, k] += derivative_split[j, ii] * volume_flux_arr[i, j, ii, k]
         end
@@ -112,6 +114,7 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, nonco
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
         integral_contribution = zero(eltype(du))
 
         for ii in axes(du, 2)
@@ -181,6 +184,8 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         # length(element_ids_dg) == size(du, 3)
         # length(element_ids_dgfv) == size(du, 3)
+        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
+
         @inbounds begin
             element_dg = element_ids_dg[k] # check if `element_dg` is zero
             element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
@@ -270,6 +275,7 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         # length(element_ids_dg) == size(du, 3)
         # length(element_ids_dgfv) == size(du, 3)
+        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
 
         @inbounds begin
             element_dg = element_ids_dg[k] # check if `element_dg` is zero
@@ -1076,7 +1082,9 @@ end
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
-    reset_du!(du)
+    # reset_du!(du) 
+    # reset_du!(du) is now fused into the next kernel, 
+    # removing the need for a separate function call.
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg, cache)

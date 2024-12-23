@@ -39,6 +39,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
 
+        @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
+
         for ii in axes(du, 2)
             @inbounds begin
                 du[i, j1, j2, k] += derivative_dhat[j1, ii] * flux_arr1[i, ii, j2, k]
@@ -132,6 +134,8 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
 
+        @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
+
         for ii in axes(du, 2)
             @inbounds begin
                 du[i, j1, j2, k] += derivative_split[j1, ii] * volume_flux_arr1[i, j1, ii, j2, k]
@@ -154,6 +158,7 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr1, symm
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
 
+        @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
         integral_contribution = zero(eltype(du))
 
         for ii in axes(du, 2)
@@ -252,6 +257,8 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
 
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
+
+        @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
 
         @inbounds begin
             element_dg = element_ids_dg[k] # check if `element_dg` is zero
@@ -382,6 +389,8 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
 
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
+
+        @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
 
         @inbounds begin
             element_dg = element_ids_dg[k] # check if `element_dg` is zero
@@ -1755,7 +1764,9 @@ end
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
-    reset_du!(du)
+    # reset_du!(du) 
+    # reset_du!(du) is now fused into the next kernel, 
+    # removing the need for a separate function call.
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg, cache)

@@ -54,9 +54,11 @@ include("../test_macros.jl")
     # du is initlaizaed as undefined, cannot test now
 
     # Tests for semidiscretization process
-    TrixiCUDA.reset_du!(du_gpu)
+    # TrixiCUDA.reset_du!(du_gpu)
+    # Trixi.reset_du!(du, solver, cache)
+    # @test_approx (du_gpu, du)
+
     Trixi.reset_du!(du, solver, cache)
-    @test_approx (du_gpu, du)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                     Trixi.have_nonconservative_terms(equations_gpu),

@@ -1076,7 +1076,9 @@ end
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions,
                   source_terms::Source, dg::DGSEM, cache) where {Source}
-    reset_du!(du)
+    # reset_du!(du) 
+    # reset_du!(du) is now fused into the next kernel, 
+    # removing the need for a separate function call.
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                           dg.volume_integral, dg, cache)

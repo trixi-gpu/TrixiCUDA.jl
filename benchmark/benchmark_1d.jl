@@ -60,20 +60,23 @@ u_gpu = copy(ode_gpu.u0)
 du_gpu = similar(u_gpu)
 
 # Reset du
-@info "Time for reset_du! on GPU"
-CUDA.@time TrixiCUDA.reset_du!(du_gpu)
-@info "Time for reset_du! on CPU"
-@time Trixi.reset_du!(du, solver, cache)
+# @info "Time for reset_du! on GPU"
+# CUDA.@time TrixiCUDA.reset_du!(du_gpu)
+# @info "Time for reset_du! on CPU"
+# @time Trixi.reset_du!(du, solver, cache)
 
-# Volume integral
-@info "Time for volume_integral! on GPU"
+# Reset du and volume integral
+@info "Time for reset_du! and volume_integral! on GPU"
 CUDA.@time TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                            Trixi.have_nonconservative_terms(equations_gpu),
                                            equations_gpu, solver_gpu.volume_integral, solver_gpu,
                                            cache_gpu)
-@info "Time for volume_integral! on CPU"
-@time Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
-                                  equations, solver.volume_integral, solver, cache)
+@info "Time for reset_du! and volume_integral! on CPU"
+@time begin
+    Trixi.reset_du!(du, solver, cache)
+    Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
+                                equations, solver.volume_integral, solver, cache)
+end
 
 # Prolong to interfaces
 @info "Time for prolong2interfaces! on GPU"

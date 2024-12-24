@@ -8,17 +8,15 @@ function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
         x_node = get_node_coords(node_coordinates, equations, j, k)
 
         if j == 1 # bad
-            x_node = SVector(nextfloat(x_node[1]))
+            @inbounds x_node = SVector(nextfloat(x_node[1]))
         elseif j == size(u, 2) # bad
-            x_node = SVector(prevfloat(x_node[1]))
+            @inbounds x_node = SVector(prevfloat(x_node[1]))
         end
 
         u_node = func(x_node, t, equations)
 
-        @inbounds begin
-            for ii in axes(u, 1)
-                u[ii, j, k] = u_node[ii]
-            end
+        for ii in axes(u, 1)
+            @inbounds u[ii, j, k] = u_node[ii]
         end
     end
 
@@ -39,10 +37,8 @@ function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
 
         u_node = func(x_node, t, equations)
 
-        @inbounds begin
-            for ii in axes(u, 1)
-                u[ii, j1, j2, k] = u_node[ii]
-            end
+        for ii in axes(u, 1)
+            @inbounds u[ii, j1, j2, k] = u_node[ii]
         end
     end
 
@@ -66,10 +62,8 @@ function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
 
         u_node = func(x_node, t, equations)
 
-        @inbounds begin
-            for ii in axes(u, 1)
-                u[ii, j1, j2, j3, k] = u_node[ii]
-            end
+        for ii in axes(u, 1)
+            @inbounds u[ii, j1, j2, j3, k] = u_node[ii]
         end
     end
 

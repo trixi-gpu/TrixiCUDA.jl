@@ -15,7 +15,7 @@ BenchmarkTools = "1"
 CUDA = "5"
 SciMLBase = "2"
 StaticArrays = "1"
-Trixi = "0.8, 0.9.8 - 0.9.8"
+Trixi = "0.8, 0.9.8 - 0.9.8, 0.9"
 julia = "1.10"
 
 [extras]

@@ -6,13 +6,13 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-advection_velocity = 1.0f0
-equations = LinearScalarAdvectionEquation1D(advection_velocity)
+advection_velocity = (0.2f0, -0.7f0)
+equations = LinearScalarAdvectionEquation2D(advection_velocity)
 
 solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
 
-coordinates_min = -1.0f0
-coordinates_max = 1.0f0
+coordinates_min = (-1.0f0, -1.0f0)
+coordinates_max = (1.0f0, 1.0f0)
 
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 4,
@@ -100,6 +100,25 @@ CUDA.@time TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gp
 @info "Time for boundary_flux! on CPU"
 @time Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                                 solver.surface_integral, solver)
+
+# Prolong to mortars
+@info "Time for prolong2mortars! on GPU"
+CUDA.@time TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
+                                           TrixiCUDA.check_cache_mortars(cache_gpu),
+                                           solver_gpu, cache_gpu)
+@info "Time for prolong2mortars! on CPU"
+@time Trixi.prolong2mortars!(cache, u, mesh, equations,
+                             solver.mortar, solver.surface_integral, solver)
+
+# Mortar flux
+@info "Time for mortar_flux! on GPU"
+CUDA.@time TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
+                                       Trixi.have_nonconservative_terms(equations_gpu),
+                                       equations_gpu, solver_gpu, cache_gpu)
+@info "Time for mortar_flux! on CPU"
+@time Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
+                              Trixi.have_nonconservative_terms(equations), equations,
+                              solver.mortar, solver.surface_integral, solver, cache)
 
 # Surface integral
 @info "Time for surface_integral! on GPU"

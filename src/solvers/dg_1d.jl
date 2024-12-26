@@ -4,79 +4,77 @@
 # the @cuda macro with parameters from the kernel configurator. They are purely run on 
 # the device (i.e., GPU).
 
-# # Kernel for calculating fluxes along normal direction
-# function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Any)
-#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-#     if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
-#         u_node = get_node_vars(u, equations, j, k)
-#         flux_node = flux(u_node, 1, equations)
-
-#         @inbounds flux_arr[i, j, k] = flux_node[i]
-#     end
-
-#     return nothing
-# end
-
-# # Kernel for calculating weak form
-# function weak_form_kernel!(du, derivative_dhat, flux_arr)
-#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-#     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-#         @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
-#         for ii in axes(du, 2)
-#             @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
-#         end
-#     end
-
-#     return nothing
-# end
-
-# Kernel for calculating fluxes and weak form
-# It is a fused version of `flux_kernel!` and `weak_form_kernel!`
-function flux_weak_form_kernel!(du, u, flux_arr, derivative_dhat,
-                                equations::AbstractEquations{1}, flux::Any)
+# Kernel for calculating fluxes along normal direction
+function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Any)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    # Loop stride for each dimension
-    stride_x = gridDim().x * blockDim().x
-    stride_y = gridDim().y * blockDim().y
-    stride_z = gridDim().z * blockDim().z
+    if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
+        u_node = get_node_vars(u, equations, j, k)
+        flux_node = flux(u_node, 1, equations)
 
-    # Cooperative kernel needs stride loops to handle the constrained launch size
-    while i <= size(du, 1)
-        while j <= size(du, 2)
-            while k <= size(du, 3)
-                u_node = get_node_vars(u, equations, j, k)
-                flux_node = flux(u_node, 1, equations)
-
-                @inbounds begin
-                    flux_arr[i, j, k] = flux_node[i]
-                    du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
-                end
-
-                # Grid scope synchronization (can be optimized to block scope sync)
-                grid = CG.this_grid()
-                CG.sync(grid)
-
-                for ii in axes(du, 2)
-                    @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
-                end
-                i += stride_x
-            end
-            j += stride_y
-        end
-        k += stride_z
+        @inbounds flux_arr[i, j, k] = flux_node[i]
     end
 
     return nothing
 end
+
+# Kernel for calculating weak form
+function weak_form_kernel!(du, derivative_dhat, flux_arr)
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
+        for ii in axes(du, 2)
+            @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
+        end
+    end
+
+    return nothing
+end
+
+# # Kernel for calculating fluxes and weak form
+# # It is a fused version of `flux_kernel!` and `weak_form_kernel!`
+# function flux_weak_form_kernel!(du, u, flux_arr, derivative_dhat,
+#                                 equations::AbstractEquations{1}, flux::Any)
+#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+#     # Loop stride for each dimension
+#     stride_x = gridDim().x * blockDim().x
+#     stride_y = gridDim().y * blockDim().y
+#     stride_z = gridDim().z * blockDim().z
+
+#     # Cooperative kernel needs stride loops to handle the constrained launch size
+#     while i <= size(du, 1)
+#         while j <= size(du, 2)
+#             while k <= size(du, 3)
+#                 u_node = get_node_vars(u, equations, j, k)
+#                 flux_node = flux(u_node, 1, equations)
+
+#                 @inbounds flux_arr[i, j, k] = flux_node[i]
+
+#                 # Grid scope synchronization (can be optimized to block scope sync)
+#                 grid = CG.this_grid()
+#                 CG.sync(grid)
+
+#                 @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
+#                 for ii in axes(du, 2)
+#                     @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
+#                 end
+#                 k += stride_z
+#             end
+#             j += stride_y
+#         end
+#         i += stride_x
+#     end
+
+#     return nothing
+# end
 
 # Kernel for calculating volume fluxes
 function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1},
@@ -648,18 +646,18 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
     derivative_dhat = CuArray(dg.basis.derivative_dhat)
     flux_arr = similar(u)
 
-    # flux_kernel = @cuda launch=false flux_kernel!(flux_arr, u, equations, flux)
-    # flux_kernel(flux_arr, u, equations, flux;
-    #             kernel_configurator_3d(flux_kernel, size(u)...)...)
+    flux_kernel = @cuda launch=false flux_kernel!(flux_arr, u, equations, flux)
+    flux_kernel(flux_arr, u, equations, flux;
+                kernel_configurator_3d(flux_kernel, size(u)...)...)
 
-    # weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr)
-    # weak_form_kernel(du, derivative_dhat, flux_arr;
-    #                  kernel_configurator_3d(weak_form_kernel, size(du)...)...)
+    weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr)
+    weak_form_kernel(du, derivative_dhat, flux_arr;
+                     kernel_configurator_3d(weak_form_kernel, size(du)...)...)
 
-    flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, flux_arr, derivative_dhat,
-                                                                      equations, flux)
-    flux_weak_form_kernel(du, u, flux_arr, derivative_dhat, equations, flux; cooperative = true,
-                          kernel_configurator_coop_3d(flux_weak_form_kernel, size(du)...)...)
+    # flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, flux_arr, derivative_dhat,
+    #                                                                   equations, flux)
+    # flux_weak_form_kernel(du, u, flux_arr, derivative_dhat, equations, flux; cooperative = true,
+    #                       kernel_configurator_coop_3d(flux_weak_form_kernel, size(du)...)...)
 
     return nothing
 end

@@ -4,77 +4,98 @@
 # the @cuda macro with parameters from the kernel configurator. They are purely run on 
 # the device (i.e., GPU).
 
-# Kernel for calculating fluxes along normal direction
-function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Any)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
-        u_node = get_node_vars(u, equations, j, k)
-        flux_node = flux(u_node, 1, equations)
-
-        @inbounds flux_arr[i, j, k] = flux_node[i]
-    end
-
-    return nothing
-end
-
-# Kernel for calculating weak form
-function weak_form_kernel!(du, derivative_dhat, flux_arr)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
-        for ii in axes(du, 2)
-            @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
-        end
-    end
-
-    return nothing
-end
-
-# # Kernel for calculating fluxes and weak form
-# # It is a fused version of `flux_kernel!` and `weak_form_kernel!`
-# function flux_weak_form_kernel!(du, u, flux_arr, derivative_dhat,
-#                                 equations::AbstractEquations{1}, flux::Any)
+# # Kernel for calculating fluxes along normal direction
+# function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Any)
 #     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
 #     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 #     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-#     # Loop stride for each dimension
-#     stride_x = gridDim().x * blockDim().x
-#     stride_y = gridDim().y * blockDim().y
-#     stride_z = gridDim().z * blockDim().z
+#     if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
+#         u_node = get_node_vars(u, equations, j, k)
+#         flux_node = flux(u_node, 1, equations)
 
-#     # Cooperative kernel needs stride loops to handle the constrained launch size
-#     while i <= size(du, 1)
-#         while j <= size(du, 2)
-#             while k <= size(du, 3)
-#                 u_node = get_node_vars(u, equations, j, k)
-#                 flux_node = flux(u_node, 1, equations)
-
-#                 @inbounds flux_arr[i, j, k] = flux_node[i]
-
-#                 # Grid scope synchronization (can be optimized to block scope sync)
-#                 grid = CG.this_grid()
-#                 CG.sync(grid)
-
-#                 @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
-#                 for ii in axes(du, 2)
-#                     @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
-#                 end
-#                 k += stride_z
-#             end
-#             j += stride_y
-#         end
-#         i += stride_x
+#         @inbounds flux_arr[i, j, k] = flux_node[i]
 #     end
 
 #     return nothing
 # end
+
+# # Kernel for calculating weak form
+# function weak_form_kernel!(du, derivative_dhat, flux_arr)
+#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+#     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+#         @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
+#         for ii in axes(du, 2)
+#             @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
+#         end
+#     end
+
+#     return nothing
+# end
+
+# Kernel for calculating flux and weak form 
+# It is optimized using shared memory access and computation tiling
+function flux_weak_form_kernel!(du, u, derivative_dhat,
+                                equations::AbstractEquations{1}, flux::Any)
+    # Shared memory is hard-coded now but can be optimized later
+    shmem_dhat = @cuStaticSharedMem(eltype(du), (16, 16))
+    shmem_flux = @cuStaticSharedMem(eltype(du), (16, 16, 1))
+
+    # Get the thread and block indices
+    bx, by, bz = blockIdx().x, blockIdx().y, blockIdx().z
+    tx, ty, tz = threadIdx().x, threadIdx().y, threadIdx().z
+
+    i = (bx - 1) * blockDim().x + tx
+    j = (by - 1) * blockDim().y + ty
+    k = (bz - 1) * blockDim().z + tz
+
+    # Tile the computation
+    tile_num = 0
+    value = zero(eltype(du))
+    while tile_num < cld(size(du, 2), 16)
+        # Load global `derivative_dhat` into shared memory
+        if (j <= size(du, 2) && tile_num * 16 + tx <= size(du, 2))
+            @inbounds shmem_dhat[tx, ty] = derivative_dhat[j, tile_num * 16 + tx]
+        else
+            @inbounds shmem_dhat[tx, ty] = zero(eltype(du))
+        end
+
+        # Load global `flux_arr` into shared memory
+        if (i <= size(du, 1) && k <= size(du, 3) && tile_num * 16 + ty <= size(du, 2))
+            # Compute the flux values
+            u_node = get_node_vars(u, equations, tile_num * 16 + ty, k)
+            flux_node = flux(u_node, 1, equations)
+
+            # @inbounds begin
+            #     flux_arr[i, tile_num * 16 + ty, k] = flux_node[i]
+            #     shmem_flux[tx, ty, tz] = flux_arr[i, tile_num * 16 + ty, k]
+            # end
+            @inbounds shmem_flux[tx, ty, tz] = flux_node[i]
+        else
+            @inbounds shmem_flux[tx, ty, tz] = zero(eltype(du))
+        end
+
+        sync_threads()
+
+        # Loop within one block to get weak form
+        for thread in 1:16
+            @inbounds value += shmem_dhat[thread, ty] * shmem_flux[tx, thread, tz]
+        end
+
+        sync_threads()
+        tile_num += 1 # proceed to the next tile
+    end
+
+    # Finalize the weak form
+    if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
+        @inbounds du[i, j, k] = value
+    end
+
+    return nothing
+end
 
 # Kernel for calculating volume fluxes
 function volume_flux_kernel!(volume_flux_arr, u, equations::AbstractEquations{1},
@@ -644,20 +665,22 @@ end
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
                                equations, volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
     derivative_dhat = CuArray(dg.basis.derivative_dhat)
-    flux_arr = similar(u)
+    # flux_arr = similar(u)
 
-    flux_kernel = @cuda launch=false flux_kernel!(flux_arr, u, equations, flux)
-    flux_kernel(flux_arr, u, equations, flux;
-                kernel_configurator_3d(flux_kernel, size(u)...)...)
+    # flux_kernel = @cuda launch=false flux_kernel!(flux_arr, u, equations, flux)
+    # flux_kernel(flux_arr, u, equations, flux;
+    #             kernel_configurator_3d(flux_kernel, size(u)...)...)
 
-    weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr)
-    weak_form_kernel(du, derivative_dhat, flux_arr;
-                     kernel_configurator_3d(weak_form_kernel, size(du)...)...)
+    # weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr)
+    # weak_form_kernel(du, derivative_dhat, flux_arr;
+    #                  kernel_configurator_3d(weak_form_kernel, size(du)...)...)
 
-    # flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, flux_arr, derivative_dhat,
-    #                                                                   equations, flux)
-    # flux_weak_form_kernel(du, u, flux_arr, derivative_dhat, equations, flux; cooperative = true,
-    #                       kernel_configurator_coop_3d(flux_weak_form_kernel, size(du)...)...)
+    # Consider to use dynamic shared memory
+    flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, derivative_dhat,
+                                                                      equations, flux)
+    flux_weak_form_kernel(du, u, derivative_dhat, equations, flux;
+                          threads = (16, 16, 1), blocks = (cld(size(du, 1), 16),
+                                                           cld(size(du, 2), 16), size(du, 3)))
 
     return nothing
 end

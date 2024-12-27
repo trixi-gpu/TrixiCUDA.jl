@@ -2,7 +2,7 @@
 # blocks to be used in the kernel, which optimizes the use of GPU resources.
 
 # 1D kernel configurator
-# We hardcode 32 threads per block for 1D kernels.
+# We hard-code 32 threads per block for 1D kernels.
 function kernel_configurator_1d(kernel::HostKernel, x::Int)
     # config = launch_configuration(kernel.fun) # not used in this case
 
@@ -29,7 +29,7 @@ function kernel_configurator_coop_1d(kernel::HostKernel, x::Int)
 end
 
 # 2D kernel configurator
-# We hardcode 32 threads for x dimension per block, and y dimension is determined 
+# We hard-code 32 threads for x dimension per block, and y dimension is determined 
 # by the number of threads returned by the launch configuration.
 function kernel_configurator_2d(kernel::HostKernel, x::Int, y::Int)
     config = launch_configuration(kernel.fun) # get the number of threads
@@ -40,7 +40,7 @@ function kernel_configurator_2d(kernel::HostKernel, x::Int, y::Int)
 
     dims_y = min(dims_y1, dims_y2)
 
-    # x dimension is hardcoded to warp size 32
+    # x dimension is hard-coded to warp size 32
     threads = (32, dims_y)
     blocks = (cld(x, threads[1]), cld(y, threads[2]))
 
@@ -63,7 +63,7 @@ function kernel_configurator_coop_2d(kernel::HostKernel, x::Int, y::Int)
 
     dims_y = min(dims_y1, dims_y2)
 
-    # x dimension is hardcoded to warp size 32
+    # x dimension is hard-coded to warp size 32
     threads = (32, dims_y)
     blocks_x = cld(x, threads[1])
     blocks_y = min(cld(y, threads[2]), fld(sm_count, blocks_x))
@@ -74,7 +74,7 @@ function kernel_configurator_coop_2d(kernel::HostKernel, x::Int, y::Int)
 end
 
 # 3D kernel configurator
-# We hardcode 32 threads for x dimension per block, y and z dimensions are determined 
+# We hard-code 32 threads for x dimension per block, y and z dimensions are determined 
 # by the number of threads returned by the launch configuration.
 function kernel_configurator_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
     config = launch_configuration(kernel.fun) # get the number of threads
@@ -91,7 +91,7 @@ function kernel_configurator_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
 
     dims_z = min(dims_z1, dims_z2)
 
-    # x dimension is hardcoded to warp size 32
+    # x dimension is hard-coded to warp size 32
     threads = (32, dims_y, dims_z)
     blocks = (cld(x, threads[1]), cld(y, threads[2]), cld(z, threads[3]))
 
@@ -120,7 +120,7 @@ function kernel_configurator_coop_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
 
     dims_z = min(dims_z1, dims_z2)
 
-    # x dimension is hardcoded to warp size 32
+    # x dimension is hard-coded to warp size 32
     threads = (32, dims_y, dims_z)
     blocks_x = cld(x, threads[1])
     blocks_y = min(cld(y, threads[2]), fld(sm_count, blocks_x))

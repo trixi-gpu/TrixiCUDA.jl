@@ -140,7 +140,7 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
         end
     end
 
-    # Sychronization is not needed here if we use only one tile
+    # Synchronization is not needed here if we use only one tile
     # sync_threads()
 
     # Finalize the weak form

@@ -61,8 +61,8 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     offset = 0 # offset bytes for shared memory
 
     # Allocate dynamic shared memory
-    shmem_dhat = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width, 2))
-    offset += sizeof(eltype(du)) * 2 * tile_width^2
+    shmem_dhat = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+    offset += sizeof(eltype(du)) * tile_width^2
     shmem_flux = @cuDynamicSharedMem(eltype(du),
                                      (size(du, 1), tile_width, tile_width, 2), offset)
 
@@ -77,12 +77,13 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     ty1 = div(ty - 1, tile_width) + 1 # same as j1
     ty2 = rem(ty - 1, tile_width) + 1 # same as j2
 
-    # j1 = div(j - 1, tile_width) + 1 
-    # j2 = rem(j - 1, tile_width) + 1
-
     # We launch one block in x direction so i = tx
     # i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    # j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    # j1 = div(j - 1, tile_width) + 1 
+    # j2 = rem(j - 1, tile_width) + 1
 
     # Tile the computation (restrict to one tile here)
     value = zero(eltype(du))
@@ -92,13 +93,13 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     # considered for better performance
     # TODO: Better memory access pattern
     @inbounds begin
-        shmem_dhat[ty2, ty1, 1] = derivative_dhat[ty1, ty2]
-        shmem_dhat[ty1, ty2, 2] = derivative_dhat[ty2, ty1]
+        shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2]
     end
 
     # Load global `flux_arr1` into shared memory
     # Load global `flux_arr2` into shared memory
-    # Note that `flux_arr1` and `flux_arr2` is removed for smaller GPU memory allocation
+    # Note that `flux_arr1` and `flux_arr2` are removed for smaller 
+    # GPU memory allocation
     u_node = get_node_vars(u, equations, ty1, ty2, k)
     flux_node1 = flux(u_node, 1, equations)
     flux_node2 = flux(u_node, 2, equations)
@@ -117,8 +118,8 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     # Loop within one block to get weak form
     for thread in 1:tile_width
         @inbounds begin
-            value += shmem_dhat[thread, ty1, 1] * shmem_flux[tx, thread, ty2, 1]
-            value += shmem_dhat[thread, ty2, 2] * shmem_flux[tx, ty1, thread, 2]
+            value += shmem_dhat[thread, ty1] * shmem_flux[tx, thread, ty2, 1]
+            value += shmem_dhat[thread, ty2] * shmem_flux[tx, ty1, thread, 2]
         end
     end
 
@@ -1139,7 +1140,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, 
     #                  kernel_configurator_3d(weak_form_kernel, size(du, 1), size(du, 2)^2,
     #                                         size(du, 4))...)
 
-    shmem_size = (2 * size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(eltype(du))
+    shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(eltype(du))
     flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, derivative_dhat,
                                                                       equations,
                                                                       flux)

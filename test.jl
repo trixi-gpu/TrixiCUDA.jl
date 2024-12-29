@@ -6,16 +6,16 @@ include("test/test_macros.jl")
 RealT = Float32
 
 # Set up the problem
-advection_velocity = (0.2f0, -0.7f0)
-equations = LinearScalarAdvectionEquation2D(advection_velocity)
+advection_velocity = (0.2f0, -0.7f0, 0.5f0)
+equations = LinearScalarAdvectionEquation3D(advection_velocity)
 
 solver = DGSEM(polydeg = 5, surface_flux = flux_lax_friedrichs, RealT = RealT)
 
-coordinates_min = (-1.0f0, -1.0f0)
-coordinates_max = (1.0f0, 1.0f0)
+coordinates_min = (-1.0f0, -1.0f0, -1.0f0)
+coordinates_max = (1.0f0, 1.0f0, 1.0f0)
 
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 4,
+                initial_refinement_level = 3,
                 n_cells_max = 30_000, RealT = RealT)
 
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_convergence_test,

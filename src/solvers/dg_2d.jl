@@ -52,6 +52,85 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
     return nothing
 end
 
+# Kernel for calculating flux and weak form
+# It is optimized using shared memory access and computation tiling
+function flux_weak_form_kernel!(du, u, derivative_dhat,
+                                equations::AbstractEquations{2}, flux::Any)
+    # Set tile width
+    tile_width = size(du, 2)
+    offset = 0 # offset bytes for shared memory
+
+    # Allocate dynamic shared memory
+    shmem_dhat = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width, 2))
+    offset += sizeof(eltype(du)) * 2 * tile_width^2
+    shmem_flux = @cuDynamicSharedMem(eltype(du),
+                                     (size(du, 1), tile_width, tile_width, 2), offset)
+
+    # Get thread and block indices
+    # bx, by, bz = blockIdx().x, blockIdx().y, blockIdx().z
+    # tx, ty, tz = threadIdx().x, threadIdx().y, threadIdx().z
+
+    # Get thread and block indices we need to save registers
+    tx, ty = threadIdx().x, threadIdx().y
+
+    # We launch one block in y direction so j = ty
+    ty1 = div(ty - 1, tile_width) + 1 # same as j1
+    ty2 = rem(ty - 1, tile_width) + 1 # same as j2
+
+    # j1 = div(j - 1, tile_width) + 1 
+    # j2 = rem(j - 1, tile_width) + 1
+
+    # We launch one block in x direction so i = tx
+    # i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    # Tile the computation (restrict to one tile here)
+    value = zero(eltype(du))
+
+    # Load global `derivative_dhat` into shared memory
+    # Note the memory access pattern matters here, transposed or not needs to be 
+    # considered for better performance
+    # TODO: Better memory access pattern
+    @inbounds begin
+        shmem_dhat[ty2, ty1, 1] = derivative_dhat[ty1, ty2]
+        shmem_dhat[ty1, ty2, 2] = derivative_dhat[ty2, ty1]
+    end
+
+    # Load global `flux_arr1` into shared memory
+    # Load global `flux_arr2` into shared memory
+    # Note that `flux_arr1` and `flux_arr2` is removed for smaller GPU memory allocation
+    u_node = get_node_vars(u, equations, ty1, ty2, k)
+    flux_node1 = flux(u_node, 1, equations)
+    flux_node2 = flux(u_node, 2, equations)
+    # @inbounds begin
+    #     shmem_flux[tx, ty1, ty2, 1] = flux_arr1[tx, ty1, ty2, k]
+    #     shmem_flux[tx, ty1, ty2, 2] = flux_arr2[tx, ty1, ty2, k]
+    # end
+    # TODO: Better memory access pattern
+    @inbounds begin
+        shmem_flux[tx, ty1, ty2, 1] = flux_node1[tx]
+        shmem_flux[tx, ty1, ty2, 2] = flux_node2[tx]
+    end
+
+    sync_threads()
+
+    # Loop within one block to get weak form
+    for thread in 1:tile_width
+        @inbounds begin
+            value += shmem_dhat[thread, ty1, 1] * shmem_flux[tx, thread, ty2, 1]
+            value += shmem_dhat[thread, ty2, 2] * shmem_flux[tx, ty1, thread, 2]
+        end
+    end
+
+    # Synchronization is not needed here if we use only one tile
+    # sync_threads()
+
+    # Finalize the weak form
+    @inbounds du[tx, ty1, ty2, k] = value
+
+    return nothing
+end
+
 # Kernel for calculating volume fluxes
 function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, u, equations::AbstractEquations{2},
                              volume_flux::Any)
@@ -1047,18 +1126,27 @@ end
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, equations,
                                volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
     derivative_dhat = CuArray(dg.basis.derivative_dhat)
-    flux_arr1 = similar(u)
-    flux_arr2 = similar(u)
+    # flux_arr1 = similar(u)
+    # flux_arr2 = similar(u)
 
-    flux_kernel = @cuda launch=false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
-    flux_kernel(flux_arr1, flux_arr2, u, equations, flux;
-                kernel_configurator_2d(flux_kernel, size(u, 2)^2, size(u, 4))...)
+    # flux_kernel = @cuda launch=false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
+    # flux_kernel(flux_arr1, flux_arr2, u, equations, flux;
+    #             kernel_configurator_2d(flux_kernel, size(u, 2)^2, size(u, 4))...)
 
-    weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr1,
-                                                            flux_arr2)
-    weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2;
-                     kernel_configurator_3d(weak_form_kernel, size(du, 1), size(du, 2)^2,
-                                            size(du, 4))...)
+    # weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr1,
+    #                                                         flux_arr2)
+    # weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2;
+    #                  kernel_configurator_3d(weak_form_kernel, size(du, 1), size(du, 2)^2,
+    #                                         size(du, 4))...)
+
+    shmem_size = (2 * size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(eltype(du))
+    flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, derivative_dhat,
+                                                                      equations,
+                                                                      flux)
+    flux_weak_form_kernel(du, u, derivative_dhat, equations, flux;
+                          shmem = shmem_size,
+                          threads = (size(du, 1), size(du, 2)^2, 1),
+                          blocks = (1, 1, size(du, 4)))
 
     return nothing
 end

@@ -115,8 +115,7 @@ summary_callback()
 ```
 
 # Benchmarks
-Please refer to the benchmark directory to conduct your own benchmarking. For example, check out [example.jl](./benchmark/example.jl) under the benchmark. The official benchmarking report for the semidiscretization process will be updated soon.
-
+Please refer to the benchmark directory to conduct your own benchmarking based on different PDE examples. The official benchmarking report for the semidiscretization process will be released in the future.
 
 # Show Your Support
 We always welcome new contributors to join us in future development. Please feel free to reach out if you would like to get involved!

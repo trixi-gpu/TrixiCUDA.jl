@@ -18,7 +18,7 @@ end
 # to use stride loops to handle the constrained launch size.
 function kernel_configurator_coop_1d(kernel::HostKernel, x::Int)
     # config = launch_configuration(kernel.fun) # not used in this case
-    # Maybe pack properties into a struct
+    # TODO: Maybe pack properties into a struct
     device = CUDA.device()
     sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
 
@@ -53,7 +53,7 @@ end
 # to use stride loops to handle the constrained launch size.
 function kernel_configurator_coop_2d(kernel::HostKernel, x::Int, y::Int)
     config = launch_configuration(kernel.fun) # get the number of threads
-    # Maybe pack properties into a struct
+    # TODO: Maybe pack properties into a struct
     device = CUDA.device()
     sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
 
@@ -104,7 +104,7 @@ end
 # to use stride loops to handle the constrained launch size.
 function kernel_configurator_coop_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
     config = launch_configuration(kernel.fun) # get the number of threads
-    # Maybe pack properties into a struct
+    # TODO: Maybe pack properties into a struct
     device = CUDA.device()
     sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
 

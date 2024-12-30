@@ -1127,27 +1127,42 @@ end
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, equations,
                                volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
     derivative_dhat = CuArray(dg.basis.derivative_dhat)
-    # flux_arr1 = similar(u)
-    # flux_arr2 = similar(u)
 
-    # flux_kernel = @cuda launch=false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
-    # flux_kernel(flux_arr1, flux_arr2, u, equations, flux;
-    #             kernel_configurator_2d(flux_kernel, size(u, 2)^2, size(u, 4))...)
+    # Query hardware properties
+    # TODO: Maybe pack properties into a struct
+    device = CUDA.device()
+    max_thread_per_block = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK)
 
-    # weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr1,
-    #                                                         flux_arr2)
-    # weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2;
-    #                  kernel_configurator_3d(weak_form_kernel, size(du, 1), size(du, 2)^2,
-    #                                         size(du, 4))...)
+    # The maximum number of threads per block is the dominant factor when choosing the optimization 
+    # method. However, there are other factors that may cause a launch failure, such as the maximum 
+    # number of registers per block. Here, we have omitted all other factors, but this should be 
+    # enhanced later for a safer kernel launch.
+    # TODO: More checks before the kernel launch
+    thread_num_per_block = size(du, 1) * size(du, 2)^2
+    if thread_num_per_block > max_thread_per_block
+        # TODO: How to optimize when size is large
+        flux_arr1 = similar(u)
+        flux_arr2 = similar(u)
 
-    shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(eltype(du))
-    flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, derivative_dhat,
-                                                                      equations,
-                                                                      flux)
-    flux_weak_form_kernel(du, u, derivative_dhat, equations, flux;
-                          shmem = shmem_size,
-                          threads = (size(du, 1), size(du, 2)^2, 1),
-                          blocks = (1, 1, size(du, 4)))
+        flux_kernel = @cuda launch=false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
+        flux_kernel(flux_arr1, flux_arr2, u, equations, flux;
+                    kernel_configurator_2d(flux_kernel, size(u, 2)^2, size(u, 4))...)
+
+        weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr1,
+                                                                flux_arr2)
+        weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2;
+                         kernel_configurator_3d(weak_form_kernel, size(du, 1), size(du, 2)^2,
+                                                size(du, 4))...)
+    else
+        shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(eltype(du))
+        flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, derivative_dhat,
+                                                                          equations,
+                                                                          flux)
+        flux_weak_form_kernel(du, u, derivative_dhat, equations, flux;
+                              shmem = shmem_size,
+                              threads = (size(du, 1), size(du, 2)^2, 1),
+                              blocks = (1, 1, size(du, 4)))
+    end
 
     return nothing
 end

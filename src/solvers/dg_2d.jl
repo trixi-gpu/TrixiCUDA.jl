@@ -6,10 +6,11 @@
 
 # Kernel for calculating fluxes along normal directions
 function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, flux::Any)
-    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (j <= size(u, 2)^2 && k <= size(u, 4))
+    if (i <= size(u, 1) && j <= size(u, 2)^2 && k <= size(u, 4))
         j1 = div(j - 1, size(u, 2)) + 1
         j2 = rem(j - 1, size(u, 2)) + 1
 
@@ -18,11 +19,9 @@ function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, 
         flux_node1 = flux(u_node, 1, equations)
         flux_node2 = flux(u_node, 2, equations)
 
-        for ii in axes(u, 1)
-            @inbounds begin
-                flux_arr1[ii, j1, j2, k] = flux_node1[ii]
-                flux_arr2[ii, j1, j2, k] = flux_node2[ii]
-            end
+        @inbounds begin
+            flux_arr1[i, j1, j2, k] = flux_node1[i]
+            flux_arr2[i, j1, j2, k] = flux_node2[i]
         end
     end
 
@@ -1146,7 +1145,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, 
 
         flux_kernel = @cuda launch=false flux_kernel!(flux_arr1, flux_arr2, u, equations, flux)
         flux_kernel(flux_arr1, flux_arr2, u, equations, flux;
-                    kernel_configurator_2d(flux_kernel, size(u, 2)^2, size(u, 4))...)
+                    kernel_configurator_3d(flux_kernel, size(u, 1), size(u, 2)^2,
+                                           size(u, 4))...)
 
         weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr1,
                                                                 flux_arr2)

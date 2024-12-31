@@ -18,12 +18,9 @@ end
 # to use stride loops to handle the constrained launch size.
 function kernel_configurator_coop_1d(kernel::HostKernel, x::Int)
     # config = launch_configuration(kernel.fun) # not used in this case
-    # TODO: Maybe pack properties into a struct
-    device = CUDA.device()
-    sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
 
     threads = 32 # warp size is 32, if block size is less than 32, it will be padded to 32
-    blocks = min(cld(x, threads), sm_count)
+    blocks = min(cld(x, threads), MULTIPROCESSOR_COUNT)
 
     return (threads = threads, blocks = blocks)
 end
@@ -53,9 +50,6 @@ end
 # to use stride loops to handle the constrained launch size.
 function kernel_configurator_coop_2d(kernel::HostKernel, x::Int, y::Int)
     config = launch_configuration(kernel.fun) # get the number of threads
-    # TODO: Maybe pack properties into a struct
-    device = CUDA.device()
-    sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
 
     # y dimension
     dims_y1 = cld(x * y, 32)
@@ -66,7 +60,7 @@ function kernel_configurator_coop_2d(kernel::HostKernel, x::Int, y::Int)
     # x dimension is hard-coded to warp size 32
     threads = (32, dims_y)
     blocks_x = cld(x, threads[1])
-    blocks_y = min(cld(y, threads[2]), fld(sm_count, blocks_x))
+    blocks_y = min(cld(y, threads[2]), fld(MULTIPROCESSOR_COUNT, blocks_x))
 
     blocks = (blocks_x, blocks_y)
 
@@ -104,9 +98,6 @@ end
 # to use stride loops to handle the constrained launch size.
 function kernel_configurator_coop_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
     config = launch_configuration(kernel.fun) # get the number of threads
-    # TODO: Maybe pack properties into a struct
-    device = CUDA.device()
-    sm_count = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT) # get number of SMs
 
     # y dimension
     dims_y1 = cld(x * y, 32)
@@ -123,8 +114,8 @@ function kernel_configurator_coop_3d(kernel::HostKernel, x::Int, y::Int, z::Int)
     # x dimension is hard-coded to warp size 32
     threads = (32, dims_y, dims_z)
     blocks_x = cld(x, threads[1])
-    blocks_y = min(cld(y, threads[2]), fld(sm_count, blocks_x))
-    blocks_z = min(cld(z, threads[3]), fld(sm_count, blocks_x * blocks_y))
+    blocks_y = min(cld(y, threads[2]), fld(MULTIPROCESSOR_COUNT, blocks_x))
+    blocks_z = min(cld(z, threads[3]), fld(MULTIPROCESSOR_COUNT, blocks_x * blocks_y))
 
     blocks = (blocks_x, blocks_y, blocks_z)
 

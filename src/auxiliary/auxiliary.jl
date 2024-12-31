@@ -13,7 +13,7 @@ function init_device()
         global MAX_THREADS_PER_BLOCK = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK)
     catch e
         # Handle the errors
-        if e isa CUDA.Error
+        if e isa CUDA.CuError
             println("Error initializing device: ", e.msg)
             println("Ensure a CUDA-enabled GPU is available and properly configured.")
         else

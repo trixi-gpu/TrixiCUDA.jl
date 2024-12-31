@@ -1127,18 +1127,13 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, 
                                volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
     derivative_dhat = CuArray(dg.basis.derivative_dhat)
 
-    # Query hardware properties
-    # TODO: Maybe pack properties into a struct
-    device = CUDA.device()
-    max_thread_per_block = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK)
-
     # The maximum number of threads per block is the dominant factor when choosing the optimization 
     # method. However, there are other factors that may cause a launch failure, such as the maximum 
     # number of registers per block. Here, we have omitted all other factors, but this should be 
     # enhanced later for a safer kernel launch.
     # TODO: More checks before the kernel launch
     thread_num_per_block = size(du, 1) * size(du, 2)^2
-    if thread_num_per_block > max_thread_per_block
+    if thread_num_per_block > MAX_THREADS_PER_BLOCK
         # TODO: How to optimize when size is large
         flux_arr1 = similar(u)
         flux_arr2 = similar(u)

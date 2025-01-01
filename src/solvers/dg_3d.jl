@@ -87,7 +87,7 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1 # same as j2
     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1 # same as j3
 
-    # We laucn one block in x direction so i = tx
+    # We launch one block in x direction so i = tx
     # i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     # j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z

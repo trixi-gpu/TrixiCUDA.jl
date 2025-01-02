@@ -6,15 +6,16 @@
 
 # Kernel for calculating fluxes along normal direction
 function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Any)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
-    if (i <= size(u, 1) && j <= size(u, 2) && k <= size(u, 3))
+    if (j <= size(u, 2) && k <= size(u, 3))
         u_node = get_node_vars(u, equations, j, k)
         flux_node = flux(u_node, 1, equations)
 
-        @inbounds flux_arr[i, j, k] = flux_node[i]
+        for ii in axes(u, 1)
+            @inbounds flux_arr[ii, j, k] = flux_node[ii]
+        end
     end
 
     return nothing
@@ -687,12 +688,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
 
         flux_kernel = @cuda launch=false flux_kernel!(flux_arr, u, equations, flux)
         flux_kernel(flux_arr, u, equations, flux;
-                    kernel_configurator_3d(flux_kernel, size(u)...)...)
+                    kernel_configurator_2d(flux_kernel, size(u, 2), size(u, 3))...)
 
         weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr)
         weak_form_kernel(du, derivative_dhat, flux_arr;
                          kernel_configurator_3d(weak_form_kernel, size(du)...)...)
-
     else
         shmem_size = (size(du, 2)^2 + size(du, 1) * size(du, 2)) * sizeof(eltype(du))
         flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, derivative_dhat,

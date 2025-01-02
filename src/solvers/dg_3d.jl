@@ -7,11 +7,10 @@
 # Kernel for calculating fluxes along normal directions
 function flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u, equations::AbstractEquations{3},
                       flux::Any)
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
-    if (i <= size(u, 1) && j <= size(u, 2)^3 && k <= size(u, 5))
+    if (j <= size(u, 2)^3 && k <= size(u, 5))
         u2 = size(u, 2)
 
         j1 = div(j - 1, u2^2) + 1
@@ -24,10 +23,12 @@ function flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u, equations::AbstractEqu
         flux_node2 = flux(u_node, 2, equations)
         flux_node3 = flux(u_node, 3, equations)
 
-        @inbounds begin
-            flux_arr1[i, j1, j2, j3, k] = flux_node1[i]
-            flux_arr2[i, j1, j2, j3, k] = flux_node2[i]
-            flux_arr3[i, j1, j2, j3, k] = flux_node3[i]
+        for ii in axes(u, 1)
+            @inbounds begin
+                flux_arr1[ii, j1, j2, j3, k] = flux_node1[ii]
+                flux_arr2[ii, j1, j2, j3, k] = flux_node2[ii]
+                flux_arr3[ii, j1, j2, j3, k] = flux_node3[ii]
+            end
         end
     end
 
@@ -1722,8 +1723,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
         flux_kernel = @cuda launch=false flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u, equations,
                                                       flux)
         flux_kernel(flux_arr1, flux_arr2, flux_arr3, u, equations, flux;
-                    kernel_configurator_3d(flux_kernel, size(u, 1), size(u, 2)^3,
-                                           size(u, 5))...)
+                    kernel_configurator_2d(flux_kernel, size(u, 2)^3, size(u, 5))...)
 
         weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr1,
                                                                 flux_arr2, flux_arr3)

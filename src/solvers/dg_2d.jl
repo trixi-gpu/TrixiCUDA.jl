@@ -64,7 +64,8 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     shmem_dhat = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
     shmem_flux = @cuDynamicSharedMem(eltype(du),
-                                     (size(du, 1), tile_width, tile_width, 2), offset)
+                                     (size(du, 1), tile_width, tile_width, 2),
+                                     offset)
 
     # Get thread and block indices only we need to save registers
     tx, ty = threadIdx().x, threadIdx().y
@@ -90,17 +91,12 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
         shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2]
     end
 
-    # Load global `flux_arr1` into shared memory
-    # Load global `flux_arr2` into shared memory
-    # Note that `flux_arr1` and `flux_arr2` are removed for smaller 
-    # GPU memory allocation
+    # Load global `flux_arr1` and `flux_arr2` into shared memory, and note 
+    # that they are removed now for smaller GPU memory allocation
     u_node = get_node_vars(u, equations, ty1, ty2, k)
     flux_node1 = flux(u_node, 1, equations)
     flux_node2 = flux(u_node, 2, equations)
-    # @inbounds begin
-    #     shmem_flux[tx, ty1, ty2, 1] = flux_arr1[tx, ty1, ty2, k]
-    #     shmem_flux[tx, ty1, ty2, 2] = flux_arr2[tx, ty1, ty2, k]
-    # end
+
     @inbounds begin
         shmem_flux[tx, ty1, ty2, 1] = flux_node1[tx]
         shmem_flux[tx, ty1, ty2, 2] = flux_node2[tx]
@@ -158,6 +154,107 @@ function volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2, u, equations::A
     return nothing
 end
 
+# Kernel for calculating volume integrals
+function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_flux_arr2,
+                                 equations::AbstractEquations{2})
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
+        j1 = div(j - 1, size(du, 2)) + 1
+        j2 = rem(j - 1, size(du, 2)) + 1
+
+        @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
+
+        for ii in axes(du, 2)
+            @inbounds begin
+                du[i, j1, j2, k] += derivative_split[j1, ii] * volume_flux_arr1[i, j1, ii, j2, k]
+                du[i, j1, j2, k] += derivative_split[j2, ii] * volume_flux_arr2[i, j1, j2, ii, k]
+            end
+        end
+    end
+
+    return nothing
+end
+
+# Kernel for calculating volume fluxes and volume integrals
+# An optimized version of the fusion of `volume_flux_kernel!` and `volume_integral_kernel!`
+function volume_flux_integral_kernel!(du, u, derivative_split,
+                                      equations::AbstractEquations{2}, volume_flux::Any)
+    # Set tile width
+    tile_width = size(du, 2)
+    offset = 0 # offset bytes for shared memory
+
+    # Allocate dynamic shared memory
+    shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+    offset += sizeof(eltype(du)) * tile_width^2
+    shmem_vflux = @cuDynamicSharedMem(eltype(du),
+                                      (size(du, 1), tile_width, tile_width, tile_width, 2),
+                                      offset)
+
+    # Get thread and block indices only we need save registers
+    tx, ty = threadIdx().x, threadIdx().y
+
+    # We launch one block in y direction so j = ty
+    ty1 = div(ty - 1, tile_width^2) + 1 # same as j1
+    ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1 # same as j2
+    ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1 # same as j3
+
+    # We launch one block in x direction so i = tx
+    # i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    # j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    # j1 = div(j - 1, u2^2) + 1
+    # j2 = div(rem(j - 1, u2^2), u2) + 1
+    # j3 = rem(rem(j - 1, u2^2), u2) + 1
+
+    # Tile the computation (restrict to one tile here)
+    value = zero(eltype(du))
+
+    # Load global `derivative_split` into shared memory
+    # Transposed memory access or not?
+    @inbounds begin
+        shmem_split[ty2, ty1] = derivative_split[ty1, ty2]
+    end
+
+    # Load global `volume_flux_arr1` and `volume_flux_arr2` into shared memory, 
+    # and note that they are removed now for smaller GPU memory allocation
+    u_node = get_node_vars(u, equations, ty1, ty2, k)
+    u_node1 = get_node_vars(u, equations, ty3, ty2, k)
+    u_node2 = get_node_vars(u, equations, ty1, ty3, k)
+
+    volume_flux_node1 = volume_flux(u_node, u_node1, 1, equations)
+    volume_flux_node2 = volume_flux(u_node, u_node2, 2, equations)
+
+    @inbounds begin
+        shmem_vflux[tx, ty1, ty3, ty2, 1] = volume_flux_node1[tx]
+        shmem_vflux[tx, ty1, ty2, ty3, 2] = volume_flux_node2[tx]
+    end
+
+    sync_threads()
+
+    # Loop within one block to get weak form
+    # TODO: Avoid potential bank conflicts and parallelize (ty1, ty2) with threads to ty3, 
+    # then consolidate each computation back to (ty1, ty2)
+    # How to replace shared memory `shmem_flux` with `flux_node`?
+    for thread in 1:tile_width
+        @inbounds begin
+            value += shmem_split[thread, ty1] * shmem_vflux[tx, ty1, thread, ty2, 1]
+            value += shmem_split[thread, ty2] * shmem_vflux[tx, ty1, ty2, thread, 2]
+        end
+    end
+
+    # Synchronization is not needed here if we use only one tile
+    # sync_threads()
+
+    # Finalize the weak form
+    @inbounds du[tx, ty1, ty2, k] = value
+
+    return nothing
+end
+
 # Kernel for calculating symmetric and nonconservative fluxes
 function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2, noncons_flux_arr1,
                                         noncons_flux_arr2, u, derivative_split,
@@ -191,30 +288,6 @@ function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2
                                                          symmetric_flux_node2[ii]
                 noncons_flux_arr1[ii, j1, j3, j2, k] = noncons_flux_node1[ii]
                 noncons_flux_arr2[ii, j1, j2, j3, k] = noncons_flux_node2[ii]
-            end
-        end
-    end
-
-    return nothing
-end
-
-# Kernel for calculating volume integrals
-function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_flux_arr2,
-                                 equations::AbstractEquations{2})
-    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-    if (i <= size(du, 1) && j <= size(du, 2)^2 && k <= size(du, 4))
-        j1 = div(j - 1, size(du, 2)) + 1
-        j2 = rem(j - 1, size(du, 2)) + 1
-
-        @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
-
-        for ii in axes(du, 2)
-            @inbounds begin
-                du[i, j1, j2, k] += derivative_split[j1, ii] * volume_flux_arr1[i, j1, ii, j2, k]
-                du[i, j1, j2, k] += derivative_split[j2, ii] * volume_flux_arr2[i, j1, j2, ii, k]
             end
         end
     end
@@ -1163,27 +1236,36 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
-
     derivative_split = dg.basis.derivative_split
-    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
-
+    # TODO: Move `set_diagonal_to_zero!` outside of `rhs!` loop and cache the result in 
+    # DG struct on GPU 
+    set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
-    volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
-                                      size(u, 4))
-    volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
-                                      size(u, 4))
 
-    volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2,
-                                                                u, equations, volume_flux)
-    volume_flux_kernel(volume_flux_arr1, volume_flux_arr2, u, equations, volume_flux;
-                       kernel_configurator_2d(volume_flux_kernel, size(u, 2)^3, size(u, 4))...)
+    # volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+    #                                   size(u, 4))
+    # volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+    #                                   size(u, 4))
 
-    volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
-                                                                        volume_flux_arr1,
-                                                                        volume_flux_arr2, equations)
-    volume_integral_kernel(du, derivative_split, volume_flux_arr1, volume_flux_arr2, equations;
-                           kernel_configurator_3d(volume_integral_kernel, size(du, 1),
-                                                  size(du, 2)^2, size(du, 4))...)
+    # volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2,
+    #                                                             u, equations, volume_flux)
+    # volume_flux_kernel(volume_flux_arr1, volume_flux_arr2, u, equations, volume_flux;
+    #                    kernel_configurator_2d(volume_flux_kernel, size(u, 2)^3, size(u, 4))...)
+
+    # volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
+    #                                                                     volume_flux_arr1,
+    #                                                                     volume_flux_arr2, equations)
+    # volume_integral_kernel(du, derivative_split, volume_flux_arr1, volume_flux_arr2, equations;
+    #                        kernel_configurator_3d(volume_integral_kernel, size(du, 1),
+    #                                               size(du, 2)^2, size(du, 4))...)
+
+    shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^3) * sizeof(eltype(du))
+    volume_flux_integral_kernel = @cuda launch=false volume_flux_integral_kernel!(du, u, derivative_split,
+                                                                                  equations, volume_flux)
+    volume_flux_integral_kernel(du, u, derivative_split, equations, volume_flux;
+                                shmem = shmem_size,
+                                threads = (size(du, 1), size(du, 2)^3, 1),
+                                blocks = (1, 1, size(du, 4)))
 
     return nothing
 end

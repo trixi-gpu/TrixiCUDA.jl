@@ -72,9 +72,6 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     value = zero(eltype(du))
 
     # Load global `derivative_dhat` into shared memory
-    # Note the memory access pattern matters here, transposed or not needs to be 
-    # considered for better performance
-    # TODO: Better memory access pattern
     @inbounds begin
         shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2]
     end
@@ -86,7 +83,6 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     # @inbounds begin
     #     shmem_flux[tx, ty1] = flux_arr[tx, ty1, k]
     # end
-    # TODO: Better memory access pattern
     @inbounds begin
         shmem_flux[tx, ty1] = flux_node[tx]
     end
@@ -94,6 +90,9 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     sync_threads()
 
     # Loop within one block to get weak form
+    # TODO: Avoid potential bank conflicts and parallelize ty1 with threads to ty2, 
+    # then consolidate each computation back to ty1. 
+    # How to replace shared memory `shmem_flux` with `flux_node`?
     for thread in 1:tile_width
         @inbounds value += shmem_dhat[thread, ty1] * shmem_flux[tx, thread]
     end

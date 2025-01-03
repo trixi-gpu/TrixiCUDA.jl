@@ -1,6 +1,7 @@
 include("advection_basic.jl")
 include("advection_mortar.jl")
 include("euler_blob_mortar.jl")
+include("euler_ec.jl")
 include("euler_shock.jl")
 include("euler_source_terms_nonperiodic.jl")
 include("euler_source_terms.jl")

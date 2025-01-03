@@ -1198,11 +1198,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, 
 
     # The maximum number of threads per block is the dominant factor when choosing the optimization 
     # method. However, there are other factors that may cause a launch failure, such as the maximum 
-    # number of registers per block. Here, we have omitted all other factors, but this should be 
-    # enhanced later for a safer kernel launch.
+    # shared memory per block. Here, we have omitted all other factors, but this should be enhanced 
+    # later for a safer kernel launch.
     # TODO: More checks before the kernel launch
-    thread_num_per_block = size(du, 1) * size(du, 2)^2
-    if thread_num_per_block > MAX_THREADS_PER_BLOCK
+    thread_per_block = size(du, 1) * size(du, 2)^2
+    if thread_per_block > MAX_THREADS_PER_BLOCK
         # TODO: How to optimize when size is large
         flux_arr1 = similar(u)
         flux_arr2 = similar(u)
@@ -1242,30 +1242,34 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
 
-    # volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
-    #                                   size(u, 4))
-    # volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
-    #                                   size(u, 4))
+    thread_per_block = size(du, 1) * size(du, 2)^3
+    if thread_per_block > MAX_THREADS_PER_BLOCK
+        # TODO: How to optimize when size is large
+        volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                          size(u, 4))
+        volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                          size(u, 4))
 
-    # volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2,
-    #                                                             u, equations, volume_flux)
-    # volume_flux_kernel(volume_flux_arr1, volume_flux_arr2, u, equations, volume_flux;
-    #                    kernel_configurator_2d(volume_flux_kernel, size(u, 2)^3, size(u, 4))...)
+        volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr1, volume_flux_arr2,
+                                                                    u, equations, volume_flux)
+        volume_flux_kernel(volume_flux_arr1, volume_flux_arr2, u, equations, volume_flux;
+                           kernel_configurator_2d(volume_flux_kernel, size(u, 2)^3, size(u, 4))...)
 
-    # volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
-    #                                                                     volume_flux_arr1,
-    #                                                                     volume_flux_arr2, equations)
-    # volume_integral_kernel(du, derivative_split, volume_flux_arr1, volume_flux_arr2, equations;
-    #                        kernel_configurator_3d(volume_integral_kernel, size(du, 1),
-    #                                               size(du, 2)^2, size(du, 4))...)
-
-    shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^3) * sizeof(eltype(du))
-    volume_flux_integral_kernel = @cuda launch=false volume_flux_integral_kernel!(du, u, derivative_split,
-                                                                                  equations, volume_flux)
-    volume_flux_integral_kernel(du, u, derivative_split, equations, volume_flux;
-                                shmem = shmem_size,
-                                threads = (size(du, 1), size(du, 2)^3, 1),
-                                blocks = (1, 1, size(du, 4)))
+        volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
+                                                                            volume_flux_arr1,
+                                                                            volume_flux_arr2, equations)
+        volume_integral_kernel(du, derivative_split, volume_flux_arr1, volume_flux_arr2, equations;
+                               kernel_configurator_3d(volume_integral_kernel, size(du, 1),
+                                                      size(du, 2)^2, size(du, 4))...)
+    else
+        shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^3) * sizeof(eltype(du))
+        volume_flux_integral_kernel = @cuda launch=false volume_flux_integral_kernel!(du, u, derivative_split,
+                                                                                      equations, volume_flux)
+        volume_flux_integral_kernel(du, u, derivative_split, equations, volume_flux;
+                                    shmem = shmem_size,
+                                    threads = (size(du, 1), size(du, 2)^3, 1),
+                                    blocks = (1, 1, size(du, 4)))
+    end
 
     return nothing
 end

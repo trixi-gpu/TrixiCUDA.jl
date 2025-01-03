@@ -11,7 +11,7 @@ equations = CompressibleEulerEquations3D(1.4f0)
 initial_condition = initial_condition_weak_blast_wave
 
 volume_flux = flux_ranocha
-solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
+solver = DGSEM(polydeg = 2, surface_flux = flux_ranocha,
                volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
                RealT = RealT)
 

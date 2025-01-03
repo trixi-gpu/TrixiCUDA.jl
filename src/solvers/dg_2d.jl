@@ -52,8 +52,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
     return nothing
 end
 
-# Kernel for calculating flux and weak form
-# It is optimized using shared memory access and computation tiling
+# Kernel for calculating fluxes and weak form
+# An optimized version of the fusion of `flux_kernel!` and `weak_form_kernel!`
 function flux_weak_form_kernel!(du, u, derivative_dhat,
                                 equations::AbstractEquations{2}, flux::Any)
     # Set tile width
@@ -66,11 +66,7 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     shmem_flux = @cuDynamicSharedMem(eltype(du),
                                      (size(du, 1), tile_width, tile_width, 2), offset)
 
-    # Get thread and block indices
-    # bx, by, bz = blockIdx().x, blockIdx().y, blockIdx().z
-    # tx, ty, tz = threadIdx().x, threadIdx().y, threadIdx().z
-
-    # Get thread and block indices we need to save registers
+    # Get thread and block indices only we need to save registers
     tx, ty = threadIdx().x, threadIdx().y
 
     # We launch one block in y direction so j = ty
@@ -89,6 +85,7 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     value = zero(eltype(du))
 
     # Load global `derivative_dhat` into shared memory
+    # Transposed memory access or not?
     @inbounds begin
         shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2]
     end

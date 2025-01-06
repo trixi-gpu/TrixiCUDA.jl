@@ -244,7 +244,7 @@ end
 #     return nothing
 # end
 
-################################################################################################ New optimization
+############################################################################## New optimization
 # Kernel for calculating volume fluxes and volume integrals
 # An optimized version of the fusion of `volume_flux_kernel!` and `volume_integral_kernel!`
 function volume_flux_integral_kernel!(du, u, derivative_split,
@@ -255,48 +255,48 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Allocate dynamic shared memory
     shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
-    # offset += sizeof(eltype(du)) * tile_width^2
+    offset += sizeof(eltype(du)) * tile_width^2
+    shmem_value = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width, tile_width),
+                                      offset)
 
     # Get thread and block indices only we need save registers
-    tx, ty = threadIdx().x, threadIdx().y
+    ty = threadIdx().y
 
     # We launch one block in x direction and one block in the y direction
     # So here i = tx and j = ty
-    ty1 = div(ty - 1, tile_width^2) + 1
-    ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
-    ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
+    ty1 = div(ty - 1, tile_width) + 1
+    ty2 = rem(ty - 1, tile_width) + 1
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     # Tile the computation (set to one tile here)
-    value = zero(eltype(du))
-
-    # Load global `derivative_split` into shared memory
-    @inbounds begin
-        shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
+    # Initialize the values
+    for tx in axes(du, 1)
+        @inbounds shmem_value[tx, ty1, ty2] = zero(eltype(du))
     end
 
+    # Load global `derivative_split` into shared memory
+    @inbounds shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
+
     # Compute volume fluxes
-    # How to store in shared memory or loop on tx?
+    # How to store in shared memory?
     for thread in 1:tile_width
+        # Volume flux is heavy in computation so we should try best to avoid redundant 
+        # computation, i.e., use for loop along x direction here
         u_node = get_node_vars(u, equations, ty1, ty2, k)
-        u_node1 = get_node_vars(u, equations, ty3, ty2, k)
-        u_node2 = get_node_vars(u, equations, ty1, ty3, k)
+        volume_flux_node1 = volume_flux(u_node,
+                                        get_node_vars(u, equations, thread, ty2, k),
+                                        1, equations)
+        volume_flux_node2 = volume_flux(u_node,
+                                        get_node_vars(u, equations, ty1, thread, k),
+                                        2, equations)
 
-        volume_flux_node1 = volume_flux(u_node, u_node1, 1, equations)
-        volume_flux_node2 = volume_flux(u_node, u_node2, 2, equations)
-
-        @inbounds begin
-            shmem_vflux[tx, ty1, ty3, ty2, 1] = volume_flux_node1[tx]
-            shmem_vflux[tx, ty1, ty2, ty3, 2] = volume_flux_node2[tx]
-        end
-
-        sync_threads()
-
-        # Loop within one block to get volume integrals
-        for thread in 1:tile_width
+        # TODO: Avoid potential bank conflicts 
+        # Try another way to parallelize (ty1, ty2) with threads to ty3, then 
+        # consolidate each computation back to (ty1, ty2)
+        for tx in axes(du, 1)
             @inbounds begin
-                value += shmem_split[thread, ty1] * shmem_vflux[tx, ty1, thread, ty2, 1]
-                value += shmem_split[thread, ty2] * shmem_vflux[tx, ty1, ty2, thread, 2]
+                shmem_value[tx, ty1, ty2] += shmem_split[thread, ty1] * volume_flux_node1[tx]
+                shmem_value[tx, ty1, ty2] += shmem_split[thread, ty2] * volume_flux_node2[tx]
             end
         end
     end
@@ -304,8 +304,10 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Synchronization is not needed here if we use only one tile
     # sync_threads()
 
-    # Finalize the computation
-    @inbounds du[tx, ty1, ty2, k] = value
+    # Finalize the values
+    for tx in axes(du, 1)
+        @inbounds du[tx, ty1, ty2, k] = shmem_value[tx, ty1, ty2]
+    end
 
     return nothing
 end
@@ -1317,12 +1319,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                kernel_configurator_3d(volume_integral_kernel, size(du, 1),
                                                       size(du, 2)^2, size(du, 4))...)
     else
-        shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^3) * sizeof(eltype(du))
+        shmem_size = (size(du, 2)^2 + size(du, 1) * size(du, 2)^2) * sizeof(eltype(du))
         volume_flux_integral_kernel = @cuda launch=false volume_flux_integral_kernel!(du, u, derivative_split,
                                                                                       equations, volume_flux)
         volume_flux_integral_kernel(du, u, derivative_split, equations, volume_flux;
                                     shmem = shmem_size,
-                                    threads = (size(du, 1), size(du, 2)^3, 1),
+                                    threads = (1, size(du, 2)^2, 1),
                                     blocks = (1, 1, size(du, 4)))
     end
 

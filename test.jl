@@ -2,7 +2,7 @@ using Trixi, TrixiCUDA
 using Test
 include("test/test_macros.jl")
 
-equations = CompressibleEulerEquations3D(1.4)
+equations = CompressibleEulerEquations2D(1.4)
 
 initial_condition = initial_condition_weak_blast_wave
 
@@ -10,14 +10,17 @@ volume_flux = flux_ranocha
 solver = DGSEM(polydeg = 5, surface_flux = flux_ranocha,
                volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
-coordinates_min = (-2.0, -2.0, -2.0)
-coordinates_max = (2.0, 2.0, 2.0)
+coordinates_min = (-2.0, -2.0)
+coordinates_max = (2.0, 2.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 3,
-                n_cells_max = 100_000)
+                initial_refinement_level = 5,
+                n_cells_max = 10_000,
+                periodicity = true)
 
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                    boundary_conditions = boundary_condition_periodic)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
+                                           boundary_conditions = boundary_condition_periodic)
 
 tspan = tspan_gpu = (0.0, 0.4)
 t = t_gpu = 0.0

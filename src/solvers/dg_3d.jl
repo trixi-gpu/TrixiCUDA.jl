@@ -275,7 +275,7 @@ end
 #     return nothing
 # end
 
-################################################################################################ New optimization
+############################################################################## New optimization
 # Kernel for calculating volume fluxes and volume integrals
 # An optimized version of the fusion of `volume_flux_kernel!` and `volume_integral_kernel!`
 function volume_flux_integral_kernel!(du, u, derivative_split,
@@ -303,19 +303,17 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Tile the computation (set to one tile here)
     # Initialize the values
     for tx in axes(du, 1)
-        shmem_value[tx, ty1, ty2, ty3] = zero(eltype(du))
+        @inbounds shmem_value[tx, ty1, ty2, ty3] = zero(eltype(du))
     end
 
     # Load global `derivative_split` into shared memory
-    @inbounds begin
-        shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
-    end
+    @inbounds shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
 
     # Compute volume fluxes
     # How to store in shared memory?
     for thread in 1:tile_width
-        # Volume flux is heavy in computation so we should try best to avoid redundant computation
-        # i.e., use for loop along x direction here
+        # Volume flux is heavy in computation so we should try best to avoid redundant 
+        # computation, i.e., use for loop along x direction here
         u_node = get_node_vars(u, equations, ty1, ty2, ty3, k)
         volume_flux_node1 = volume_flux(u_node,
                                         get_node_vars(u, equations, thread, ty2, ty3, k),

@@ -222,24 +222,20 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Get thread and block indices only we need save registers
     tx, ty = threadIdx().x, threadIdx().y
 
-    # We launch one block in y direction so j = ty
+    # We launch one block in x direction and one block in the y direction
+    # So here i = tx and j = ty
     ty1 = div(ty - 1, tile_width^3) + 1
     ty2 = div(rem(ty - 1, tile_width^3), tile_width^2) + 1
     ty3 = div(rem(ty - 1, tile_width^2), tile_width) + 1
     ty4 = rem(ty - 1, tile_width) + 1
-
-    # We launch one block in x direction so i = tx
-    # i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    # j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    # Tile the computation (restrict to one tile here)
+    # Tile the computation (set to one tile here)
     value = zero(eltype(du))
 
     # Load global `derivative_split` into shared memory
-    # Transposed memory access or not?
     @inbounds begin
-        shmem_split[ty2, ty1] = derivative_split[ty1, ty2]
+        shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
     end
 
     # Load global `volume_flux_arr1`, `volume_flux_arr2`, and `volume_flux_arr3` 

@@ -196,27 +196,19 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Get thread and block indices only we need save registers
     tx, ty = threadIdx().x, threadIdx().y
 
-    # We launch one block in y direction so j = ty
-    ty1 = div(ty - 1, tile_width^2) + 1 # same as j1
-    ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1 # same as j2
-    ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1 # same as j3
-
-    # We launch one block in x direction so i = tx
-    # i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    # j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    # We launch one block in x direction and one block in the y direction
+    # So here i = tx and j = ty
+    ty1 = div(ty - 1, tile_width^2) + 1
+    ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
+    ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    # j1 = div(j - 1, u2^2) + 1
-    # j2 = div(rem(j - 1, u2^2), u2) + 1
-    # j3 = rem(rem(j - 1, u2^2), u2) + 1
-
-    # Tile the computation (restrict to one tile here)
+    # Tile the computation (set to one tile here)
     value = zero(eltype(du))
 
     # Load global `derivative_split` into shared memory
-    # Transposed memory access or not?
     @inbounds begin
-        shmem_split[ty2, ty1] = derivative_split[ty1, ty2]
+        shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
     end
 
     # Load global `volume_flux_arr1` and `volume_flux_arr2` into shared memory, 

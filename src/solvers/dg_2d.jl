@@ -178,6 +178,73 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
     return nothing
 end
 
+# # Kernel for calculating volume fluxes and volume integrals
+# # An optimized version of the fusion of `volume_flux_kernel!` and `volume_integral_kernel!`
+# function volume_flux_integral_kernel!(du, u, derivative_split,
+#                                       equations::AbstractEquations{2}, volume_flux::Any)
+#     # Set tile width
+#     tile_width = size(du, 2)
+#     offset = 0 # offset bytes for shared memory
+
+#     # Allocate dynamic shared memory
+#     shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+#     offset += sizeof(eltype(du)) * tile_width^2
+#     shmem_vflux = @cuDynamicSharedMem(eltype(du),
+#                                       (size(du, 1), tile_width, tile_width, tile_width, 2),
+#                                       offset)
+
+#     # Get thread and block indices only we need save registers
+#     tx, ty = threadIdx().x, threadIdx().y
+
+#     # We launch one block in x direction and one block in the y direction
+#     # So here i = tx and j = ty
+#     ty1 = div(ty - 1, tile_width^2) + 1
+#     ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
+#     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
+#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+#     # Tile the computation (set to one tile here)
+#     value = zero(eltype(du))
+
+#     # Load global `derivative_split` into shared memory
+#     @inbounds begin
+#         shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
+#     end
+
+#     # Load global `volume_flux_arr1` and `volume_flux_arr2` into shared memory, 
+#     # and note that they are removed now for smaller GPU memory allocation
+#     u_node = get_node_vars(u, equations, ty1, ty2, k)
+#     u_node1 = get_node_vars(u, equations, ty3, ty2, k)
+#     u_node2 = get_node_vars(u, equations, ty1, ty3, k)
+
+#     volume_flux_node1 = volume_flux(u_node, u_node1, 1, equations)
+#     volume_flux_node2 = volume_flux(u_node, u_node2, 2, equations)
+
+#     @inbounds begin
+#         shmem_vflux[tx, ty1, ty3, ty2, 1] = volume_flux_node1[tx]
+#         shmem_vflux[tx, ty1, ty2, ty3, 2] = volume_flux_node2[tx]
+#     end
+
+#     sync_threads()
+
+#     # Loop within one block to get volume integrals
+#     for thread in 1:tile_width
+#         @inbounds begin
+#             value += shmem_split[thread, ty1] * shmem_vflux[tx, ty1, thread, ty2, 1]
+#             value += shmem_split[thread, ty2] * shmem_vflux[tx, ty1, ty2, thread, 2]
+#         end
+#     end
+
+#     # Synchronization is not needed here if we use only one tile
+#     # sync_threads()
+
+#     # Finalize the values
+#     @inbounds du[tx, ty1, ty2, k] = value
+
+#     return nothing
+# end
+
+################################################################################################ New optimization
 # Kernel for calculating volume fluxes and volume integrals
 # An optimized version of the fusion of `volume_flux_kernel!` and `volume_integral_kernel!`
 function volume_flux_integral_kernel!(du, u, derivative_split,
@@ -188,10 +255,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Allocate dynamic shared memory
     shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
-    offset += sizeof(eltype(du)) * tile_width^2
-    shmem_vflux = @cuDynamicSharedMem(eltype(du),
-                                      (size(du, 1), tile_width, tile_width, tile_width, 2),
-                                      offset)
+    # offset += sizeof(eltype(du)) * tile_width^2
 
     # Get thread and block indices only we need save registers
     tx, ty = threadIdx().x, threadIdx().y
@@ -211,37 +275,36 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
         shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
     end
 
-    # Load global `volume_flux_arr1` and `volume_flux_arr2` into shared memory, 
-    # and note that they are removed now for smaller GPU memory allocation
-    u_node = get_node_vars(u, equations, ty1, ty2, k)
-    u_node1 = get_node_vars(u, equations, ty3, ty2, k)
-    u_node2 = get_node_vars(u, equations, ty1, ty3, k)
-
-    volume_flux_node1 = volume_flux(u_node, u_node1, 1, equations)
-    volume_flux_node2 = volume_flux(u_node, u_node2, 2, equations)
-
-    @inbounds begin
-        shmem_vflux[tx, ty1, ty3, ty2, 1] = volume_flux_node1[tx]
-        shmem_vflux[tx, ty1, ty2, ty3, 2] = volume_flux_node2[tx]
-    end
-
-    sync_threads()
-
-    # Loop within one block to get weak form
-    # TODO: Avoid potential bank conflicts and parallelize (ty1, ty2) with threads to ty3, 
-    # then consolidate each computation back to (ty1, ty2)
-    # How to replace shared memory `shmem_flux` with `flux_node`?
+    # Compute volume fluxes
+    # How to store in shared memory or loop on tx?
     for thread in 1:tile_width
+        u_node = get_node_vars(u, equations, ty1, ty2, k)
+        u_node1 = get_node_vars(u, equations, ty3, ty2, k)
+        u_node2 = get_node_vars(u, equations, ty1, ty3, k)
+
+        volume_flux_node1 = volume_flux(u_node, u_node1, 1, equations)
+        volume_flux_node2 = volume_flux(u_node, u_node2, 2, equations)
+
         @inbounds begin
-            value += shmem_split[thread, ty1] * shmem_vflux[tx, ty1, thread, ty2, 1]
-            value += shmem_split[thread, ty2] * shmem_vflux[tx, ty1, ty2, thread, 2]
+            shmem_vflux[tx, ty1, ty3, ty2, 1] = volume_flux_node1[tx]
+            shmem_vflux[tx, ty1, ty2, ty3, 2] = volume_flux_node2[tx]
+        end
+
+        sync_threads()
+
+        # Loop within one block to get volume integrals
+        for thread in 1:tile_width
+            @inbounds begin
+                value += shmem_split[thread, ty1] * shmem_vflux[tx, ty1, thread, ty2, 1]
+                value += shmem_split[thread, ty2] * shmem_vflux[tx, ty1, ty2, thread, 2]
+            end
         end
     end
 
     # Synchronization is not needed here if we use only one tile
     # sync_threads()
 
-    # Finalize the weak form
+    # Finalize the computation
     @inbounds du[tx, ty1, ty2, k] = value
 
     return nothing

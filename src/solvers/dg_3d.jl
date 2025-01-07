@@ -205,7 +205,6 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
 end
 
 # # Kernel for calculating volume fluxes and volume integrals
-# # An optimized version of the fusion of `volume_flux_kernel!` and `volume_integral_kernel!`
 # function volume_flux_integral_kernel!(du, u, derivative_split,
 #                                       equations::AbstractEquations{3}, volume_flux::Any)
 #     # Set tile width
@@ -277,7 +276,6 @@ end
 
 ############################################################################## New optimization
 # Kernel for calculating volume fluxes and volume integrals
-# An optimized version of the fusion of `volume_flux_kernel!` and `volume_integral_kernel!`
 function volume_flux_integral_kernel!(du, u, derivative_split,
                                       equations::AbstractEquations{3}, volume_flux::Any)
     # Set tile width

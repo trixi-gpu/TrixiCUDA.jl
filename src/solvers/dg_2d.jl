@@ -52,8 +52,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
     return nothing
 end
 
+############################################################################## New optimization
 # Kernel for calculating fluxes and weak form
-# An optimized version of the fusion of `flux_kernel!` and `weak_form_kernel!`
 function flux_weak_form_kernel!(du, u, derivative_dhat,
                                 equations::AbstractEquations{2}, flux::Any)
     # Set tile width
@@ -69,30 +69,18 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
 
     # Get thread and block indices only we need to save registers
     tx, ty = threadIdx().x, threadIdx().y
-
-    # We launch one block in y direction so j = ty
-    ty1 = div(ty - 1, tile_width) + 1 # same as j1
-    ty2 = rem(ty - 1, tile_width) + 1 # same as j2
-
-    # We launch one block in x direction so i = tx
-    # i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-    # j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    # j1 = div(j - 1, tile_width) + 1 
-    # j2 = rem(j - 1, tile_width) + 1
+    ty1 = div(ty - 1, tile_width) + 1
+    ty2 = rem(ty - 1, tile_width) + 1
 
     # Tile the computation (restrict to one tile here)
     value = zero(eltype(du))
 
     # Load global `derivative_dhat` into shared memory
-    # Transposed memory access or not?
-    @inbounds begin
-        shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2]
-    end
+    @inbounds shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2] # transposed access
 
-    # Load global `flux_arr1` and `flux_arr2` into shared memory, and note 
-    # that they are removed now for smaller GPU memory allocation
+    # Compute flux values
     u_node = get_node_vars(u, equations, ty1, ty2, k)
     flux_node1 = flux(u_node, 1, equations)
     flux_node2 = flux(u_node, 2, equations)
@@ -106,7 +94,6 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
 
     # Loop within one block to get weak form
     # TODO: Avoid potential bank conflicts
-    # How to replace shared memory `shmem_flux` with `flux_node`?
     for thread in 1:tile_width
         @inbounds begin
             value += shmem_dhat[thread, ty1] * shmem_flux[tx, thread, ty2, 1]
@@ -178,71 +165,6 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
     return nothing
 end
 
-# # Kernel for calculating volume fluxes and volume integrals
-# function volume_flux_integral_kernel!(du, u, derivative_split,
-#                                       equations::AbstractEquations{2}, volume_flux::Any)
-#     # Set tile width
-#     tile_width = size(du, 2)
-#     offset = 0 # offset bytes for shared memory
-
-#     # Allocate dynamic shared memory
-#     shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
-#     offset += sizeof(eltype(du)) * tile_width^2
-#     shmem_vflux = @cuDynamicSharedMem(eltype(du),
-#                                       (size(du, 1), tile_width, tile_width, tile_width, 2),
-#                                       offset)
-
-#     # Get thread and block indices only we need save registers
-#     tx, ty = threadIdx().x, threadIdx().y
-
-#     # We launch one block in x direction and one block in the y direction
-#     # So here i = tx and j = ty
-#     ty1 = div(ty - 1, tile_width^2) + 1
-#     ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
-#     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
-#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-#     # Tile the computation (set to one tile here)
-#     value = zero(eltype(du))
-
-#     # Load global `derivative_split` into shared memory
-#     @inbounds begin
-#         shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
-#     end
-
-#     # Load global `volume_flux_arr1` and `volume_flux_arr2` into shared memory, 
-#     # and note that they are removed now for smaller GPU memory allocation
-#     u_node = get_node_vars(u, equations, ty1, ty2, k)
-#     u_node1 = get_node_vars(u, equations, ty3, ty2, k)
-#     u_node2 = get_node_vars(u, equations, ty1, ty3, k)
-
-#     volume_flux_node1 = volume_flux(u_node, u_node1, 1, equations)
-#     volume_flux_node2 = volume_flux(u_node, u_node2, 2, equations)
-
-#     @inbounds begin
-#         shmem_vflux[tx, ty1, ty3, ty2, 1] = volume_flux_node1[tx]
-#         shmem_vflux[tx, ty1, ty2, ty3, 2] = volume_flux_node2[tx]
-#     end
-
-#     sync_threads()
-
-#     # Loop within one block to get volume integrals
-#     for thread in 1:tile_width
-#         @inbounds begin
-#             value += shmem_split[thread, ty1] * shmem_vflux[tx, ty1, thread, ty2, 1]
-#             value += shmem_split[thread, ty2] * shmem_vflux[tx, ty1, ty2, thread, 2]
-#         end
-#     end
-
-#     # Synchronization is not needed here if we use only one tile
-#     # sync_threads()
-
-#     # Finalize the values
-#     @inbounds du[tx, ty1, ty2, k] = value
-
-#     return nothing
-# end
-
 ############################################################################## New optimization
 # Kernel for calculating volume fluxes and volume integrals
 function volume_flux_integral_kernel!(du, u, derivative_split,
@@ -259,12 +181,10 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    # We launch one block in x direction and one block in the y direction
-    # So here i = tx and j = ty
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     # Tile the computation (set to one tile here)
     # Initialize the values
@@ -276,7 +196,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     @inbounds shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
 
     # Compute volume fluxes
-    # How to store in shared memory?
+    # How to store nodes in shared memory?
     for thread in 1:tile_width
         # Volume flux is heavy in computation so we should try best to avoid redundant 
         # computation, i.e., use for loop along x direction here

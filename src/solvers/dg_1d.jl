@@ -37,8 +37,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr)
     return nothing
 end
 
-# Kernel for calculating fluxes and weak form 
-# An optimized version of the fusion of `flux_kernel!` and `weak_form_kernel!`
+############################################################################## New optimization
+# Kernel for calculating fluxes and weak form
 function flux_weak_form_kernel!(du, u, derivative_dhat,
                                 equations::AbstractEquations{1}, flux::Any)
     # Set tile width
@@ -53,50 +53,35 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
 
     # Get thread and block indices only we need to save registers
     tx, ty = threadIdx().x, threadIdx().y
-
-    # We construct more threads than we need to allocate shared memory
-    # Note that treating j as either ty1 or ty2 is valid, and here we 
-    # treat it as ty1
-    ty1 = div(ty - 1, tile_width) + 1
-    ty2 = rem(ty - 1, tile_width) + 1
-
-    # We launch one block in x direction so i = tx
-    # i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     # Tile the computation (restrict to one tile here)
     value = zero(eltype(du))
 
     # Load global `derivative_dhat` into shared memory
-    # Transposed memory access or not?
-    @inbounds begin
-        shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2]
+    for ty2 in axes(du, 2)
+        @inbounds shmem_dhat[ty2, ty] = derivative_dhat[ty, ty2] # transposed access
     end
 
-    # Load global `flux_arr` into shared memory
-    # Note that `flux_arr` is removed for smaller GPU memory allocation
-    u_node = get_node_vars(u, equations, ty1, k)
+    # Compute flux values
+    u_node = get_node_vars(u, equations, ty, k)
     flux_node = flux(u_node, 1, equations)
 
-    @inbounds begin
-        shmem_flux[tx, ty1] = flux_node[tx]
-    end
+    @inbounds shmem_flux[tx, ty] = flux_node[tx]
 
     sync_threads()
 
     # Loop within one block to get weak form
-    # TODO: Avoid potential bank conflicts and parallelize ty1 with threads to ty2, 
-    # then consolidate each computation back to ty1
-    # How to replace shared memory `shmem_flux` with `flux_node`?
+    # TODO: Avoid potential bank conflicts
     for thread in 1:tile_width
-        @inbounds value += shmem_dhat[thread, ty1] * shmem_flux[tx, thread]
+        @inbounds value += shmem_dhat[thread, ty] * shmem_flux[tx, thread]
     end
 
     # Synchronization is not needed here if we use only one tile
     # sync_threads()
 
     # Finalize the weak form
-    @inbounds du[tx, ty1, k] = value
+    @inbounds du[tx, ty, k] = value
 
     return nothing
 end
@@ -141,63 +126,6 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr,
     return nothing
 end
 
-# # Kernel for calculating volume fluxes and volume integrals
-# function volume_flux_integral_kernel!(du, u, derivative_split,
-#                                       equations::AbstractEquations{1}, volume_flux::Any)
-#     # Set tile width
-#     tile_width = size(du, 2)
-#     offset = 0 # offset bytes for shared memory
-
-#     # Allocate dynamic shared memory
-#     shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
-#     offset += sizeof(eltype(du)) * tile_width^2
-#     shmem_vflux = @cuDynamicSharedMem(eltype(du),
-#                                       (size(du, 1), tile_width, tile_width), offset)
-
-#     # Get thread and block indices only we need to save registers
-#     tx, ty = threadIdx().x, threadIdx().y
-
-#     # We launch one block in x direction and one block in the y direction
-#     # So here i = tx and j = ty
-#     ty1 = div(ty - 1, tile_width) + 1
-#     ty2 = rem(ty - 1, tile_width) + 1
-#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-#     # Tile the computation (set to one tile here)
-#     value = zero(eltype(du))
-
-#     # Load global `derivative_split` into shared memory
-#     @inbounds begin
-#         shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
-#     end
-
-#     # Load global `volume_flux_arr` into shared memory
-#     # Note that `volume_flux_arr` is removed for smaller GPU memory allocation
-#     u_node = get_node_vars(u, equations, ty1, k)
-#     u_node1 = get_node_vars(u, equations, ty2, k)
-
-#     volume_flux_node = volume_flux(u_node, u_node1, 1, equations)
-
-#     @inbounds begin
-#         shmem_vflux[tx, ty1, ty2] = volume_flux_node[tx]
-#     end
-
-#     sync_threads()
-
-#     # Loop within one block to get volume integrals
-#     for thread in 1:tile_width
-#         @inbounds value += shmem_split[thread, ty1] * shmem_vflux[tx, ty1, thread]
-#     end
-
-#     # Synchronization is not needed here if we use only one tile
-#     # sync_threads()
-
-#     # Finalize the values
-#     @inbounds du[tx, ty1, k] = value
-
-#     return nothing
-# end
-
 ############################################################################## New optimization
 # Kernel for calculating volume fluxes and volume integrals
 function volume_flux_integral_kernel!(du, u, derivative_split,
@@ -214,9 +142,6 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Get thread and block indices only we need to save registers
     ty = threadIdx().y
-
-    # We launch one block in x direction and one block in the y direction
-    # So here i = tx and j = ty
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     # Tile the computation (set to one tile here)
@@ -231,7 +156,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     end
 
     # Compute volume fluxes
-    # How to store in shared memory?
+    # How to store nodes in shared memory?
     for thread in 1:tile_width
         # Volume flux is heavy in computation so we should try best to avoid redundant 
         # computation, i.e., use for loop along x direction here
@@ -808,7 +733,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
                                                                           equations, flux)
         flux_weak_form_kernel(du, u, derivative_dhat, equations, flux;
                               shmem = shmem_size,
-                              threads = (size(du, 1), size(du, 2)^2, 1),
+                              threads = (size(du, 1), size(du, 2), 1),
                               blocks = (1, 1, size(du, 3)))
     end
 

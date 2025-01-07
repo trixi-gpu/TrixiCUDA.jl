@@ -235,7 +235,7 @@ end
 
 ############################################################################## New optimization
 # Kernel for calculating symmetric and nonconservative volume fluxes and 
-# cooresponding volume integrals
+# corresponding volume integrals
 function noncons_volume_flux_integral_kernel!()
     return nothing
 end

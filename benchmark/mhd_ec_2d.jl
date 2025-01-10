@@ -6,19 +6,20 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-equations = CompressibleEulerEquations1D(1.4f0)
+equations = IdealGlmMhdEquations2D(1.4f0)
 
 initial_condition = initial_condition_weak_blast_wave
 
-volume_flux = flux_ranocha
-solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
+volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+solver = DGSEM(polydeg = 3,
+               surface_flux = (flux_hindenlang_gassner, flux_nonconservative_powell),
                volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
                RealT = RealT)
 
-coordinates_min = (-2.0f0,)
-coordinates_max = (2.0f0,)
+coordinates_min = (-2.0f0, -2.0f0)
+coordinates_max = (2.0f0, 2.0f0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 5,
+                initial_refinement_level = 4,
                 n_cells_max = 10_000, RealT = RealT)
 
 # Cache initialization

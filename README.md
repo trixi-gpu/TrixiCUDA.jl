@@ -45,7 +45,15 @@ Then enter the Julia REPL in the package directory, activate and instantiate the
 ```julia
 julia> using Pkg; Pkg.activate("."); Pkg.instantiate()
 ```
-
+Please note that after package precompilation, the terminal will generate some output like:
+```
+(TrixiCUDA) pkg> precompile
+Precompiling project...
+        Info Given TrixiCUDA was explicitly requested, output will be shown live
+[ Info: Please restart Julia and reload Trixi.jl for the `log` computation change to take effect
+[ Info: Please restart Julia and reload Trixi.jl for the `sqrt` computation change to take effect
+```
+This is normal, and you can safely ignore it (i.e., there is no need to restart Julia and reload Trixi.jl). This occurs because custom `log` and `sqrt` functions from Trixi.jl are currently not supported on GPUs, so we are using the `log` and `sqrt` functions from Julia Base (i.e., Base.jl).
 
 # Supported Mesh and Solver Types
 Our current focus is on the semidiscretization of PDEs. The table below shows the status of this work across different mesh types and solvers. Looking ahead, we plan to extend parallelization to include mesh initialization and callbacks on the GPU. 
@@ -61,9 +69,9 @@ Our current focus is on the semidiscretization of PDEs. The table below shows th
 
 # Example of PDE Semidiscretization on GPU
 
-⚠️ **Warning:** Due to the cache initialization process being moved to the GPU for performance optimization, some examples may raise errors because of mismatched CPU and GPU APIs. Please wait for an update.
+⚠️ **Warning:** Due to the cache initialization process being moved to the GPU for performance optimization, most examples may raise errors because of mismatched CPU and GPU APIs. Please try the examples in the tests, as they are always the most up-to-date.
 
-Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the simulation on the GPU (now only CUDA-compatible).
+Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the simulation on the GPU.
 
 ```julia
 # Take 1D linear advection equation as an example

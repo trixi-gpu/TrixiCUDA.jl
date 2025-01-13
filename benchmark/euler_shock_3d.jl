@@ -63,12 +63,6 @@ ode_gpu = semidiscretizeGPU(semi_gpu, tspan_gpu)
 u_gpu = copy(ode_gpu.u0)
 du_gpu = similar(u_gpu)
 
-# # Reset du
-# @info "Time for reset_du! on GPU"
-# CUDA.@time TrixiCUDA.reset_du!(du_gpu)
-# @info "Time for reset_du! on CPU"
-# @time Trixi.reset_du!(du, solver, cache)
-
 # Reset du and volume integral
 @info "Time for reset_du! and volume_integral! on GPU"
 CUDA.@time TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,

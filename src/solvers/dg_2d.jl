@@ -231,10 +231,10 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 end
 
 # Kernel for calculating symmetric and nonconservative fluxes
-function symmetric_noncons_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2, noncons_flux_arr1,
-                                        noncons_flux_arr2, u, derivative_split,
-                                        equations::AbstractEquations{2}, symmetric_flux::Any,
-                                        nonconservative_flux::Any)
+function noncons_volume_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2, noncons_flux_arr1,
+                                     noncons_flux_arr2, u, derivative_split,
+                                     equations::AbstractEquations{2}, symmetric_flux::Any,
+                                     nonconservative_flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -1269,20 +1269,20 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     noncons_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                        size(u, 4))
 
-    symmetric_noncons_flux_kernel = @cuda launch=false symmetric_noncons_flux_kernel!(symmetric_flux_arr1,
-                                                                                      symmetric_flux_arr2,
-                                                                                      noncons_flux_arr1,
-                                                                                      noncons_flux_arr2,
-                                                                                      u,
-                                                                                      derivative_split,
-                                                                                      equations,
-                                                                                      symmetric_flux,
-                                                                                      nonconservative_flux)
-    symmetric_noncons_flux_kernel(symmetric_flux_arr1, symmetric_flux_arr2, noncons_flux_arr1,
-                                  noncons_flux_arr2, u, derivative_split, equations, symmetric_flux,
-                                  nonconservative_flux;
-                                  kernel_configurator_2d(symmetric_noncons_flux_kernel,
-                                                         size(u, 2)^3, size(u, 4))...)
+    noncons_volume_flux_kernel = @cuda launch=false noncons_volume_flux_kernel!(symmetric_flux_arr1,
+                                                                                symmetric_flux_arr2,
+                                                                                noncons_flux_arr1,
+                                                                                noncons_flux_arr2,
+                                                                                u,
+                                                                                derivative_split,
+                                                                                equations,
+                                                                                symmetric_flux,
+                                                                                nonconservative_flux)
+    noncons_volume_flux_kernel(symmetric_flux_arr1, symmetric_flux_arr2, noncons_flux_arr1,
+                               noncons_flux_arr2, u, derivative_split, equations, symmetric_flux,
+                               nonconservative_flux;
+                               kernel_configurator_2d(noncons_volume_flux_kernel,
+                                                      size(u, 2)^3, size(u, 4))...)
 
     derivative_split = CuArray(dg.basis.derivative_split) # use original `derivative_split`
 

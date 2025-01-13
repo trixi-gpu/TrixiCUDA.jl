@@ -15,6 +15,7 @@ function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
     # In Trixi.jl, function `wrap_array` is called to adapt adaptive mesh refinement (AMR).
     # We are currently not considering AMR in TrixiCUDA.jl, so this step is not needed here. 
     # For more details, see https://trixi-framework.github.io/Trixi.jl/stable/conventions/#Array-types-and-wrapping
+
     # TODO: Adapt `wrap_array` on GPUs for AMR
     # u = wrap_array(u_ode, mesh, equations, solver, cache)
     # du = wrap_array(du_ode, mesh, equations, solver, cache)

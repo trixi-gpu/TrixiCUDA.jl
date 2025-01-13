@@ -1,3 +1,12 @@
+# The `wrap_array` function in Trixi.jl is not compatible with GPU arrays,
+# so here we adapt `wrap_array` to work with GPU arrays.
+function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+                    dg::DGSEM, cache)
+    return nothing
+end
+
+# Do we really have to compute the coefficients on the GPU?
+############################################################################## 
 # Kernel for computing the coefficients for 1D problems
 function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
                                       equations::AbstractEquations{1})

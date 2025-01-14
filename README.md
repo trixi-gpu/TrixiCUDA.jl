@@ -69,14 +69,18 @@ Our current focus is on the semidiscretization of PDEs. The table below shows th
 
 # Example of PDE Semidiscretization on GPU
 
-⚠️ **Warning:** Due to the cache initialization process being moved to the GPU for performance optimization, most examples may raise errors because of mismatched CPU and GPU APIs. Please try the examples in the tests, as they are always the most up-to-date.
-
 Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the simulation on the GPU.
 
 ```julia
 # Take 1D linear advection equation as an example
 using Trixi, TrixiCUDA
 using OrdinaryDiffEq
+
+# Curretly skip the issue of scalar indexing
+# See issues https://github.com/trixi-gpu/TrixiCUDA.jl/issues/59
+# and https://github.com/trixi-gpu/TrixiCUDA.jl/issues/113
+using CUDA
+CUDA.allowscalar(true)
 
 ###############################################################################
 # semidiscretization of the linear advection equation
@@ -93,13 +97,13 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 4,
                 n_cells_max = 30_000)
 
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_convergence_test,
+semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition_convergence_test,
                                     solver)
 
 ###############################################################################
 # ODE solvers, callbacks etc.
 
-ode = semidiscretizeGPU(semi, (0.0, 1.0)) # from TrixiCUDA.jl
+ode = semidiscretizeGPU(semi, (0.0, 1.0))
 
 summary_callback = SummaryCallback()
 
@@ -121,7 +125,7 @@ sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false),
 
 summary_callback()
 ```
-
+Please also try the examples in the tests directory, as they are always the most up-to-date.
 
 # Benchmarks
 Please refer to the benchmark directory to conduct your own benchmarking based on different PDE examples. The official benchmarking report for the semidiscretization process will be released in the future.

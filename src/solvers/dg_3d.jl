@@ -1756,6 +1756,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
     # method. However, there are other factors that may cause a launch failure, such as the maximum 
     # shared memory per block. Here, we have omitted all other factors, but this should be enhanced 
     # later for a safer kernel launch.
+
     # TODO: More checks before the kernel launch
     thread_per_block = size(du, 1) * size(du, 2)^3
     if thread_per_block > MAX_THREADS_PER_BLOCK
@@ -1795,13 +1796,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
 
     volume_flux = volume_integral.volume_flux
 
+    # TODO: Move `set_diagonal_to_zero!` outside of loop and cache the result in DG on GPU
     derivative_split = dg.basis.derivative_split
-    # TODO: Move `set_diagonal_to_zero!` outside of `rhs!` loop and cache the result in 
-    # DG struct on GPU 
     set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
 
-    thread_per_block = size(du, 1) * size(du, 2)^4
+    thread_per_block = size(du, 2)^3
     if thread_per_block > MAX_THREADS_PER_BLOCK
         # TODO: How to optimize when size is large
         volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),

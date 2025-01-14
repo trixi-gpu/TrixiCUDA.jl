@@ -76,7 +76,7 @@ Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the 
 using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
-# Curretly skip the issue of scalar indexing
+# Currently skip the issue of scalar indexing
 # See issues https://github.com/trixi-gpu/TrixiCUDA.jl/issues/59
 # and https://github.com/trixi-gpu/TrixiCUDA.jl/issues/113
 using CUDA

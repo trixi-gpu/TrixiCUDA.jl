@@ -55,8 +55,10 @@ include("../test_macros.jl")
 
     # ODE on GPU
     ode_gpu = semidiscretizeGPU(semi_gpu, tspan_gpu)
-    u_gpu = copy(ode_gpu.u0)
-    du_gpu = similar(u_gpu)
+    u_gpu_ = copy(ode_gpu.u0)
+    du_gpu_ = similar(u_gpu_)
+    u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
+    du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
     # Tests for components initialization
     @test_approx (u_gpu, u)

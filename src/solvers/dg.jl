@@ -1,3 +1,29 @@
+# The `wrap_array` function in Trixi.jl is not compatible with GPU arrays,
+# so here we adapt `wrap_array` to work with GPU arrays.
+@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+                            dg::DGSEM, cache)
+    # TODO: Assert array length before calling `reshape`
+    u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
+                    nelements(dg, cache))
+
+    return u_ode
+end
+
+# The `wrap_array_native` function in Trixi.jl is not compatible with GPU arrays,
+# so here we adapt `wrap_array_native` to work with GPU arrays.
+@inline function wrap_array_native(u_ode::CuArray, mesh::AbstractMesh, equations,
+                                   dg::DGSEM, cache)
+    # TODO: Assert array length before calling `reshape`
+    u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
+                    nelements(dg, cache))
+
+    return u_ode
+end
+
+# Do we really need to compute the coefficients on the GPU, and do we need to
+# initialize `du` and `u` with a 1D shape, as Trixi.jl does?
+# Note that the above questions also relate to whether using `wrap_array` and `wrap_array_native`.
+############################################################################## 
 # Kernel for computing the coefficients for 1D problems
 function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
                                       equations::AbstractEquations{1})

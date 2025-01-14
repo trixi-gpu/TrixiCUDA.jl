@@ -1,12 +1,21 @@
 using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
+# Currently skip the issue of scalar indexing
+using CUDA
+CUDA.allowscalar(true)
+
 # The example is taken from the Trixi.jl
 
 ###############################################################################
 # semidiscretization of the compressible Euler multicomponent equations
-equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4, 1.4),
-                                                       gas_constants = (0.4, 0.4, 0.4))
+
+# More than two components are not supported, this is a bug
+# equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4, 1.4),
+#                                                        gas_constants = (0.4, 0.4, 0.4))
+
+equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4),
+                                                       gas_constants = (0.4, 0.4))
 
 initial_condition = initial_condition_weak_blast_wave
 
@@ -20,7 +29,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 5,
                 n_cells_max = 10_000)
 
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
 
 ###############################################################################
 # ODE solvers, callbacks etc.

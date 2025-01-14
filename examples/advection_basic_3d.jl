@@ -1,6 +1,10 @@
 using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
+# Currently skip the issue of scalar indexing
+using CUDA
+CUDA.allowscalar(true)
+
 # The example is taken from the Trixi.jl 
 
 ###############################################################################
@@ -21,8 +25,8 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 n_cells_max = 30_000) # set maximum capacity of tree data structure
 
 # A semidiscretization collects data structures and functions for the spatial discretization
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_convergence_test,
-                                    solver)
+semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition_convergence_test,
+                                       solver)
 
 ###############################################################################
 # ODE solvers, callbacks etc.

@@ -13,21 +13,26 @@ function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
     (; mesh, equations, boundary_conditions, source_terms, solver, cache) = semi
 
     # In Trixi.jl, function `wrap_array` is called to adapt adaptive mesh refinement (AMR).
-    # We are currently not considering AMR in TrixiCUDA.jl, so this step is not needed here. 
     # For more details, see https://trixi-framework.github.io/Trixi.jl/stable/conventions/#Array-types-and-wrapping
+    u = wrap_array(u_ode, mesh, equations, solver, cache)
+    du = wrap_array(du_ode, mesh, equations, solver, cache)
 
-    # TODO: Adapt `wrap_array` on GPUs for AMR
-    # u = wrap_array(u_ode, mesh, equations, solver, cache)
-    # du = wrap_array(du_ode, mesh, equations, solver, cache)
-
-    rhs_gpu!(du_ode, u_ode, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
+    rhs_gpu!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
 
     return nothing
 end
 
 # See also `semidiscretize` function in Trixi.jl
 function semidiscretizeGPU(semi::SemidiscretizationHyperbolic, tspan)
-    u0_ode = compute_coefficients_gpu(first(tspan), semi)
+    # Computing coefficients on GPUs may not be as fast as on CPUs due to the overhead. 
+    # Therefore, we currently use the CPU version. Note that the actual speedup on GPUs
+    # largely depends on the problem size (e.g., large arrays typically gain much more 
+    # speedup than small arrays). 
+
+    # TODO: We may switch back to GPUs in the future if dealing with larger arrays
+    # u0_ode = compute_coefficients_gpu(first(tspan), semi)
+
+    u0_ode = CuArray(compute_coefficients(first(tspan), semi))
 
     iip = true
     specialize = FullSpecialize

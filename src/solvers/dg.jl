@@ -2,10 +2,15 @@
 # so here we adapt `wrap_array` to work with GPU arrays.
 function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
                     dg::DGSEM, cache)
-    return nothing
+    u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
+                    nelements(dg, cache))
+
+    return u_ode
 end
 
 # Do we really have to compute the coefficients on the GPU?
+# Currently, these functions are disabled, please refer to function `semidiscretizeGPU`
+# for more details.
 ############################################################################## 
 # Kernel for computing the coefficients for 1D problems
 function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,

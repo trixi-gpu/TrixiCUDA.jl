@@ -5,7 +5,7 @@ module TrixiCUDA
 
 using CUDA
 using CUDA: @cuda, CuArray, HostKernel,
-            threadIdx, blockIdx, blockDim, similar, launch_configuration
+            threadIdx, blockIdx, blockDim, reshape, similar, launch_configuration
 
 using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidiscretization,
              True, False, TreeMesh, DGSEM, SemidiscretizationHyperbolic,
@@ -24,7 +24,7 @@ using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidis
              set_log_type!, set_sqrt_type!
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars,
-              nelements, ninterfaces, nmortars
+              nelements, ninterfaces, nmortars, wrap_array
 
 using SciMLBase: ODEProblem, FullSpecialize
 

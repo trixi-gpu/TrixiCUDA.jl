@@ -25,14 +25,13 @@ end
 # See also `semidiscretize` function in Trixi.jl
 function semidiscretizeGPU(semi::SemidiscretizationHyperbolic, tspan)
     # Computing coefficients on GPUs may not be as fast as on CPUs due to the overhead. 
-    # Therefore, we currently use the CPU version. Note that the actual speedup on GPUs
+    # Therefore, we currently use the GPU version. Note that the actual speedup on GPUs
     # largely depends on the problem size (e.g., large arrays typically gain much more 
     # speedup than small arrays). 
 
-    # TODO: We may switch back to GPUs in the future if dealing with larger arrays
-    # u0_ode = compute_coefficients_gpu(first(tspan), semi)
-
-    u0_ode = CuArray(compute_coefficients(first(tspan), semi))
+    u0_ode = compute_coefficients_gpu(first(tspan), semi)
+    # TODO: We may switch back to CPUs in the future
+    # u0_ode = CuArray(compute_coefficients(first(tspan), semi))
 
     iip = true
     specialize = FullSpecialize

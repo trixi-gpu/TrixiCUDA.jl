@@ -350,8 +350,10 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
         for tx in axes(du, 1)
             @inbounds shmem_value[tx, ty1, ty2] += symmetric_flux_node1[tx] * shmem_szero[thread, ty1] +
                                                    symmetric_flux_node2[tx] * shmem_szero[thread, ty2] +
-                                                   0.5f0 * noncons_flux_node1[tx] * shmem_split[thread, ty1] +
-                                                   0.5f0 * noncons_flux_node2[tx] * shmem_split[thread, ty2]
+                                                   0.5f0 *
+                                                   noncons_flux_node1[tx] * shmem_split[thread, ty1] +
+                                                   0.5f0 *
+                                                   noncons_flux_node2[tx] * shmem_split[thread, ty2]
         end
     end
 

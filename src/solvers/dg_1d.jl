@@ -155,6 +155,9 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
         @inbounds shmem_split[ty2, ty] = derivative_split[ty, ty2] # transposed access
     end
 
+    # Synchronization is not needed here given the acess pattern
+    # sync_threads()
+
     # Compute volume fluxes
     # How to store nodes in shared memory?
     for thread in 1:tile_width
@@ -270,6 +273,9 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
             shmem_szero[ty2, ty] = derivative_split_zero[ty, ty2]
         end
     end
+
+    # Synchronization is not needed here given the acess pattern
+    # sync_threads()
 
     # Compute volume fluxes
     # How to store nodes in shared memory?

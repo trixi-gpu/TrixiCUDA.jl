@@ -155,7 +155,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
         @inbounds shmem_split[ty2, ty] = derivative_split[ty, ty2] # transposed access
     end
 
-    # Synchronization is not needed here given the acess pattern
+    # Synchronization is not needed here given the access pattern
     # sync_threads()
 
     # Compute volume fluxes
@@ -274,7 +274,7 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
         end
     end
 
-    # Synchronization is not needed here given the acess pattern
+    # Synchronization is not needed here given the access pattern
     # sync_threads()
 
     # Compute volume fluxes

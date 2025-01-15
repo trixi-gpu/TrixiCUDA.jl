@@ -95,8 +95,8 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     # TODO: Avoid potential bank conflicts
     for thread in 1:tile_width
         @inbounds begin
-            value += shmem_dhat[thread, ty1] * shmem_flux[tx, thread, ty2, 1]
-            value += shmem_dhat[thread, ty2] * shmem_flux[tx, ty1, thread, 2]
+            value += shmem_dhat[thread, ty1] * shmem_flux[tx, thread, ty2, 1] +
+                     shmem_dhat[thread, ty2] * shmem_flux[tx, ty1, thread, 2]
         end
     end
 
@@ -211,8 +211,8 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
         # consolidate each computation back to (ty1, ty2)
         for tx in axes(du, 1)
             @inbounds begin
-                shmem_value[tx, ty1, ty2] += shmem_split[thread, ty1] * volume_flux_node1[tx]
-                shmem_value[tx, ty1, ty2] += shmem_split[thread, ty2] * volume_flux_node2[tx]
+                shmem_value[tx, ty1, ty2] += shmem_split[thread, ty1] * volume_flux_node1[tx] +
+                                             shmem_split[thread, ty2] * volume_flux_node2[tx]
             end
         end
     end
@@ -1271,13 +1271,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, 
                                                 size(du, 4))...)
     else
         shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(eltype(du))
-        flux_weak_form_kernel = @cuda launch=false flux_weak_form_kernel!(du, u, derivative_dhat,
-                                                                          equations,
-                                                                          flux)
-        flux_weak_form_kernel(du, u, derivative_dhat, equations, flux;
-                              shmem = shmem_size,
-                              threads = (size(du, 1), size(du, 2)^2, 1),
-                              blocks = (1, 1, size(du, 4)))
+        threads = (size(du, 1), size(du, 2)^2, 1)
+        blocks = (1, 1, size(du, 4))
+        @cuda threads=threads blocks=blocks shmem=shmem_size flux_weak_form_kernel!(du, u,
+                                                                                    derivative_dhat,
+                                                                                    equations,
+                                                                                    flux)
     end
 
     return nothing
@@ -1315,13 +1314,13 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                kernel_configurator_3d(volume_integral_kernel, size(du, 1),
                                                       size(du, 2)^2, size(du, 4))...)
     else
-        shmem_size = (size(du, 2)^2 + size(du, 1) * size(du, 2)^2) * sizeof(eltype(du))
-        volume_flux_integral_kernel = @cuda launch=false volume_flux_integral_kernel!(du, u, derivative_split,
-                                                                                      equations, volume_flux)
-        volume_flux_integral_kernel(du, u, derivative_split, equations, volume_flux;
-                                    shmem = shmem_size,
-                                    threads = (1, size(du, 2)^2, 1),
-                                    blocks = (1, 1, size(du, 4)))
+        shmem_size = (size(du, 2)^2 + size(du, 1) * size(du, 2)^2) * sizeof(RealT)
+        threads = (1, size(du, 2)^2, 1)
+        blocks = (1, 1, size(du, 4))
+        @cuda threads=threads blocks=blocks shmem=shmem_size volume_flux_integral_kernel!(du, u,
+                                                                                          derivative_split,
+                                                                                          equations,
+                                                                                          volume_flux)
     end
 
     return nothing
@@ -1376,18 +1375,15 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                kernel_configurator_3d(volume_integral_kernel, size(du, 1),
                                                       size(du, 2)^2, size(du, 4))...)
     else
-        shmem_size = (size(du, 2)^2 * 2 + size(du, 1) * size(du, 2)^2) * sizeof(eltype(du))
-        noncons_volume_flux_integral_kernel = @cuda launch=false noncons_volume_flux_integral_kernel!(du, u,
-                                                                                                      derivative_split,
-                                                                                                      derivative_split_zero,
-                                                                                                      equations,
-                                                                                                      symmetric_flux,
-                                                                                                      nonconservative_flux)
-        noncons_volume_flux_integral_kernel(du, u, derivative_split, derivative_split_zero, equations,
-                                            symmetric_flux, nonconservative_flux;
-                                            shmem = shmem_size,
-                                            threads = (1, size(du, 2)^2, 1),
-                                            blocks = (1, 1, size(du, 4)))
+        shmem_size = (size(du, 2)^2 * 2 + size(du, 1) * size(du, 2)^2) * sizeof(RealT)
+        threads = (1, size(du, 2)^2, 1)
+        blocks = (1, 1, size(du, 4))
+        @cuda threads=threads blocks=blocks shmem=shmem_size noncons_volume_flux_integral_kernel!(du, u,
+                                                                                                  derivative_split,
+                                                                                                  derivative_split_zero,
+                                                                                                  equations,
+                                                                                                  symmetric_flux,
+                                                                                                  nonconservative_flux)
     end
 
     return nothing

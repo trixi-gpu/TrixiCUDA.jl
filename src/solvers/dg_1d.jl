@@ -287,8 +287,8 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
         # TODO: Avoid potential bank conflicts
         for tx in axes(du, 1)
             @inbounds begin
-                shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[thread, ty]
-                shmem_value[tx, ty] += 0.5f0 * noncons_flux_node[tx] * shmem_split[thread, ty]
+                shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[thread, ty] +
+                                       0.5f0 * noncons_flux_node[tx] * shmem_split[thread, ty]
             end
         end
     end

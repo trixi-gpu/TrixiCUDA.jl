@@ -70,7 +70,6 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     # Get thread and block indices only we need to save registers
     tx, ty = threadIdx().x, threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
 
@@ -182,7 +181,6 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
 
@@ -323,7 +321,6 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
 
@@ -362,10 +359,10 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
         # TODO: Avoid potential bank conflicts
         for tx in axes(du, 1)
             @inbounds begin
-                shmem_value[tx, ty1, ty2] += symmetric_flux_node1[tx] * shmem_szero[thread, ty1]
-                shmem_value[tx, ty1, ty2] += symmetric_flux_node2[tx] * shmem_szero[thread, ty2]
-                shmem_value[tx, ty1, ty2] += 0.5f0 * noncons_flux_node1[tx] * shmem_split[thread, ty1]
-                shmem_value[tx, ty1, ty2] += 0.5f0 * noncons_flux_node2[tx] * shmem_split[thread, ty2]
+                shmem_value[tx, ty1, ty2] += symmetric_flux_node1[tx] * shmem_szero[thread, ty1] +
+                                             symmetric_flux_node2[tx] * shmem_szero[thread, ty2] +
+                                             0.5f0 * noncons_flux_node1[tx] * shmem_split[thread, ty1] +
+                                             0.5f0 * noncons_flux_node2[tx] * shmem_split[thread, ty2]
             end
         end
     end

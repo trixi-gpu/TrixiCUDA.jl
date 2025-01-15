@@ -221,16 +221,13 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, nonco
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
-        integral_contribution = zero(eltype(du))
 
         for ii in axes(du, 2)
             @inbounds begin
-                du[i, j, k] += symmetric_flux_arr[i, j, ii, k]
-                integral_contribution += derivative_split[j, ii] * noncons_flux_arr[i, j, ii, k]
+                du[i, j, k] += symmetric_flux_arr[i, j, ii, k] +
+                               0.5f0 * derivative_split[j, ii] * noncons_flux_arr[i, j, ii, k]
             end
         end
-
-        @inbounds du[i, j, k] += 0.5f0 * integral_contribution
     end
 
     return nothing
@@ -796,7 +793,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
     # TODO: More checks before the kernel launch
     thread_per_block = size(du, 1) * size(du, 2)
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         flux_arr = similar(u)
 
         flux_kernel = @cuda launch=false flux_kernel!(flux_arr, u, equations, flux)
@@ -834,7 +831,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 
     thread_per_block = size(du, 2)
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         volume_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
         volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr, u, equations,
@@ -875,7 +872,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 
     thread_per_block = size(du, 2)
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         symmetric_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
         noncons_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 

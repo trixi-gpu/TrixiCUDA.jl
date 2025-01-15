@@ -203,8 +203,7 @@ function noncons_volume_flux_kernel!(symmetric_flux_arr, noncons_flux_arr, u, de
 
         for ii in axes(u, 1)
             @inbounds begin
-                symmetric_flux_arr[ii, j1, j2, k] = symmetric_flux_node[ii] *
-                                                    derivative_split[j1, j2]
+                symmetric_flux_arr[ii, j1, j2, k] = symmetric_flux_node[ii] * derivative_split[j1, j2]
                 noncons_flux_arr[ii, j1, j2, k] = noncons_flux_node[ii]
             end
         end
@@ -223,10 +222,9 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, nonco
         @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
 
         for ii in axes(du, 2)
-            @inbounds begin
-                du[i, j, k] += symmetric_flux_arr[i, j, ii, k] +
-                               0.5f0 * derivative_split[j, ii] * noncons_flux_arr[i, j, ii, k]
-            end
+            @inbounds du[i, j, k] += symmetric_flux_arr[i, j, ii, k] +
+                                     0.5f0 *
+                                     derivative_split[j, ii] * noncons_flux_arr[i, j, ii, k]
         end
     end
 
@@ -289,10 +287,9 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
 
         # TODO: Avoid potential bank conflicts
         for tx in axes(du, 1)
-            @inbounds begin
-                shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[thread, ty] +
-                                       0.5f0 * noncons_flux_node[tx] * shmem_split[thread, ty]
-            end
+            @inbounds shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[thread, ty] +
+                                             0.5f0 *
+                                             noncons_flux_node[tx] * shmem_split[thread, ty]
         end
     end
 

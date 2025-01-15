@@ -42,10 +42,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
         @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
 
         for ii in axes(du, 2)
-            @inbounds begin
-                du[i, j1, j2, k] += derivative_dhat[j1, ii] * flux_arr1[i, ii, j2, k]
-                du[i, j1, j2, k] += derivative_dhat[j2, ii] * flux_arr2[i, j1, ii, k]
-            end
+            @inbounds du[i, j1, j2, k] += derivative_dhat[j1, ii] * flux_arr1[i, ii, j2, k] +
+                                          derivative_dhat[j2, ii] * flux_arr2[i, j1, ii, k]
         end
     end
 
@@ -94,10 +92,8 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     # Loop within one block to get weak form
     # TODO: Avoid potential bank conflicts
     for thread in 1:tile_width
-        @inbounds begin
-            value += shmem_dhat[thread, ty1] * shmem_flux[tx, thread, ty2, 1] +
-                     shmem_dhat[thread, ty2] * shmem_flux[tx, ty1, thread, 2]
-        end
+        @inbounds value += shmem_dhat[thread, ty1] * shmem_flux[tx, thread, ty2, 1] +
+                           shmem_dhat[thread, ty2] * shmem_flux[tx, ty1, thread, 2]
     end
 
     # Synchronization is not needed here if we use only one tile
@@ -154,10 +150,8 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
         @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
 
         for ii in axes(du, 2)
-            @inbounds begin
-                du[i, j1, j2, k] += derivative_split[j1, ii] * volume_flux_arr1[i, j1, ii, j2, k]
-                du[i, j1, j2, k] += derivative_split[j2, ii] * volume_flux_arr2[i, j1, j2, ii, k]
-            end
+            @inbounds du[i, j1, j2, k] += derivative_split[j1, ii] * volume_flux_arr1[i, j1, ii, j2, k] +
+                                          derivative_split[j2, ii] * volume_flux_arr2[i, j1, j2, ii, k]
         end
     end
 
@@ -212,10 +206,8 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
         # Try another way to parallelize (ty1, ty2) with threads to ty3, then 
         # consolidate each computation back to (ty1, ty2)
         for tx in axes(du, 1)
-            @inbounds begin
-                shmem_value[tx, ty1, ty2] += shmem_split[thread, ty1] * volume_flux_node1[tx] +
-                                             shmem_split[thread, ty2] * volume_flux_node2[tx]
-            end
+            @inbounds shmem_value[tx, ty1, ty2] += shmem_split[thread, ty1] * volume_flux_node1[tx] +
+                                                   shmem_split[thread, ty2] * volume_flux_node2[tx]
         end
     end
 
@@ -257,10 +249,9 @@ function noncons_volume_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2, n
 
         for ii in axes(u, 1)
             @inbounds begin
-                symmetric_flux_arr1[ii, j1, j3, j2, k] = derivative_split[j1, j3] *
-                                                         symmetric_flux_node1[ii]
-                symmetric_flux_arr2[ii, j1, j2, j3, k] = derivative_split[j2, j3] *
-                                                         symmetric_flux_node2[ii]
+                symmetric_flux_arr1[ii, j1, j3, j2, k] = derivative_split[j1, j3] * symmetric_flux_node1[ii]
+                symmetric_flux_arr2[ii, j1, j2, j3, k] = derivative_split[j2, j3] * symmetric_flux_node2[ii]
+
                 noncons_flux_arr1[ii, j1, j3, j2, k] = noncons_flux_node1[ii]
                 noncons_flux_arr2[ii, j1, j2, j3, k] = noncons_flux_node2[ii]
             end
@@ -282,20 +273,15 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr1, symm
         j2 = rem(j - 1, size(du, 2)) + 1
 
         @inbounds du[i, j1, j2, k] = zero(eltype(du)) # fuse `reset_du!` here
-        integral_contribution = zero(eltype(du))
 
         for ii in axes(du, 2)
-            @inbounds begin
-                du[i, j1, j2, k] += symmetric_flux_arr1[i, j1, ii, j2, k]
-                du[i, j1, j2, k] += symmetric_flux_arr2[i, j1, j2, ii, k]
-                integral_contribution += derivative_split[j1, ii] *
-                                         noncons_flux_arr1[i, j1, ii, j2, k]
-                integral_contribution += derivative_split[j2, ii] *
-                                         noncons_flux_arr2[i, j1, j2, ii, k]
-            end
+            @inbounds du[i, j1, j2, k] += symmetric_flux_arr1[i, j1, ii, j2, k] +
+                                          symmetric_flux_arr2[i, j1, j2, ii, k] +
+                                          0.5f0 *
+                                          derivative_split[j1, ii] * noncons_flux_arr1[i, j1, ii, j2, k] +
+                                          0.5f0 *
+                                          derivative_split[j2, ii] * noncons_flux_arr2[i, j1, j2, ii, k]
         end
-
-        @inbounds du[i, j1, j2, k] += 0.5f0 * integral_contribution
     end
 
     return nothing
@@ -362,12 +348,12 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
 
         # TODO: Avoid potential bank conflicts
         for tx in axes(du, 1)
-            @inbounds begin
-                shmem_value[tx, ty1, ty2] += symmetric_flux_node1[tx] * shmem_szero[thread, ty1] +
-                                             symmetric_flux_node2[tx] * shmem_szero[thread, ty2] +
-                                             0.5f0 * noncons_flux_node1[tx] * shmem_split[thread, ty1] +
-                                             0.5f0 * noncons_flux_node2[tx] * shmem_split[thread, ty2]
-            end
+            @inbounds shmem_value[tx, ty1, ty2] += symmetric_flux_node1[tx] * shmem_szero[thread, ty1] +
+                                                   symmetric_flux_node2[tx] * shmem_szero[thread, ty2] +
+                                                   0.5f0 *
+                                                   noncons_flux_node1[tx] * shmem_split[thread, ty1] +
+                                                   0.5f0 *
+                                                   noncons_flux_node2[tx] * shmem_split[thread, ty2]
         end
     end
 
@@ -1260,7 +1246,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, 
     # TODO: More checks before the kernel launch
     thread_per_block = size(du, 1) * size(du, 2)^2
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         flux_arr1 = similar(u)
         flux_arr2 = similar(u)
 
@@ -1300,7 +1286,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
 
     thread_per_block = size(du, 2)^2
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                           size(u, 4))
         volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
@@ -1345,7 +1331,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
 
     thread_per_block = size(du, 2)^2
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         symmetric_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                              size(u, 4))
         symmetric_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),

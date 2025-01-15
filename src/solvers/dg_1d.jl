@@ -203,8 +203,7 @@ function noncons_volume_flux_kernel!(symmetric_flux_arr, noncons_flux_arr, u, de
 
         for ii in axes(u, 1)
             @inbounds begin
-                symmetric_flux_arr[ii, j1, j2, k] = symmetric_flux_node[ii] *
-                                                    derivative_split[j1, j2]
+                symmetric_flux_arr[ii, j1, j2, k] = symmetric_flux_node[ii] * derivative_split[j1, j2]
                 noncons_flux_arr[ii, j1, j2, k] = noncons_flux_node[ii]
             end
         end
@@ -221,16 +220,12 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, nonco
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
-        integral_contribution = zero(eltype(du))
 
         for ii in axes(du, 2)
-            @inbounds begin
-                du[i, j, k] += symmetric_flux_arr[i, j, ii, k]
-                integral_contribution += derivative_split[j, ii] * noncons_flux_arr[i, j, ii, k]
-            end
+            @inbounds du[i, j, k] += symmetric_flux_arr[i, j, ii, k] +
+                                     0.5f0 *
+                                     derivative_split[j, ii] * noncons_flux_arr[i, j, ii, k]
         end
-
-        @inbounds du[i, j, k] += 0.5f0 * integral_contribution
     end
 
     return nothing
@@ -292,10 +287,9 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
 
         # TODO: Avoid potential bank conflicts
         for tx in axes(du, 1)
-            @inbounds begin
-                shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[thread, ty] +
-                                       0.5f0 * noncons_flux_node[tx] * shmem_split[thread, ty]
-            end
+            @inbounds shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[thread, ty] +
+                                             0.5f0 *
+                                             noncons_flux_node[tx] * shmem_split[thread, ty]
         end
     end
 
@@ -796,7 +790,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
     # TODO: More checks before the kernel launch
     thread_per_block = size(du, 1) * size(du, 2)
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         flux_arr = similar(u)
 
         flux_kernel = @cuda launch=false flux_kernel!(flux_arr, u, equations, flux)
@@ -834,7 +828,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 
     thread_per_block = size(du, 2)
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         volume_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
         volume_flux_kernel = @cuda launch=false volume_flux_kernel!(volume_flux_arr, u, equations,
@@ -875,7 +869,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 
     thread_per_block = size(du, 2)
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # TODO: How to optimize when size is large
+        # How to optimize when size is large?
         symmetric_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
         noncons_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 

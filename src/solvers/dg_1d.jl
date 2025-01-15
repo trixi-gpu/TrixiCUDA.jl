@@ -287,8 +287,8 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
         # TODO: Avoid potential bank conflicts
         for tx in axes(du, 1)
             @inbounds begin
-                shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[ty, thread]
-                shmem_value[tx, ty] += 0.5f0 * noncons_flux_node[tx] * shmem_split[ty, thread]
+                shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[thread, ty]
+                shmem_value[tx, ty] += 0.5f0 * noncons_flux_node[tx] * shmem_split[thread, ty]
             end
         end
     end
@@ -897,7 +897,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                                                                                       nonconservative_flux)
         noncons_volume_flux_integral_kernel(du, u, derivative_split, derivative_split_zero, equations,
                                             symmetric_flux, nonconservative_flux;
-                                            shemem = shmem_size,
+                                            shmem = shmem_size,
                                             threads = (1, size(du, 2), 1),
                                             blocks = (1, 1, size(du, 3)))
     end

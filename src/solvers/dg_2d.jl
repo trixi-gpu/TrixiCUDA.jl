@@ -301,6 +301,86 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr1, symm
     return nothing
 end
 
+############################################################################## New optimization
+# Kernel for calculating symmetric and nonconservative volume fluxes and 
+# corresponding volume integrals
+function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivative_split_zero,
+                                              equations::AbstractEquations{2},
+                                              symmetric_flux::Any, nonconservative_flux::Any)
+    # Set tile width
+    tile_width = size(du, 2)
+    offset = 0 # offset bytes for shared memory
+
+    # Allocate dynamic shared memory
+    shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+    offset += sizeof(eltype(du)) * tile_width^2
+    shmem_szero = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width),
+                                      offset)
+    offset += sizeof(eltype(du)) * tile_width^2
+    shmem_value = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width, tile_width),
+                                      offset)
+
+    # Get thread and block indices only we need save registers
+    ty = threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    ty1 = div(ty - 1, tile_width) + 1
+    ty2 = rem(ty - 1, tile_width) + 1
+
+    # Tile the computation (set to one tile here)
+    # Initialize the values
+    for tx in axes(du, 1)
+        @inbounds shmem_value[tx, ty1, ty2] = zero(eltype(du))
+    end
+
+    # Load data from global memory into shared memory
+    # Transposed access
+    @inbounds begin
+        shmem_split[ty2, ty1] = derivative_split[ty1, ty2]
+        shmem_szero[ty2, ty1] = derivative_split_zero[ty1, ty2]
+    end
+
+    # Compute volume fluxes
+    # How to store nodes in shared memory?
+    for thread in 1:tile_width
+        # Volume flux is heavy in computation so we should try best to avoid redundant 
+        # computation, i.e., use for loop along x direction here
+        u_node = get_node_vars(u, equations, ty1, ty2, k)
+        symmetric_flux_node1 = symmetric_flux(u_node,
+                                              get_node_vars(u, equations, thread, ty2, k),
+                                              1, equations)
+        symmetric_flux_node2 = symmetric_flux(u_node,
+                                              get_node_vars(u, equations, ty1, thread, k),
+                                              2, equations)
+        noncons_flux_node1 = nonconservative_flux(u_node,
+                                                  get_node_vars(u, equations, thread, ty2, k),
+                                                  1, equations)
+        noncons_flux_node2 = nonconservative_flux(u_node,
+                                                  get_node_vars(u, equations, ty1, thread, k),
+                                                  2, equations)
+
+        # TODO: Avoid potential bank conflicts
+        for tx in axes(du, 1)
+            @inbounds begin
+                shmem_value[tx, ty1, ty2] += symmetric_flux_node1[tx] * shmem_szero[thread, ty1]
+                shmem_value[tx, ty1, ty2] += symmetric_flux_node2[tx] * shmem_szero[thread, ty2]
+                shmem_value[tx, ty1, ty2] += 0.5f0 * noncons_flux_node1[tx] * shmem_split[thread, ty1]
+                shmem_value[tx, ty1, ty2] += 0.5f0 * noncons_flux_node2[tx] * shmem_split[thread, ty2]
+            end
+        end
+    end
+
+    # Synchronization is not needed here if we use only one tile
+    # sync_threads()
+
+    # Finalize the values
+    for tx in axes(du, 1)
+        @inbounds du[tx, ty1, ty2, k] = shmem_value[tx, ty1, ty2]
+    end
+
+    return nothing
+end
+
 # Kernel for calculating pure DG and DG-FV volume fluxes
 function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, fstar1_L, fstar1_R,
                                   fstar2_L, fstar2_R, u, element_ids_dgfv,
@@ -1257,45 +1337,61 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
 
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
 
-    derivative_split = dg.basis.derivative_split
-    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
+    # TODO: Move `set_diagonal_to_zero!` outside of loop and cache the result in DG on GPU
+    derivative_split = dg.basis.derivative_split # create copy
+    set_diagonal_to_zero!(derivative_split)
+    derivative_split_zero = CuArray(derivative_split)
+    derivative_split = CuArray(dg.basis.derivative_split)
 
-    derivative_split = CuArray(derivative_split)
-    symmetric_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
-                                         size(u, 4))
-    symmetric_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
-                                         size(u, 4))
-    noncons_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
-                                       size(u, 4))
-    noncons_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
-                                       size(u, 4))
+    thread_per_block = size(du, 2)^2
+    if thread_per_block > MAX_THREADS_PER_BLOCK
+        # TODO: How to optimize when size is large
+        symmetric_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                             size(u, 4))
+        symmetric_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                             size(u, 4))
+        noncons_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                           size(u, 4))
+        noncons_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
+                                           size(u, 4))
 
-    noncons_volume_flux_kernel = @cuda launch=false noncons_volume_flux_kernel!(symmetric_flux_arr1,
-                                                                                symmetric_flux_arr2,
-                                                                                noncons_flux_arr1,
-                                                                                noncons_flux_arr2,
-                                                                                u,
-                                                                                derivative_split,
-                                                                                equations,
-                                                                                symmetric_flux,
-                                                                                nonconservative_flux)
-    noncons_volume_flux_kernel(symmetric_flux_arr1, symmetric_flux_arr2, noncons_flux_arr1,
-                               noncons_flux_arr2, u, derivative_split, equations, symmetric_flux,
-                               nonconservative_flux;
-                               kernel_configurator_2d(noncons_volume_flux_kernel,
-                                                      size(u, 2)^3, size(u, 4))...)
+        noncons_volume_flux_kernel = @cuda launch=false noncons_volume_flux_kernel!(symmetric_flux_arr1,
+                                                                                    symmetric_flux_arr2,
+                                                                                    noncons_flux_arr1,
+                                                                                    noncons_flux_arr2, u,
+                                                                                    derivative_split_zero,
+                                                                                    equations,
+                                                                                    symmetric_flux,
+                                                                                    nonconservative_flux)
+        noncons_volume_flux_kernel(symmetric_flux_arr1, symmetric_flux_arr2, noncons_flux_arr1,
+                                   noncons_flux_arr2, u, derivative_split_zero, equations, symmetric_flux,
+                                   nonconservative_flux;
+                                   kernel_configurator_2d(noncons_volume_flux_kernel,
+                                                          size(u, 2)^3, size(u, 4))...)
 
-    derivative_split = CuArray(dg.basis.derivative_split) # use original `derivative_split`
-
-    volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
-                                                                        symmetric_flux_arr1,
-                                                                        symmetric_flux_arr2,
-                                                                        noncons_flux_arr1,
-                                                                        noncons_flux_arr2)
-    volume_integral_kernel(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2,
-                           noncons_flux_arr1, noncons_flux_arr2;
-                           kernel_configurator_3d(volume_integral_kernel, size(du, 1),
-                                                  size(du, 2)^2, size(du, 4))...)
+        volume_integral_kernel = @cuda launch=false volume_integral_kernel!(du, derivative_split,
+                                                                            symmetric_flux_arr1,
+                                                                            symmetric_flux_arr2,
+                                                                            noncons_flux_arr1,
+                                                                            noncons_flux_arr2)
+        volume_integral_kernel(du, derivative_split, symmetric_flux_arr1, symmetric_flux_arr2,
+                               noncons_flux_arr1, noncons_flux_arr2;
+                               kernel_configurator_3d(volume_integral_kernel, size(du, 1),
+                                                      size(du, 2)^2, size(du, 4))...)
+    else
+        shmem_size = (size(du, 2)^2 * 2 + size(du, 1) * size(du, 2)^2) * sizeof(eltype(du))
+        noncons_volume_flux_integral_kernel = @cuda launch=false noncons_volume_flux_integral_kernel!(du, u,
+                                                                                                      derivative_split,
+                                                                                                      derivative_split_zero,
+                                                                                                      equations,
+                                                                                                      symmetric_flux,
+                                                                                                      nonconservative_flux)
+        noncons_volume_flux_integral_kernel(du, u, derivative_split, derivative_split_zero, equations,
+                                            symmetric_flux, nonconservative_flux;
+                                            shmem = shmem_size,
+                                            threads = (1, size(du, 2)^2, 1),
+                                            blocks = (1, 1, size(du, 4)))
+    end
 
     return nothing
 end

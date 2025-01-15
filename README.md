@@ -12,7 +12,7 @@ TrixiCUDA.jl offers CUDA acceleration for solving hyperbolic PDEs.
 - The initial round of kernel optimization starts with the volume integral kernels (see [TrixiCUDA.jl PR #102](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/102)) and will later extend to all existing kernels used in the semidiscretization process. The primary approach includes improving global memory access patterns, using shared memory, and selecting appropriate launch sizes to reduce warp stalls and achieve better occupancy.
 
 *Update on Nov 21, 2024*:
-- Due to the [incompatibility issue](https://github.com/trixi-framework/Trixi.jl/issues/2108) from upstream with Trixi.jl and CUDA.jl in Julia v1.11, this package now supports only Julia v1.10. Using or developing this package with Julia v1.11 will result in precompilation errors. To fix this, downgrade to Julia v1.10. If you have any other problems, please file issues [here](https://github.com/trixi-gpu/TrixiCUDA.jl/issues).
+- Due to the [issue](https://github.com/trixi-framework/Trixi.jl/issues/2108) from upstream with Trixi.jl and CUDA.jl in Julia v1.11, this package now supports only Julia v1.10. Using or developing this package with Julia v1.11 will result in precompilation errors. To fix this, downgrade to Julia v1.10. If you have any other problems, please file issues [here](https://github.com/trixi-gpu/TrixiCUDA.jl/issues).
 
 *Update on Oct 30, 2024*: 
 - The general documentation is now available at https://trixi-gpu.github.io (in development).  

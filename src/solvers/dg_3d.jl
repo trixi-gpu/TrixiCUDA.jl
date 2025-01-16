@@ -1,5 +1,6 @@
 # Everything related to a DG semidiscretization in 3D.
 
+#################################################################################################
 # Functions that end with `_kernel` are CUDA kernels that are going to be launched by 
 # the @cuda macro with parameters from the kernel configurator. They are purely run on 
 # the device (i.e., GPU).
@@ -1812,6 +1813,7 @@ function source_terms_kernel!(du, u, node_coordinates, t, equations::AbstractEqu
     return nothing
 end
 
+#################################################################################################
 # Functions that begin with `cuda_` are the functions that pack CUDA kernels together to do 
 # partial work in semidiscretization. They are used to invoke kernels from the host (i.e., CPU) 
 # and run them on the device (i.e., GPU).
@@ -1832,7 +1834,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
     # TODO: More checks before the kernel launch
     thread_per_block = size(du, 1) * size(du, 2)^3
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # How to optimize when size is large?
+        # How to optimize when size is large (less common use)?
         flux_arr1 = similar(u)
         flux_arr2 = similar(u)
         flux_arr3 = similar(u)
@@ -1873,7 +1875,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
 
     thread_per_block = size(du, 2)^3
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # How to optimize when size is large?
+        # How to optimize when size is large (less common use)?
         volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                           size(u, 2), size(u, 5))
         volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
@@ -1924,7 +1926,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
 
     thread_per_block = size(du, 2)^3
     if thread_per_block > MAX_THREADS_PER_BLOCK
-        # How to optimize when size is large?
+        # How to optimize when size is large (less common use)?
         symmetric_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                              size(u, 2), size(u, 5))
         symmetric_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),

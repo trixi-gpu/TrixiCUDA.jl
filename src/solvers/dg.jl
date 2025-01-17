@@ -1,7 +1,7 @@
 # The `wrap_array` function in Trixi.jl is not compatible with GPU arrays,
 # so here we adapt `wrap_array` to work with GPU arrays.
 @inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
-                            dg::DGSEM, cache)
+                            dg::DG, cache)
     # TODO: Assert array length before calling `reshape`
     u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
                     nelements(dg, cache))
@@ -12,7 +12,7 @@ end
 # The `wrap_array_native` function in Trixi.jl is not compatible with GPU arrays,
 # so here we adapt `wrap_array_native` to work with GPU arrays.
 @inline function wrap_array_native(u_ode::CuArray, mesh::AbstractMesh, equations,
-                                   dg::DGSEM, cache)
+                                   dg::DG, cache)
     # TODO: Assert array length before calling `reshape`
     u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
                     nelements(dg, cache))

@@ -1,3 +1,4 @@
+include("basis_lobatto_legendre.jl")
 include("cache.jl")
 include("common.jl")
 include("containers_1d.jl")

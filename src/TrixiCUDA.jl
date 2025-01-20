@@ -9,7 +9,7 @@ using CUDA: @cuda, CuArray, HostKernel,
 
 # Trixi.jl methods
 using Trixi: allocate_coefficients, compute_coefficients, mesh_equations_solver_cache,
-             flux, ntuple, nvariables, nnodes, nelements, nmortars,
+             flux, ntuple, nnodes, nvariables, nelements,
              local_leaf_cells, init_elements, init_interfaces, init_boundaries, init_mortars,
              have_nonconservative_terms, boundary_condition_periodic,
              digest_boundary_conditions, check_periodicity_mesh_boundary_conditions,
@@ -28,7 +28,7 @@ using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidis
              BoundaryContainer1D, BoundaryContainer2D, BoundaryContainer3D,
              L2MortarContainer2D, L2MortarContainer3D,
              SurfaceIntegralWeakForm, VolumeIntegralWeakForm,
-             BoundaryConditionPeriodic, BoundaryConditionDirichlet,
+             BoundaryConditionPeriodic,
              VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars,

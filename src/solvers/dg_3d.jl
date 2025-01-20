@@ -1824,7 +1824,7 @@ end
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, equations,
                                volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
-    derivative_dhat = CuArray(dg.basis.derivative_dhat)
+    derivative_dhat = dg.basis.derivative_dhat
 
     # The maximum number of threads per block is the dominant factor when choosing the optimization 
     # method. However, there are other factors that may cause a launch failure, such as the maximum 
@@ -1868,8 +1868,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
 
     volume_flux = volume_integral.volume_flux
 
-    # TODO: Move `set_diagonal_to_zero!` outside of loop and cache the result in DG on GPU
-    derivative_split = dg.basis.derivative_split
+    # TODO: Combine below into the existing kernels
+    derivative_split = Array(dg.basis.derivative_split) # create copy
     set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
 
@@ -1918,11 +1918,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
 
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
 
-    # TODO: Move `set_diagonal_to_zero!` outside of loop and cache the result in DG on GPU
-    derivative_split = dg.basis.derivative_split # create copy
+    # TODO: Combine below into the existing kernels
+    derivative_split = Array(dg.basis.derivative_split) # create copy
     set_diagonal_to_zero!(derivative_split)
     derivative_split_zero = CuArray(derivative_split)
-    derivative_split = CuArray(dg.basis.derivative_split)
+    derivative_split = dg.basis.derivative_split
 
     thread_per_block = size(du, 2)^3
     if thread_per_block > MAX_THREADS_PER_BLOCK
@@ -2010,11 +2010,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                       kernel_configurator_1d(pure_blended_element_count_kernel,
                                                              length(alpha))...)
 
-    derivative_split = dg.basis.derivative_split
-    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
-
+    # TODO: Combine below into the existing kernels
+    derivative_split = Array(dg.basis.derivative_split) # create copy
+    set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
-    inverse_weights = CuArray(dg.basis.inverse_weights)
+
+    inverse_weights = dg.basis.inverse_weights
     volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                       size(u, 2), size(u, 5))
     volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
@@ -2101,11 +2102,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                       kernel_configurator_1d(pure_blended_element_count_kernel,
                                                              length(alpha))...)
 
-    derivative_split = dg.basis.derivative_split
-    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
-
+    # TODO: Combine below into the existing kernels
+    derivative_split = Array(dg.basis.derivative_split) # create copy
+    set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
-    inverse_weights = CuArray(dg.basis.inverse_weights)
+
+    inverse_weights = dg.basis.inverse_weights
     volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                       size(u, 2), size(u, 5))
     volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
@@ -2150,7 +2152,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                             kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^4,
                                                    size(u, 5))...)
 
-    derivative_split = CuArray(dg.basis.derivative_split) # use original `derivative_split`
+    derivative_split = dg.basis.derivative_split # use original `derivative_split`
 
     volume_integral_dg_kernel = @cuda launch=false volume_integral_dg_kernel!(du, element_ids_dg,
                                                                               element_ids_dgfv,
@@ -2381,8 +2383,8 @@ end
 #     u_upper_right = cache.mortars.u_upper_right
 #     u_lower_left = cache.mortars.u_lower_left
 #     u_lower_right = cache.mortars.u_lower_right
-#     forward_upper = CuArray(dg.mortar.forward_upper)
-#     forward_lower = CuArray(dg.mortar.forward_lower)
+#     forward_upper = dg.mortar.forward_upper
+#     forward_lower = dg.mortar.forward_lower
 
 #     prolong_mortars_small2small_kernel = @cuda launch=false prolong_mortars_small2small_kernel!(u_upper_left,
 #                                                                                                 u_upper_right,
@@ -2455,8 +2457,8 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DG
     u_upper_right = cache.mortars.u_upper_right
     u_lower_left = cache.mortars.u_lower_left
     u_lower_right = cache.mortars.u_lower_right
-    forward_upper = CuArray(dg.mortar.forward_upper)
-    forward_lower = CuArray(dg.mortar.forward_lower)
+    forward_upper = dg.mortar.forward_upper
+    forward_lower = dg.mortar.forward_lower
 
     prolong_mortars_small2small_kernel = @cuda launch=false prolong_mortars_small2small_kernel!(u_upper_left,
                                                                                                 u_upper_right,
@@ -2523,8 +2525,8 @@ end
 #     u_upper_right = cache.mortars.u_upper_right
 #     u_lower_left = cache.mortars.u_lower_left
 #     u_lower_right = cache.mortars.u_lower_right
-#     reverse_upper = CuArray(dg.mortar.reverse_upper)
-#     reverse_lower = CuArray(dg.mortar.reverse_lower)
+#     reverse_upper = dg.mortar.reverse_upper
+#     reverse_lower = dg.mortar.reverse_lower
 
 #     surface_flux_values = cache.elements.surface_flux_values
 #     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
@@ -2632,8 +2634,8 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     u_upper_right = cache.mortars.u_upper_right
     u_lower_left = cache.mortars.u_lower_left
     u_lower_right = cache.mortars.u_lower_right
-    reverse_upper = CuArray(dg.mortar.reverse_upper)
-    reverse_lower = CuArray(dg.mortar.reverse_lower)
+    reverse_upper = dg.mortar.reverse_upper
+    reverse_lower = dg.mortar.reverse_lower
 
     surface_flux_values = cache.elements.surface_flux_values
     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
@@ -2721,8 +2723,8 @@ end
 #     u_upper_right = cache.mortars.u_upper_right
 #     u_lower_left = cache.mortars.u_lower_left
 #     u_lower_right = cache.mortars.u_lower_right
-#     reverse_upper = CuArray(dg.mortar.reverse_upper)
-#     reverse_lower = CuArray(dg.mortar.reverse_lower)
+#     reverse_upper = dg.mortar.reverse_upper
+#     reverse_lower = dg.mortar.reverse_lower
 
 #     surface_flux_values = cache.elements.surface_flux_values
 #     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
@@ -2831,8 +2833,8 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     u_upper_right = cache.mortars.u_upper_right
     u_lower_left = cache.mortars.u_lower_left
     u_lower_right = cache.mortars.u_lower_right
-    reverse_upper = CuArray(dg.mortar.reverse_upper)
-    reverse_lower = CuArray(dg.mortar.reverse_lower)
+    reverse_upper = dg.mortar.reverse_upper
+    reverse_lower = dg.mortar.reverse_lower
 
     surface_flux_values = cache.elements.surface_flux_values
     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero

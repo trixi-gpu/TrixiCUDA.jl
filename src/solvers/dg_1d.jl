@@ -782,7 +782,7 @@ end
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
                                equations, volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
-    derivative_dhat = CuArray(dg.basis.derivative_dhat)
+    derivative_dhat = dg.basis.derivative_dhat
 
     # The maximum number of threads per block is the dominant factor when choosing the optimization 
     # method. However, there are other factors that may cause a launch failure, such as the maximum 
@@ -823,8 +823,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 
     volume_flux = volume_integral.volume_flux
 
-    # TODO: Move `set_diagonal_to_zero!` outside of loop and cache the result in DG on GPU
-    derivative_split = dg.basis.derivative_split
+    # TODO: Combine below into the existing kernels
+    derivative_split = Array(dg.basis.derivative_split) # create copy
     set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
 
@@ -863,11 +863,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
 
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
 
-    # TODO: Move `set_diagonal_to_zero!` outside of loop and cache the result in DG on GPU
-    derivative_split = dg.basis.derivative_split # create copy
+    # TODO: Combine below into the existing kernels
+    derivative_split = Array(dg.basis.derivative_split) # create copy
     set_diagonal_to_zero!(derivative_split)
     derivative_split_zero = CuArray(derivative_split)
-    derivative_split = CuArray(dg.basis.derivative_split)
+    derivative_split = dg.basis.derivative_split
 
     thread_per_block = size(du, 2)
     if thread_per_block > MAX_THREADS_PER_BLOCK
@@ -934,11 +934,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                       kernel_configurator_1d(pure_blended_element_count_kernel,
                                                              length(alpha))...)
 
-    derivative_split = dg.basis.derivative_split
-    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
-
+    # TODO: Combine below into the existing kernels
+    derivative_split = Array(dg.basis.derivative_split) # create copy
+    set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
-    inverse_weights = CuArray(dg.basis.inverse_weights)
+
+    inverse_weights = dg.basis.inverse_weights
     volume_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
     fstar1_L = cache.fstar1_L
@@ -1003,11 +1004,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                       kernel_configurator_1d(pure_blended_element_count_kernel,
                                                              length(alpha))...)
 
-    derivative_split = dg.basis.derivative_split
-    set_diagonal_to_zero!(derivative_split) # temporarily set here, maybe move outside `rhs!`
-
+    # TODO: Combine below into the existing kernels
+    derivative_split = Array(dg.basis.derivative_split) # create copy
+    set_diagonal_to_zero!(derivative_split)
     derivative_split = CuArray(derivative_split)
-    inverse_weights = CuArray(dg.basis.inverse_weights)
+
+    inverse_weights = dg.basis.inverse_weights
     volume_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
     noncons_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
@@ -1029,7 +1031,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                             kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^2,
                                                    size(u, 3))...)
 
-    derivative_split = CuArray(dg.basis.derivative_split) # use original `derivative_split`
+    derivative_split = dg.basis.derivative_split # use original `derivative_split`
 
     volume_integral_dg_kernel = @cuda launch=false volume_integral_dg_kernel!(du, element_ids_dg,
                                                                               element_ids_dgfv,

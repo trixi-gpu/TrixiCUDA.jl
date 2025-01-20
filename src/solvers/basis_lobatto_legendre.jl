@@ -21,7 +21,7 @@
 # end
 
 # Similar to `LobattoLegendreBasis` in Trixi.jl 
-function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
+function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64) # how about setting the default to Float32?
     nnodes_ = polydeg + 1
 
     # TODO: Use GPU kernels to complete the computation (compare with CPU)
@@ -39,26 +39,26 @@ function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
     derivative_dhat_ = calc_dhat(nodes_, weights_)
 
     # Convert to GPU arrays
-    # nodes = CuArray(nodes_) # to avoid scalar indexing caused by `init_elements`
+    nodes = CuArray(nodes_)
     weights = CuArray(weights_)
     inverse_weights = CuArray(inverse_weights_)
 
     inverse_vandermonde_legendre = CuArray(inverse_vandermonde_legendre_)
-    boundary_interpolation = CuArray(boundary_interpolation_)
+    # boundary_interpolation = CuArray(boundary_interpolation_) # avoid scalar indexing
 
     derivative_matrix = CuArray(derivative_matrix_)
     derivative_split = CuArray(derivative_split_)
     derivative_split_transpose = CuArray(derivative_split_')
     derivative_dhat = CuArray(derivative_dhat_)
 
-    # TODO: Return GPU type
-    return LobattoLegendreBasis{RealT, nnodes_, typeof(nodes_),
+    # TODO: Implement a custom struct for finer control over data types
+    return LobattoLegendreBasis{RealT, nnodes_, typeof(nodes),
                                 typeof(inverse_vandermonde_legendre),
-                                typeof(boundary_interpolation),
+                                typeof(boundary_interpolation_),
                                 typeof(derivative_matrix)}(nodes_, weights,
                                                            inverse_weights,
                                                            inverse_vandermonde_legendre,
-                                                           boundary_interpolation,
+                                                           boundary_interpolation_,
                                                            derivative_matrix,
                                                            derivative_split,
                                                            derivative_split_transpose,
@@ -101,7 +101,7 @@ function MortarL2GPU(basis::LobattoLegendreBasis)
     reverse_upper = CuArray{RealT}(reverse_upper_)
     reverse_lower = CuArray{RealT}(reverse_lower_)
 
-    # TODO: Return GPU type
+    # TODO: Implement a custom struct for finer control over data types
     LobattoLegendreMortarL2{RealT, nnodes_, typeof(forward_upper),
                             typeof(reverse_upper)}(forward_upper, forward_lower,
                                                    reverse_upper, reverse_lower)

@@ -14,6 +14,8 @@ include("../test_macros.jl")
     volume_flux = surface_flux
     solver = DGSEM(polydeg = 4, surface_flux = surface_flux,
                    volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
+    solver_gpu = DGSEMGPU(polydeg = 4, surface_flux = surface_flux,
+                          volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
     coordinates_min = -1.0
     coordinates_max = 1.0
@@ -23,7 +25,7 @@ include("../test_macros.jl")
 
     semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                         source_terms = source_terms_convergence_test)
-    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
+    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
                                                source_terms = source_terms_convergence_test)
 
     tspan = tspan_gpu = (0.0, 2.0)
@@ -52,11 +54,8 @@ include("../test_macros.jl")
     u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
-    # Tests for components initialization
-    @test_approx (u_gpu, u)
-    # du is initlaizaed as undefined, cannot test now
-
     # Tests for semidiscretization process
+    @test_approx (u_gpu, u) # du is initlaizaed as undefined, cannot test now
     Trixi.reset_du!(du, solver, cache)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,

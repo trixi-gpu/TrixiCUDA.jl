@@ -49,6 +49,7 @@ include("semidiscretization/semidiscretization.jl")
 include("solvers/solvers.jl")
 
 # Export the public APIs
+export LobattoLegendreBasisGPU
 export DGSEMGPU
 export SemidiscretizationHyperbolicGPU
 export semidiscretizeGPU

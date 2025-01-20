@@ -18,7 +18,7 @@ surface_flux = flux_ranocha # OBS! Using a non-dissipative flux is only sensible
 # but not for real shock simulations
 volume_flux = flux_ranocha
 polydeg = 3
-basis = LobattoLegendreBasis(polydeg)
+basis = LobattoLegendreBasisGPU(polydeg)
 indicator_sc = IndicatorHennemannGassner(equations, basis,
                                          alpha_max = 0.5,
                                          alpha_min = 0.001,
@@ -27,7 +27,7 @@ indicator_sc = IndicatorHennemannGassner(equations, basis,
 volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                  volume_flux_dg = volume_flux,
                                                  volume_flux_fv = surface_flux)
-solver = DGSEM(basis, surface_flux, volume_integral)
+solver = DGSEMGPU(basis, surface_flux, volume_integral)
 
 coordinates_min = (-2.0, -2.0, -2.0)
 coordinates_max = (2.0, 2.0, 2.0)

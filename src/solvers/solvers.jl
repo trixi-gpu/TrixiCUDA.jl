@@ -1,3 +1,4 @@
+include("basis_lobatto_legendre.jl")
 include("cache.jl")
 include("common.jl")
 include("containers_1d.jl")
@@ -7,6 +8,7 @@ include("dg_1d.jl")
 include("dg_2d.jl")
 include("dg_3d.jl")
 include("dg.jl")
+include("dgsem.jl")
 
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)

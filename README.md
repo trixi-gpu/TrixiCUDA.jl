@@ -78,7 +78,8 @@ using OrdinaryDiffEq
 
 # Currently skip the issue of scalar indexing
 # See issues https://github.com/trixi-gpu/TrixiCUDA.jl/issues/59
-# and https://github.com/trixi-gpu/TrixiCUDA.jl/issues/113
+# https://github.com/trixi-gpu/TrixiCUDA.jl/issues/113
+# https://github.com/trixi-gpu/TrixiCUDA.jl/issues/118
 using CUDA
 CUDA.allowscalar(true)
 
@@ -88,7 +89,7 @@ CUDA.allowscalar(true)
 advection_velocity = 1.0
 equations = LinearScalarAdvectionEquation1D(advection_velocity)
 
-solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
+solver = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs)
 
 coordinates_min = -1.0
 coordinates_max = 1.0 

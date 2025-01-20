@@ -40,6 +40,7 @@ include("../test_macros.jl")
     surface_flux = flux_lax_friedrichs
     volume_flux = flux_ranocha
     basis = LobattoLegendreBasis(3)
+    basis_gpu = LobattoLegendreBasisGPU(3)
 
     indicator_sc = IndicatorHennemannGassner(equations, basis,
                                              alpha_max = 0.05,
@@ -52,6 +53,7 @@ include("../test_macros.jl")
                                                      volume_flux_fv = surface_flux)
 
     solver = DGSEM(basis, surface_flux, volume_integral)
+    solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
 
     coordinates_min = (-32.0, -32.0)
     coordinates_max = (32.0, 32.0)
@@ -65,7 +67,7 @@ include("../test_macros.jl")
                     n_cells_max = 100_000)
 
     semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
-    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
+    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 
     tspan = tspan_gpu = (0.0, 16.0)
     t = t_gpu = 0.0
@@ -93,11 +95,8 @@ include("../test_macros.jl")
     u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
-    # Tests for components initialization
-    @test_approx (u_gpu, u)
-    # du is initlaizaed as undefined, cannot test now
-
     # Tests for semidiscretization process
+    @test_approx (u_gpu, u) # du is initlaizaed as undefined, cannot test now
     Trixi.reset_du!(du, solver, cache)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,

@@ -25,10 +25,10 @@ function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64) # how about 
     nnodes_ = polydeg + 1
 
     # TODO: Use GPU kernels to complete the computation (compare with CPU)
-    nodes_, weights_ = gauss_lobatto_nodes_weights(nnodes_, RealT)
+    nodes_, weights_ = gauss_lobatto_nodes_weights(nnodes_)
     inverse_weights_ = inv.(weights_)
 
-    _, inverse_vandermonde_legendre_ = vandermonde_legendre(nodes_, RealT)
+    _, inverse_vandermonde_legendre_ = vandermonde_legendre(nodes_)
 
     boundary_interpolation_ = zeros(RealT, nnodes_, 2)
     boundary_interpolation_[:, 1] = calc_lhat(-one(RealT), nodes_, weights_)
@@ -39,17 +39,18 @@ function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64) # how about 
     derivative_dhat_ = calc_dhat(nodes_, weights_)
 
     # Convert to GPU arrays
-    nodes = CuArray(nodes_)
-    weights = CuArray(weights_)
-    inverse_weights = CuArray(inverse_weights_)
+    # TODO: `RealT` can be removed once Trixi.jl can be updated to the latest one
+    nodes = CuArray{RealT}(nodes_)
+    weights = CuArray{RealT}(weights_)
+    inverse_weights = CuArray{RealT}(inverse_weights_)
 
-    inverse_vandermonde_legendre = CuArray(inverse_vandermonde_legendre_)
+    inverse_vandermonde_legendre = CuArray{RealT}(inverse_vandermonde_legendre_)
     # boundary_interpolation = CuArray(boundary_interpolation_) # avoid scalar indexing
 
-    derivative_matrix = CuArray(derivative_matrix_)
-    derivative_split = CuArray(derivative_split_)
-    derivative_split_transpose = CuArray(derivative_split_')
-    derivative_dhat = CuArray(derivative_dhat_)
+    derivative_matrix = CuArray{RealT}(derivative_matrix_)
+    derivative_split = CuArray{RealT}(derivative_split_)
+    derivative_split_transpose = CuArray{RealT}(derivative_split_')
+    derivative_dhat = CuArray{RealT}(derivative_dhat_)
 
     # TODO: Implement a custom struct for finer control over data types
     return LobattoLegendreBasis{RealT, nnodes_, typeof(nodes),
@@ -88,14 +89,13 @@ function MortarL2GPU(basis::LobattoLegendreBasis)
     RealT = real(basis)
     nnodes_ = nnodes(basis)
 
-    forward_upper_ = calc_forward_upper(nnodes_, RealT)
-    forward_lower_ = calc_forward_lower(nnodes_, RealT)
-    reverse_upper_ = calc_reverse_upper(nnodes_, Val(:gauss), RealT)
-    reverse_lower_ = calc_reverse_lower(nnodes_, Val(:gauss), RealT)
+    forward_upper_ = calc_forward_upper(nnodes_)
+    forward_lower_ = calc_forward_lower(nnodes_)
+    reverse_upper_ = calc_reverse_upper(nnodes_, Val(:gauss))
+    reverse_lower_ = calc_reverse_lower(nnodes_, Val(:gauss))
 
     # Convert to GPU arrays
-    # TODO: `RealT` can be removed once the upstream type instability issue is fixed,
-    # and the Trixi.jl version can then be updated to the latest one.
+    # TODO: `RealT` can be removed once Trixi.jl can be updated to the latest one
     forward_upper = CuArray{RealT}(forward_upper_)
     forward_lower = CuArray{RealT}(forward_lower_)
     reverse_upper = CuArray{RealT}(reverse_upper_)

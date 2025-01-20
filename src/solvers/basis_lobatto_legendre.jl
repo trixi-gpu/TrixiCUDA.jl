@@ -25,10 +25,10 @@ function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64) # how about 
     nnodes_ = polydeg + 1
 
     # TODO: Use GPU kernels to complete the computation (compare with CPU)
-    nodes_, weights_ = gauss_lobatto_nodes_weights(nnodes_)
+    nodes_, weights_ = gauss_lobatto_nodes_weights(nnodes_, RealT)
     inverse_weights_ = inv.(weights_)
 
-    _, inverse_vandermonde_legendre_ = vandermonde_legendre(nodes_)
+    _, inverse_vandermonde_legendre_ = vandermonde_legendre(nodes_, RealT)
 
     boundary_interpolation_ = zeros(RealT, nnodes_, 2)
     boundary_interpolation_[:, 1] = calc_lhat(-one(RealT), nodes_, weights_)
@@ -89,10 +89,10 @@ function MortarL2GPU(basis::LobattoLegendreBasis)
     RealT = real(basis)
     nnodes_ = nnodes(basis)
 
-    forward_upper_ = calc_forward_upper(nnodes_)
-    forward_lower_ = calc_forward_lower(nnodes_)
-    reverse_upper_ = calc_reverse_upper(nnodes_, Val(:gauss))
-    reverse_lower_ = calc_reverse_lower(nnodes_, Val(:gauss))
+    forward_upper_ = calc_forward_upper(nnodes_, RealT)
+    forward_lower_ = calc_forward_lower(nnodes_, RealT)
+    reverse_upper_ = calc_reverse_upper(nnodes_, Val(:gauss), RealT)
+    reverse_lower_ = calc_reverse_lower(nnodes_, Val(:gauss), RealT)
 
     # Convert to GPU arrays
     # TODO: `RealT` can be removed once Trixi.jl can be updated to the latest one

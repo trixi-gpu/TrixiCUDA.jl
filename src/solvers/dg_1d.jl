@@ -39,7 +39,7 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr)
 end
 
 ############################################################################## New optimization
-# Kernel for calculating fluxes and weak form
+# Kernel for calculating volume integrals with weak form
 function flux_weak_form_kernel!(du, u, derivative_dhat,
                                 equations::AbstractEquations{1}, flux::Any)
     # Set tile width
@@ -129,7 +129,7 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr,
 end
 
 ############################################################################## New optimization
-# Kernel for calculating volume fluxes and volume integrals
+# Kernel for calculating volume integrals without conservative terms
 function volume_flux_integral_kernel!(du, u, derivative_split,
                                       equations::AbstractEquations{1}, volume_flux::Any)
     # Set tile width
@@ -237,8 +237,7 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, nonco
 end
 
 ############################################################################## New optimization
-# Kernel for calculating symmetric and nonconservative volume fluxes and 
-# corresponding volume integrals
+# Kernel for calculating volume integrals with conservative terms
 function noncons_volume_flux_integral_kernel!(du, u, derivative_split,
                                               equations::AbstractEquations{1},
                                               symmetric_flux::Any, nonconservative_flux::Any)
@@ -509,6 +508,9 @@ function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, inverse_weights, ele
 
     return nothing
 end
+
+############################################################################## New optimization
+# Kernel for calculating DG-FV volume integrals without conservative terms
 
 # Kernel for prolonging two interfaces
 function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids)

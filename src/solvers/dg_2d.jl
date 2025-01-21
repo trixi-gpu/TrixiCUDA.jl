@@ -469,8 +469,8 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
                 @inbounds begin
                     du[i, j1, j2, element_dg] += derivative_split[j1, ii] *
                                                  (1 - isequal(j1, ii)) * # set diagonal elements to zeros
-                                                 volume_flux_arr1[i, j1, ii, j2, element_dg]
-                    du[i, j1, j2, element_dg] += derivative_split[j2, ii] *
+                                                 volume_flux_arr1[i, j1, ii, j2, element_dg] +
+                                                 derivative_split[j2, ii] *
                                                  (1 - isequal(j2, ii)) * # set diagonal elements to zeros
                                                  volume_flux_arr2[i, j1, j2, ii, element_dg]
                 end
@@ -482,8 +482,8 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
                 @inbounds begin
                     du[i, j1, j2, element_dgfv] += (1 - alpha_element) * derivative_split[j1, ii] *
                                                    (1 - isequal(j1, ii)) * # set diagonal elements to zeros
-                                                   volume_flux_arr1[i, j1, ii, j2, element_dgfv]
-                    du[i, j1, j2, element_dgfv] += (1 - alpha_element) * derivative_split[j2, ii] *
+                                                   volume_flux_arr1[i, j1, ii, j2, element_dgfv] +
+                                                   (1 - alpha_element) * derivative_split[j2, ii] *
                                                    (1 - isequal(j2, ii)) * # set diagonal elements to zeros
                                                    volume_flux_arr2[i, j1, j2, ii, element_dgfv]
                 end
@@ -601,41 +601,25 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
         end
 
         if element_dg != 0 # bad
-            integral_contribution = zero(eltype(du))
-
             for ii in axes(du, 2)
-                @inbounds begin
-                    du[i, j1, j2, element_dg] += volume_flux_arr1[i, j1, ii, j2, element_dg]
-                    du[i, j1, j2, element_dg] += volume_flux_arr2[i, j1, j2, ii, element_dg]
-
-                    integral_contribution += derivative_split[j1, ii] *
-                                             noncons_flux_arr1[i, j1, ii, j2, element_dg]
-                    integral_contribution += derivative_split[j2, ii] *
-                                             noncons_flux_arr2[i, j1, j2, ii, element_dg]
-                end
+                @inbounds du[i, j1, j2, element_dg] += volume_flux_arr1[i, j1, ii, j2, element_dg] +
+                                                       volume_flux_arr2[i, j1, j2, ii, element_dg] +
+                                                       0.5f0 *
+                                                       (derivative_split[j1, ii] * noncons_flux_arr1[i, j1, ii, j2, element_dg] +
+                                                        derivative_split[j2, ii] * noncons_flux_arr2[i, j1, j2, ii, element_dg])
             end
-
-            @inbounds du[i, j1, j2, element_dg] += 0.5f0 * integral_contribution
         end
 
         if element_dgfv != 0 # bad
-            integral_contribution = zero(eltype(du))
-
             for ii in axes(du, 2)
-                @inbounds begin
-                    du[i, j1, j2, element_dgfv] += (1 - alpha_element) *
-                                                   volume_flux_arr1[i, j1, ii, j2, element_dgfv]
-                    du[i, j1, j2, element_dgfv] += (1 - alpha_element) *
-                                                   volume_flux_arr2[i, j1, j2, ii, element_dgfv]
-
-                    integral_contribution += derivative_split[j1, ii] *
-                                             noncons_flux_arr1[i, j1, ii, j2, element_dgfv]
-                    integral_contribution += derivative_split[j2, ii] *
-                                             noncons_flux_arr2[i, j1, j2, ii, element_dgfv]
-                end
+                @inbounds du[i, j1, j2, element_dgfv] += (1 - alpha_element) *
+                                                         volume_flux_arr1[i, j1, ii, j2, element_dgfv] +
+                                                         (1 - alpha_element) *
+                                                         volume_flux_arr2[i, j1, j2, ii, element_dgfv] +
+                                                         0.5f0 * (1 - alpha_element) *
+                                                         (derivative_split[j1, ii] * noncons_flux_arr1[i, j1, ii, j2, element_dgfv] +
+                                                          derivative_split[j2, ii] * noncons_flux_arr2[i, j1, j2, ii, element_dgfv])
             end
-
-            @inbounds du[i, j1, j2, element_dgfv] += 0.5f0 * (1 - alpha_element) * integral_contribution
         end
     end
 
@@ -661,12 +645,11 @@ function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, fstar2_L, fstar2_R,
 
         if element_dgfv != 0 # bad
             for ii in axes(du, 1)
-                @inbounds du[ii, j1, j2, element_dgfv] += alpha_element * ((inverse_weights[j1] *
-                                                            (fstar1_L[ii, j1 + 1, j2, element_dgfv] -
-                                                             fstar1_R[ii, j1, j2, element_dgfv]) +
-                                                            inverse_weights[j2] *
-                                                            (fstar2_L[ii, j1, j2 + 1, element_dgfv] -
-                                                             fstar2_R[ii, j1, j2, element_dgfv])))
+                @inbounds du[ii, j1, j2, element_dgfv] += alpha_element *
+                                                          (inverse_weights[j1] *
+                                                           (fstar1_L[ii, j1 + 1, j2, element_dgfv] - fstar1_R[ii, j1, j2, element_dgfv]) +
+                                                           inverse_weights[j2] *
+                                                           (fstar2_L[ii, j1, j2 + 1, element_dgfv] - fstar2_R[ii, j1, j2, element_dgfv]))
             end
         end
     end

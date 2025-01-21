@@ -449,8 +449,7 @@ end
 
 # Kernel for calculating DG volume integral contribution
 function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                                    volume_flux_arr, noncons_flux_arr,
-                                    equations::AbstractEquations{1})
+                                    volume_flux_arr, noncons_flux_arr, equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -467,32 +466,19 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
         end
 
         if element_dg != 0 # bad
-            integral_contribution = zero(eltype(du))
-
             for ii in axes(du, 2)
-                @inbounds begin
-                    du[i, j, element_dg] += volume_flux_arr[i, j, ii, element_dg]
-                    integral_contribution += derivative_split[j, ii] *
-                                             noncons_flux_arr[i, j, ii, element_dg]
-                end
+                @inbounds du[i, j, element_dg] += volume_flux_arr[i, j, ii, element_dg] +
+                                                  0.5f0 *
+                                                  derivative_split[j, ii] * noncons_flux_arr[i, j, ii, element_dg]
             end
-
-            @inbounds du[i, j, element_dg] += 0.5f0 * integral_contribution
         end
 
         if element_dgfv != 0 # bad
-            integral_contribution = zero(eltype(du))
-
             for ii in axes(du, 2)
-                @inbounds begin
-                    du[i, j, element_dgfv] += (1 - alpha_element) *
-                                              volume_flux_arr[i, j, ii, element_dgfv]
-                    integral_contribution += derivative_split[j, ii] *
-                                             noncons_flux_arr[i, j, ii, element_dgfv]
-                end
+                @inbounds du[i, j, element_dgfv] += (1 - alpha_element) * volume_flux_arr[i, j, ii, element_dgfv] +
+                                                    0.5f0 * (1 - alpha_element) *
+                                                    derivative_split[j, ii] * noncons_flux_arr[i, j, ii, element_dgfv]
             end
-
-            @inbounds du[i, j, element_dgfv] += 0.5f0 * (1 - alpha_element) * integral_contribution
         end
     end
 
@@ -516,8 +502,7 @@ function volume_integral_fv_kernel!(du, fstar1_L, fstar1_R, inverse_weights, ele
         if element_dgfv != 0 # bad
             for ii in axes(du, 1)
                 @inbounds du[ii, j, element_dgfv] += alpha_element * inverse_weights[j] *
-                                                     (fstar1_L[ii, j + 1, element_dgfv] -
-                                                      fstar1_R[ii, j, element_dgfv])
+                                                     (fstar1_L[ii, j + 1, element_dgfv] - fstar1_R[ii, j, element_dgfv])
             end
         end
     end

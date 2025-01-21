@@ -29,7 +29,7 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr)
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here 
+        @inbounds du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros 
         for ii in axes(du, 2)
             @inbounds du[i, j, k] += derivative_dhat[j, ii] * flux_arr[i, ii, k]
         end
@@ -118,9 +118,10 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr,
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
+        @inbounds du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros
         for ii in axes(du, 2)
-            @inbounds du[i, j, k] += derivative_split[j, ii] * volume_flux_arr[i, j, ii, k]
+            @inbounds du[i, j, k] += derivative_split[j, ii] * (1 - isequal(j, ii)) * # set diagonal elements to zeros
+                                     volume_flux_arr[i, j, ii, k]
         end
     end
 
@@ -153,7 +154,9 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Load global `derivative_split` into shared memory
     for ty2 in axes(du, 2)
-        @inbounds shmem_split[ty2, ty] = derivative_split[ty, ty2] # transposed access
+        # Transposed access
+        @inbounds shmem_split[ty2, ty] = derivative_split[ty, ty2] *
+                                         (1 - isequal(ty, ty2)) # set diagonal elements to zeros
     end
 
     # Synchronization is not needed here given the access pattern
@@ -220,7 +223,7 @@ function volume_integral_kernel!(du, derivative_split, symmetric_flux_arr, nonco
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
+        @inbounds du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros
 
         for ii in axes(du, 2)
             @inbounds du[i, j, k] += symmetric_flux_arr[i, j, ii, k] +
@@ -359,7 +362,7 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         # length(element_ids_dg) == size(du, 3)
         # length(element_ids_dgfv) == size(du, 3)
-        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
+        @inbounds du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros
 
         @inbounds begin
             element_dg = element_ids_dg[k] # check if `element_dg` is zero
@@ -450,7 +453,7 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         # length(element_ids_dg) == size(du, 3)
         # length(element_ids_dgfv) == size(du, 3)
-        @inbounds du[i, j, k] = zero(eltype(du)) # fuse `reset_du!` here
+        @inbounds du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros
 
         @inbounds begin
             element_dg = element_ids_dg[k] # check if `element_dg` is zero
@@ -822,11 +825,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
-
-    # TODO: Combine below into the existing kernels
-    derivative_split = Array(dg.basis.derivative_split) # create copy
-    set_diagonal_to_zero!(derivative_split)
-    derivative_split = CuArray(derivative_split)
+    derivative_split = dg.basis.derivative_split
 
     thread_per_block = size(du, 2)
     if thread_per_block > MAX_THREADS_PER_BLOCK

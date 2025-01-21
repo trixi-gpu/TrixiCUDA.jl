@@ -9,15 +9,6 @@
 #     return nothing
 # end
 
-# Set diagonal entries of a matrix to zeros
-function set_diagonal_to_zero!(A::Array)
-    n = min(size(A)...)
-    for i in 1:n
-        A[i, i] = zero(eltype(A))
-    end
-    return nothing
-end
-
 # Kernel for getting last and first indices
 # Maybe it is better to be moved to CPU
 function last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)

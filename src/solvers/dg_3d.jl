@@ -172,9 +172,12 @@ function volume_integral_kernel!(du, derivative_split, volume_flux_arr1, volume_
         @inbounds du[i, j1, j2, j3, k] = zero(eltype(du)) # initialize `du` with zeros
 
         for ii in axes(du, 2)
-            @inbounds du[i, j1, j2, j3, k] += derivative_split[j1, ii] * volume_flux_arr1[i, j1, ii, j2, j3, k] +
-                                              derivative_split[j2, ii] * volume_flux_arr2[i, j1, j2, ii, j3, k] +
-                                              derivative_split[j3, ii] * volume_flux_arr3[i, j1, j2, j3, ii, k]
+            @inbounds du[i, j1, j2, j3, k] += volume_flux_arr1[i, j1, ii, j2, j3, k] * derivative_split[j1, ii] *
+                                              (1 - isequal(j1, ii)) + # set diagonal elements to zeros
+                                              volume_flux_arr2[i, j1, j2, ii, j3, k] * derivative_split[j2, ii] *
+                                              (1 - isequal(j2, ii)) + # set diagonal elements to zeros
+                                              volume_flux_arr3[i, j1, j2, j3, ii, k] * derivative_split[j3, ii] *
+                                              (1 - isequal(j3, ii)) # set diagonal elements to zeros
         end
     end
 
@@ -209,7 +212,9 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     end
 
     # Load global `derivative_split` into shared memory
-    @inbounds shmem_split[ty2, ty1] = derivative_split[ty1, ty2] # transposed access
+    # Transposed access
+    @inbounds shmem_split[ty2, ty1] = derivative_split[ty1, ty2] *
+                                      (1 - isequal(ty1, ty2)) # set diagonal elements to zeros
 
     sync_threads()
 
@@ -281,9 +286,12 @@ function noncons_volume_flux_kernel!(symmetric_flux_arr1, symmetric_flux_arr2, s
 
         for ii in axes(u, 1)
             @inbounds begin
-                symmetric_flux_arr1[ii, j1, j4, j2, j3, k] = derivative_split[j1, j4] * symmetric_flux_node1[ii]
-                symmetric_flux_arr2[ii, j1, j2, j4, j3, k] = derivative_split[j2, j4] * symmetric_flux_node2[ii]
-                symmetric_flux_arr3[ii, j1, j2, j3, j4, k] = derivative_split[j3, j4] * symmetric_flux_node3[ii]
+                symmetric_flux_arr1[ii, j1, j4, j2, j3, k] = symmetric_flux_node1[ii] * derivative_split[j1, j4] *
+                                                             (1 - isequal(j1, j4)) # set diagonal elements to zeros      
+                symmetric_flux_arr2[ii, j1, j2, j4, j3, k] = symmetric_flux_node2[ii] * derivative_split[j2, j4] *
+                                                             (1 - isequal(j2, j4)) # set diagonal elements to zeros
+                symmetric_flux_arr3[ii, j1, j2, j3, j4, k] = symmetric_flux_node3[ii] * derivative_split[j3, j4] *
+                                                             (1 - isequal(j3, j4)) # set diagonal elements to zeros
 
                 noncons_flux_arr1[ii, j1, j4, j2, j3, k] = noncons_flux_node1[ii]
                 noncons_flux_arr2[ii, j1, j2, j4, j3, k] = noncons_flux_node2[ii]
@@ -331,7 +339,7 @@ end
 ############################################################################## New optimization
 # Kernel for calculating symmetric and nonconservative volume fluxes and 
 # corresponding volume integrals
-function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivative_split_zero,
+function noncons_volume_flux_integral_kernel!(du, u, derivative_split,
                                               equations::AbstractEquations{3},
                                               symmetric_flux::Any, nonconservative_flux::Any)
     # Set tile width
@@ -364,7 +372,8 @@ function noncons_volume_flux_integral_kernel!(du, u, derivative_split, derivativ
     # Transposed access
     @inbounds begin
         shmem_split[ty2, ty1] = derivative_split[ty1, ty2]
-        shmem_szero[ty2, ty1] = derivative_split_zero[ty1, ty2]
+        shmem_szero[ty2, ty1] = derivative_split[ty1, ty2] *
+                                (1 - isequal(ty1, ty2)) # set diagonal elements to zeros    
     end
 
     sync_threads()
@@ -529,10 +538,13 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
             for ii in axes(du, 2)
                 @inbounds begin
                     du[i, j1, j2, j3, element_dg] += derivative_split[j1, ii] *
+                                                     (1 - isequal(j1, ii)) * # set diagonal elements to zeros
                                                      volume_flux_arr1[i, j1, ii, j2, j3, element_dg]
                     du[i, j1, j2, j3, element_dg] += derivative_split[j2, ii] *
+                                                     (1 - isequal(j2, ii)) * # set diagonal elements to zeros
                                                      volume_flux_arr2[i, j1, j2, ii, j3, element_dg]
                     du[i, j1, j2, j3, element_dg] += derivative_split[j3, ii] *
+                                                     (1 - isequal(j3, ii)) * # set diagonal elements to zeros
                                                      volume_flux_arr3[i, j1, j2, j3, ii, element_dg]
                 end
             end
@@ -541,18 +553,15 @@ function volume_integral_dg_kernel!(du, element_ids_dg, element_ids_dgfv, alpha,
         if element_dgfv != 0 # bad
             for ii in axes(du, 2)
                 @inbounds begin
-                    du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) *
-                                                       derivative_split[j1, ii] *
-                                                       volume_flux_arr1[i, j1, ii, j2, j3,
-                                                                        element_dgfv]
-                    du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) *
-                                                       derivative_split[j2, ii] *
-                                                       volume_flux_arr2[i, j1, j2, ii, j3,
-                                                                        element_dgfv]
-                    du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) *
-                                                       derivative_split[j3, ii] *
-                                                       volume_flux_arr3[i, j1, j2, j3, ii,
-                                                                        element_dgfv]
+                    du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) * derivative_split[j1, ii] *
+                                                       (1 - isequal(j1, ii)) * # set diagonal elements to zeros
+                                                       volume_flux_arr1[i, j1, ii, j2, j3, element_dgfv]
+                    du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) * derivative_split[j2, ii] *
+                                                       (1 - isequal(j2, ii)) * # set diagonal elements to zeros
+                                                       volume_flux_arr2[i, j1, j2, ii, j3, element_dgfv]
+                    du[i, j1, j2, j3, element_dgfv] += (1 - alpha_element) * derivative_split[j3, ii] *
+                                                       (1 - isequal(j3, ii)) * # set diagonal elements to zeros                   
+                                                       volume_flux_arr3[i, j1, j2, j3, ii, element_dgfv]
                 end
             end
         end
@@ -601,12 +610,12 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
 
         for ii in axes(u, 1)
             @inbounds begin
-                volume_flux_arr1[ii, j1, j4, j2, j3, k] = derivative_split[j1, j4] *
-                                                          volume_flux_node1[ii]
-                volume_flux_arr2[ii, j1, j2, j4, j3, k] = derivative_split[j2, j4] *
-                                                          volume_flux_node2[ii]
-                volume_flux_arr3[ii, j1, j2, j3, j4, k] = derivative_split[j3, j4] *
-                                                          volume_flux_node3[ii]
+                volume_flux_arr1[ii, j1, j4, j2, j3, k] = volume_flux_node1[ii] * derivative_split[j1, j4] *
+                                                          (1 - isequal(j1, j4)) # set diagonal elements to zeros
+                volume_flux_arr2[ii, j1, j2, j4, j3, k] = volume_flux_node2[ii] * derivative_split[j2, j4] *
+                                                          (1 - isequal(j2, j4)) # set diagonal elements to zeros
+                volume_flux_arr3[ii, j1, j2, j3, j4, k] = volume_flux_node3[ii] * derivative_split[j3, j4] *
+                                                          (1 - isequal(j3, j4)) # set diagonal elements to zeros
 
                 noncons_flux_arr1[ii, j1, j4, j2, j3, k] = noncons_flux_node1[ii]
                 noncons_flux_arr2[ii, j1, j2, j4, j3, k] = noncons_flux_node2[ii]
@@ -1867,11 +1876,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
-
-    # TODO: Combine below into the existing kernels
-    derivative_split = Array(dg.basis.derivative_split) # create copy
-    set_diagonal_to_zero!(derivative_split)
-    derivative_split = CuArray(derivative_split)
+    derivative_split = dg.basis.derivative_split
 
     thread_per_block = size(du, 2)^3
     if thread_per_block > MAX_THREADS_PER_BLOCK
@@ -1917,11 +1922,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     RealT = eltype(du)
 
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
-
-    # TODO: Combine below into the existing kernels
-    derivative_split = Array(dg.basis.derivative_split) # create copy
-    set_diagonal_to_zero!(derivative_split)
-    derivative_split_zero = CuArray(derivative_split)
     derivative_split = dg.basis.derivative_split
 
     thread_per_block = size(du, 2)^3
@@ -1946,13 +1946,13 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                                     noncons_flux_arr1,
                                                                                     noncons_flux_arr2,
                                                                                     noncons_flux_arr3, u,
-                                                                                    derivative_split_zero,
+                                                                                    derivative_split,
                                                                                     equations,
                                                                                     symmetric_flux,
                                                                                     nonconservative_flux)
         noncons_volume_flux_kernel(symmetric_flux_arr1, symmetric_flux_arr2, symmetric_flux_arr3,
                                    noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3, u,
-                                   derivative_split_zero, equations, symmetric_flux, nonconservative_flux;
+                                   derivative_split, equations, symmetric_flux, nonconservative_flux;
                                    kernel_configurator_2d(noncons_volume_flux_kernel,
                                                           size(u, 2)^4, size(u, 5))...)
 
@@ -1974,7 +1974,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
         blocks = (1, 1, size(du, 5))
         @cuda threads=threads blocks=blocks shmem=shmem_size noncons_volume_flux_integral_kernel!(du, u,
                                                                                                   derivative_split,
-                                                                                                  derivative_split_zero,
                                                                                                   equations,
                                                                                                   symmetric_flux,
                                                                                                   nonconservative_flux)
@@ -2010,11 +2009,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                       kernel_configurator_1d(pure_blended_element_count_kernel,
                                                              length(alpha))...)
 
-    # TODO: Combine below into the existing kernels
-    derivative_split = Array(dg.basis.derivative_split) # create copy
-    set_diagonal_to_zero!(derivative_split)
-    derivative_split = CuArray(derivative_split)
-
+    derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights
     volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                       size(u, 2), size(u, 5))
@@ -2102,11 +2097,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                       kernel_configurator_1d(pure_blended_element_count_kernel,
                                                              length(alpha))...)
 
-    # TODO: Combine below into the existing kernels
-    derivative_split = Array(dg.basis.derivative_split) # create copy
-    set_diagonal_to_zero!(derivative_split)
-    derivative_split = CuArray(derivative_split)
-
+    derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights
     volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                       size(u, 2), size(u, 5))
@@ -2151,8 +2142,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                             nonconservative_flux_dg, volume_flux_fv, nonconservative_flux_fv;
                             kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^4,
                                                    size(u, 5))...)
-
-    derivative_split = dg.basis.derivative_split # use original `derivative_split`
 
     volume_integral_dg_kernel = @cuda launch=false volume_integral_dg_kernel!(du, element_ids_dg,
                                                                               element_ids_dgfv,

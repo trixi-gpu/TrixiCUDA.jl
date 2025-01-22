@@ -354,42 +354,32 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, fstar1_L, fstar1_R, u,
 end
 
 # Kernel for calculating pure DG and DG-FV volume integrals
-function volume_integral_dgfv_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                                      inverse_weights, volume_flux_arr, fstar1_L, fstar1_R,
+function volume_integral_dgfv_kernel!(du, alpha, derivative_split, inverse_weights,
+                                      volume_flux_arr, fstar1_L, fstar1_R, atol,
                                       equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        # length(element_ids_dg) == size(du, 3)
-        # length(element_ids_dgfv) == size(du, 3)
-        @inbounds du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros
-
         @inbounds begin
-            element_dg = element_ids_dg[k] # check if `element_dg` is zero
-            element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
+            du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros
             alpha_element = alpha[k]
         end
 
-        if element_dg != 0 # bad
-            for ii in axes(du, 2)
-                @inbounds du[i, j, element_dg] += derivative_split[j, ii] *
-                                                  (1 - isequal(j, ii)) * # set diagonal elements to zeros
-                                                  volume_flux_arr[i, j, ii, element_dg]
-            end
+        dg_only = isapprox(alpha_element, 0, atol = atol)
+
+        for ii in axes(du, 2)
+            @inbounds du[i, j, k] += derivative_split[j, ii] *
+                                     (1 - isequal(j, ii)) * # set diagonal elements to zeros
+                                     volume_flux_arr[i, j, ii, k] * dg_only +
+                                     (1 - alpha_element) * derivative_split[j, ii] *
+                                     (1 - isequal(j, ii)) * # set diagonal elements to zeros
+                                     volume_flux_arr[i, j, ii, k] * (1 - dg_only)
         end
 
-        if element_dgfv != 0 # bad
-            for ii in axes(du, 2)
-                @inbounds du[i, j, element_dgfv] += (1 - alpha_element) * derivative_split[j, ii] *
-                                                    (1 - isequal(j, ii)) * # set diagonal elements to zeros
-                                                    volume_flux_arr[i, j, ii, element_dgfv]
-            end
-
-            @inbounds du[i, j, element_dgfv] += alpha_element * inverse_weights[j] *
-                                                (fstar1_L[i, j + 1, element_dgfv] - fstar1_R[i, j, element_dgfv])
-        end
+        @inbounds du[i, j, k] += alpha_element * inverse_weights[j] *
+                                 (fstar1_L[i, j + 1, k] - fstar1_R[i, j, k]) * (1 - dg_only)
     end
 
     return nothing
@@ -451,42 +441,32 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, f
 end
 
 # Kernel for calculating pure DG and DG-FV volume integrals
-function volume_integral_dgfv_kernel!(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split,
-                                      inverse_weights, volume_flux_arr, noncons_flux_arr,
-                                      fstar1_L, fstar1_R, equations::AbstractEquations{1})
+function volume_integral_dgfv_kernel!(du, alpha, derivative_split, inverse_weights,
+                                      volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R,
+                                      atol, equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        # length(element_ids_dg) == size(du, 3)
-        # length(element_ids_dgfv) == size(du, 3)
-        @inbounds du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros
-
         @inbounds begin
-            element_dg = element_ids_dg[k] # check if `element_dg` is zero
-            element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
+            du[i, j, k] = zero(eltype(du)) # initialize `du` with zeros
             alpha_element = alpha[k]
         end
 
-        if element_dg != 0 # bad
-            for ii in axes(du, 2)
-                @inbounds du[i, j, element_dg] += volume_flux_arr[i, j, ii, element_dg] +
-                                                  0.5f0 *
-                                                  derivative_split[j, ii] * noncons_flux_arr[i, j, ii, element_dg]
-            end
+        dg_only = isapprox(alpha_element, 0, atol = atol)
+
+        for ii in axes(du, 2)
+            @inbounds du[i, j, k] += (volume_flux_arr[i, j, ii, k] +
+                                      0.5f0 *
+                                      derivative_split[j, ii] * noncons_flux_arr[i, j, ii, k]) * dg_only +
+                                     ((1 - alpha_element) * volume_flux_arr[i, j, ii, k] +
+                                      0.5f0 * (1 - alpha_element) *
+                                      derivative_split[j, ii] * noncons_flux_arr[i, j, ii, k]) * (1 - dg_only)
         end
 
-        if element_dgfv != 0 # bad
-            for ii in axes(du, 2)
-                @inbounds du[i, j, element_dgfv] += (1 - alpha_element) * volume_flux_arr[i, j, ii, element_dgfv] +
-                                                    0.5f0 * (1 - alpha_element) *
-                                                    derivative_split[j, ii] * noncons_flux_arr[i, j, ii, element_dgfv]
-            end
-
-            @inbounds du[i, j, element_dgfv] += alpha_element * inverse_weights[j] *
-                                                (fstar1_L[i, j + 1, element_dgfv] - fstar1_R[i, j, element_dgfv])
-        end
+        @inbounds du[i, j, k] += alpha_element * inverse_weights[j] *
+                                 (fstar1_L[i, j + 1, k] - fstar1_R[i, j, k]) * (1 - dg_only)
     end
 
     return nothing
@@ -919,15 +899,14 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                             kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^2,
                                                    size(u, 3))...)
 
-    volume_integral_dgfv_kernel = @cuda launch=false volume_integral_dgfv_kernel!(du, element_ids_dg,
-                                                                                  element_ids_dgfv,
-                                                                                  alpha, derivative_split,
+    volume_integral_dgfv_kernel = @cuda launch=false volume_integral_dgfv_kernel!(du, alpha,
+                                                                                  derivative_split,
                                                                                   inverse_weights,
                                                                                   volume_flux_arr,
                                                                                   fstar1_L, fstar1_R,
-                                                                                  equations)
-    volume_integral_dgfv_kernel(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split, inverse_weights,
-                                volume_flux_arr, fstar1_L, fstar1_R, equations;
+                                                                                  atol, equations)
+    volume_integral_dgfv_kernel(du, alpha, derivative_split, inverse_weights, volume_flux_arr,
+                                fstar1_L, fstar1_R, atol, equations;
                                 kernel_configurator_3d(volume_integral_dgfv_kernel, size(du)...)...)
 
     return nothing
@@ -984,16 +963,15 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                             kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^2,
                                                    size(u, 3))...)
 
-    volume_integral_dgfv_kernel = @cuda launch=false volume_integral_dgfv_kernel!(du, element_ids_dg,
-                                                                                  element_ids_dgfv,
-                                                                                  alpha, derivative_split,
+    volume_integral_dgfv_kernel = @cuda launch=false volume_integral_dgfv_kernel!(du, alpha,
+                                                                                  derivative_split,
                                                                                   inverse_weights,
                                                                                   volume_flux_arr,
                                                                                   noncons_flux_arr,
                                                                                   fstar1_L, fstar1_R,
-                                                                                  equations)
-    volume_integral_dgfv_kernel(du, element_ids_dg, element_ids_dgfv, alpha, derivative_split, inverse_weights,
-                                volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R, equations;
+                                                                                  atol, equations)
+    volume_integral_dgfv_kernel(du, alpha, derivative_split, inverse_weights, volume_flux_arr,
+                                noncons_flux_arr, fstar1_L, fstar1_R, atol, equations;
                                 kernel_configurator_3d(volume_integral_dgfv_kernel, size(du)...)...)
 
     return nothing

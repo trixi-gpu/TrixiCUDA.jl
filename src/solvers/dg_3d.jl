@@ -338,9 +338,9 @@ end
 
 ############################################################################## New optimization
 # Kernel for calculating volume integrals with conservative terms
-function noncons_volume_flux_integral_kernel!(du, u, derivative_split,
-                                              equations::AbstractEquations{3},
-                                              symmetric_flux::Any, nonconservative_flux::Any)
+function volume_flux_integral_kernel!(du, u, derivative_split,
+                                      equations::AbstractEquations{3},
+                                      symmetric_flux::Any, nonconservative_flux::Any)
     # Set tile width
     tile_width = size(du, 2)
     offset = 0 # offset bytes for shared memory
@@ -589,6 +589,12 @@ function volume_integral_dgfv_kernel!(du, alpha, derivative_split, inverse_weigh
     return nothing
 end
 
+############################################################################## New optimization
+# Kernel for calculating pure DG and DG-FV volume integrals without conservative terms
+function volume_flux_integral_dgfv_kernel!()
+    return nothing
+end
+
 # Kernel for calculating pure DG and DG-FV volume fluxes
 function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3,
                                   noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3,
@@ -784,7 +790,7 @@ function volume_integral_dgfv_kernel!(du, alpha, derivative_split, inverse_weigh
 end
 
 ############################################################################## New optimization
-# Kernel for calculating DG-FV volume integrals without conservative terms
+# Kernel for calculating pure DG and DG-FV volume integrals with conservative terms
 
 # Kernel for prolonging two interfaces
 function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
@@ -1956,11 +1962,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
         shmem_size = (size(du, 2)^2 * 2 + size(du, 1) * size(du, 2)^3) * sizeof(RealT)
         threads = (1, size(du, 2)^3, 1)
         blocks = (1, 1, size(du, 5))
-        @cuda threads=threads blocks=blocks shmem=shmem_size noncons_volume_flux_integral_kernel!(du, u,
-                                                                                                  derivative_split,
-                                                                                                  equations,
-                                                                                                  symmetric_flux,
-                                                                                                  nonconservative_flux)
+        @cuda threads=threads blocks=blocks shmem=shmem_size volume_flux_integral_kernel!(du, u,
+                                                                                          derivative_split,
+                                                                                          equations,
+                                                                                          symmetric_flux,
+                                                                                          nonconservative_flux)
     end
 
     return nothing

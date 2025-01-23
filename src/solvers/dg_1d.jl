@@ -267,6 +267,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Load data from global memory into shared memory
     for ty2 in axes(du, 2)
         # Transposed access
+        # TODO: Combine into single shared memory
         @inbounds begin
             shmem_split[ty2, ty] = derivative_split[ty, ty2]
             shmem_szero[ty2, ty] = derivative_split[ty, ty2] *
@@ -392,7 +393,17 @@ end
 
 ############################################################################## New optimization
 # Kernel for calculating pure DG and DG-FV volume integrals without conservative terms
-function volume_flux_integral_dgfv_kernel!()
+function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split, inverse_weights,
+                                           equations::AbstractEquations{1},
+                                           volume_flux_dg::Any, volume_flux_fv::Any)
+    # Set tile width
+    tile_width = size(du, 2)
+    offset = 0 # offset bytes for shared memory
+
+    # Allocate dynamic shared memory
+    shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+    offset += sizeof(eltype(du)) * tile_width^2
+
     return nothing
 end
 

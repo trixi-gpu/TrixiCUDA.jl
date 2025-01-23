@@ -326,6 +326,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Load data from global memory into shared memory
     # Transposed access
+    # TODO: Combine into single shared memory
     @inbounds begin
         shmem_split[ty2, ty1] = derivative_split[ty1, ty2]
         shmem_szero[ty2, ty1] = derivative_split[ty1, ty2] *

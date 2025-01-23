@@ -10,6 +10,7 @@ advection_velocity = (0.2f0, -0.7f0)
 equations = LinearScalarAdvectionEquation2D(advection_velocity)
 
 solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
+solver = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
 
 coordinates_min = (-1.0f0, -1.0f0)
 coordinates_max = (1.0f0, 1.0f0)
@@ -24,7 +25,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                                           solver)
 @info "Time for cache initialization on GPU"
 CUDA.@time semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition_convergence_test,
-                                                      solver)
+                                                      solver_gpu)
 
 tspan_gpu = (0.0f0, 1.0f0)
 t_gpu = 0.0f0

@@ -6,16 +6,15 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-equations = CompressibleEulerEquations3D(1.4f0)
+equations = IdealGlmMhdEquations3D(1.4f0)
 
 initial_condition = initial_condition_weak_blast_wave
 
-surface_flux = flux_ranocha
-volume_flux = flux_ranocha
+surface_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
+volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
 
-polydeg = 3
-basis = LobattoLegendreBasis(RealT, polydeg)
-basis_gpu = LobattoLegendreBasisGPU(polydeg, RealT)
+basis = LobattoLegendreBasis(RealT, 4)
+basis_gpu = LobattoLegendreBasisGPU(4, RealT)
 
 indicator_sc = IndicatorHennemannGassner(equations, basis,
                                          alpha_max = 0.5f0,
@@ -33,17 +32,15 @@ coordinates_min = (-2.0f0, -2.0f0, -2.0f0)
 coordinates_max = (2.0f0, 2.0f0, 2.0f0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 3,
-                n_cells_max = 100_000, RealT = RealT)
+                n_cells_max = 10_000, RealT = RealT)
 
 # Cache initialization
 @info "Time for cache initialization on CPU"
-@time semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                          source_terms = source_terms_convergence_test)
+@time semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 @info "Time for cache initialization on GPU"
-CUDA.@time semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
-                                                      source_terms = source_terms_convergence_test)
+CUDA.@time semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 
-tspan = tspan_gpu = (0.0f0, 0.4f0)
+tspan = tspan_gpu = (0.0f0, 1.0f0)
 t = t_gpu = 0.0f0
 
 # Semi on CPU

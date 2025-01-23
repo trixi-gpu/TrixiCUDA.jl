@@ -14,6 +14,9 @@ volume_flux = flux_ranocha
 solver = DGSEM(polydeg = 3, surface_flux = flux_ranocha,
                volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
                RealT = RealT)
+solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_ranocha,
+                      volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
+                      RealT = RealT)
 
 coordinates_min = (-2.0f0,)
 coordinates_max = (2.0f0,)
@@ -25,7 +28,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 @info "Time for cache initialization on CPU"
 @time semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 @info "Time for cache initialization on GPU"
-CUDA.@time semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
+CUDA.@time semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 
 tspan_gpu = (0.0f0, 0.4f0)
 t_gpu = 0.0f0

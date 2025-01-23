@@ -61,7 +61,8 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
 
     # Load global `derivative_dhat` into shared memory
     for ty2 in axes(du, 2)
-        @inbounds shmem_dhat[ty2, ty] = derivative_dhat[ty, ty2] # transposed access
+        # Transposed access
+        @inbounds shmem_dhat[ty2, ty] = derivative_dhat[ty, ty2]
     end
 
     # Compute flux values

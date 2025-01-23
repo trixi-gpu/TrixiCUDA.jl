@@ -87,7 +87,8 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     value = zero(eltype(du))
 
     # Load global `derivative_dhat` into shared memory
-    @inbounds shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2] # transposed access
+    # Transposed access
+    @inbounds shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2]
 
     # Compute flux values
     u_node = get_node_vars(u, equations, ty1, ty2, ty3, k)

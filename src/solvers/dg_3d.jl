@@ -454,11 +454,6 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
         volume_flux_node2 = volume_flux_dg(u_node, u_node2, 2, equations)
         volume_flux_node3 = volume_flux_dg(u_node, u_node3, 3, equations)
 
-        # Small optimization, no much performance gain
-        flux_fv_node1 = isequal(j1 + 1, j4) * volume_flux_fv(u_node, u_node1, 1, equations)
-        flux_fv_node2 = isequal(j2 + 1, j4) * volume_flux_fv(u_node, u_node2, 2, equations)
-        flux_fv_node3 = isequal(j3 + 1, j4) * volume_flux_fv(u_node, u_node3, 3, equations)
-
         for ii in axes(u, 1)
             @inbounds begin
                 volume_flux_arr1[ii, j1, j4, j2, j3, k] = volume_flux_node1[ii]
@@ -468,6 +463,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
 
             # Small optimization, no much performance gain
             if isequal(j1 + 1, j4) # avoid race condition
+                flux_fv_node1 = volume_flux_fv(u_node, u_node1, 1, equations)
+
                 @inbounds begin
                     fstar1_L[ii, j4, j2, j3, k] = flux_fv_node1[ii] * (1 - dg_only)
                     fstar1_R[ii, j4, j2, j3, k] = flux_fv_node1[ii] * (1 - dg_only)
@@ -475,6 +472,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             end
 
             if isequal(j2 + 1, j4) # avoid race condition
+                flux_fv_node2 = volume_flux_fv(u_node, u_node2, 2, equations)
+
                 @inbounds begin
                     fstar2_L[ii, j1, j4, j3, k] = flux_fv_node2[ii] * (1 - dg_only)
                     fstar2_R[ii, j1, j4, j3, k] = flux_fv_node2[ii] * (1 - dg_only)
@@ -482,6 +481,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
             end
 
             if isequal(j3 + 1, j4) # avoid race condition
+                flux_fv_node3 = volume_flux_fv(u_node, u_node3, 3, equations)
+
                 @inbounds begin
                     fstar3_L[ii, j1, j2, j4, k] = flux_fv_node3[ii] * (1 - dg_only)
                     fstar3_R[ii, j1, j2, j4, k] = flux_fv_node3[ii] * (1 - dg_only)
@@ -592,15 +593,14 @@ end
 function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3,
                                   noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3,
                                   fstar1_L, fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R,
-                                  u, element_ids_dgfv, derivative_split,
+                                  u, alpha, atol, derivative_split,
                                   equations::AbstractEquations{3},
-                                  volume_flux_dg::Any, nonconservative_flux_dg::Any,
-                                  volume_flux_fv::Any, nonconservative_flux_fv::Any)
+                                  volume_flux_dg::Any, noncons_flux_dg::Any,
+                                  volume_flux_fv::Any, noncons_flux_fv::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
     if (j <= size(u, 2)^4 && k <= size(u, 5))
-        # length(element_ids_dgfv) == size(u, 5)
         u2 = size(u, 2)
 
         j1 = div(j - 1, u2^3) + 1
@@ -608,10 +608,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
         j3 = div(rem(j - 1, u2^2), u2) + 1
         j4 = rem(j - 1, u2) + 1
 
-        @inbounds element_dgfv = element_ids_dgfv[k] # check if `element_dgfv` is zero
-
-        # The sets of `get_node_vars` operations may be combined
-        # into a single set of operation for better performance (to be explored).
+        dg_only = isapprox(alpha[k], 0, atol = atol)
 
         u_node = get_node_vars(u, equations, j1, j2, j3, k)
         u_node1 = get_node_vars(u, equations, j4, j2, j3, k)
@@ -622,9 +619,9 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
         volume_flux_node2 = volume_flux_dg(u_node, u_node2, 2, equations)
         volume_flux_node3 = volume_flux_dg(u_node, u_node3, 3, equations)
 
-        noncons_flux_node1 = nonconservative_flux_dg(u_node, u_node1, 1, equations)
-        noncons_flux_node2 = nonconservative_flux_dg(u_node, u_node2, 2, equations)
-        noncons_flux_node3 = nonconservative_flux_dg(u_node, u_node3, 3, equations)
+        noncons_flux_node1 = noncons_flux_dg(u_node, u_node1, 1, equations)
+        noncons_flux_node2 = noncons_flux_dg(u_node, u_node2, 2, equations)
+        noncons_flux_node3 = noncons_flux_dg(u_node, u_node3, 3, equations)
 
         for ii in axes(u, 1)
             @inbounds begin
@@ -639,58 +636,92 @@ function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flu
                 noncons_flux_arr2[ii, j1, j2, j4, j3, k] = noncons_flux_node2[ii]
                 noncons_flux_arr3[ii, j1, j2, j3, j4, k] = noncons_flux_node3[ii]
             end
-        end
 
-        if j1 != 1 && j4 == 1 && element_dgfv != 0 # bad
-            u_ll = get_node_vars(u, equations, j1 - 1, j2, j3, element_dgfv)
-            u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
+            # Small optimization, no much performance gain
+            if isequal(j1 + 1, j4) # avoid race condition
+                f1_node = volume_flux_fv(u_node, u_node1, 1, equations)
+                f1_L_node = noncons_flux_fv(u_node, u_node1, 1, equations)
+                f1_R_node = noncons_flux_fv(u_node1, u_node, 1, equations)
 
-            f1_node = volume_flux_fv(u_ll, u_rr, 1, equations)
-
-            f1_L_node = nonconservative_flux_fv(u_ll, u_rr, 1, equations)
-            f1_R_node = nonconservative_flux_fv(u_rr, u_ll, 1, equations)
-
-            for ii in axes(u, 1)
                 @inbounds begin
-                    fstar1_L[ii, j1, j2, j3, element_dgfv] = f1_node[ii] + 0.5f0 * f1_L_node[ii]
-                    fstar1_R[ii, j1, j2, j3, element_dgfv] = f1_node[ii] + 0.5f0 * f1_R_node[ii]
+                    fstar1_L[ii, j4, j2, j3, k] = f1_node[ii] + 0.5f0 * f1_L_node[ii] * (1 - dg_only)
+                    fstar1_R[ii, j4, j2, j3, k] = f1_node[ii] + 0.5f0 * f1_R_node[ii] * (1 - dg_only)
+                end
+            end
+
+            if isequal(j2 + 1, j4) # avoid race condition
+                f2_node = volume_flux_fv(u_node, u_node2, 2, equations)
+                f2_L_node = noncons_flux_fv(u_node, u_node2, 2, equations)
+                f2_R_node = noncons_flux_fv(u_node2, u_node, 2, equations)
+
+                @inbounds begin
+                    fstar2_L[ii, j1, j4, j3, k] = f2_node[ii] + 0.5f0 * f2_L_node[ii] * (1 - dg_only)
+                    fstar2_R[ii, j1, j4, j3, k] = f2_node[ii] + 0.5f0 * f2_R_node[ii] * (1 - dg_only)
+                end
+            end
+
+            if isequal(j3 + 1, j4) # avoid race condition
+                f3_node = volume_flux_fv(u_node, u_node3, 3, equations)
+                f3_L_node = noncons_flux_fv(u_node, u_node3, 3, equations)
+                f3_R_node = noncons_flux_fv(u_node3, u_node, 3, equations)
+
+                @inbounds begin
+                    fstar3_L[ii, j1, j2, j4, k] = f3_node[ii] + 0.5f0 * f3_L_node[ii] * (1 - dg_only)
+                    fstar3_R[ii, j1, j2, j4, k] = f3_node[ii] + 0.5f0 * f3_R_node[ii] * (1 - dg_only)
                 end
             end
         end
 
-        if j2 != 1 && j4 == 1 && element_dgfv != 0 # bad
-            u_ll = get_node_vars(u, equations, j1, j2 - 1, j3, element_dgfv)
-            u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
+        # if j1 != 1 && j4 == 1 # bad
+        #     u_ll = get_node_vars(u, equations, j1 - 1, j2, j3, k)
+        #     u_rr = get_node_vars(u, equations, j1, j2, j3, k)
 
-            f2_node = volume_flux_fv(u_ll, u_rr, 2, equations)
+        #     f1_node = volume_flux_fv(u_ll, u_rr, 1, equations)
 
-            f2_L_node = nonconservative_flux_fv(u_ll, u_rr, 2, equations)
-            f2_R_node = nonconservative_flux_fv(u_rr, u_ll, 2, equations)
+        #     f1_L_node = noncons_flux_fv(u_ll, u_rr, 1, equations)
+        #     f1_R_node = noncons_flux_fv(u_rr, u_ll, 1, equations)
 
-            for ii in axes(u, 1)
-                @inbounds begin
-                    fstar2_L[ii, j1, j2, j3, element_dgfv] = f2_node[ii] + 0.5f0 * f2_L_node[ii]
-                    fstar2_R[ii, j1, j2, j3, element_dgfv] = f2_node[ii] + 0.5f0 * f2_R_node[ii]
-                end
-            end
-        end
+        #     for ii in axes(u, 1)
+        #         @inbounds begin
+        #             fstar1_L[ii, j1, j2, j3, k] = f1_node[ii] + 0.5f0 * f1_L_node[ii] * (1 - dg_only)
+        #             fstar1_R[ii, j1, j2, j3, k] = f1_node[ii] + 0.5f0 * f1_R_node[ii] * (1 - dg_only)
+        #         end
+        #     end
+        # end
 
-        if j3 != 1 && j4 == 1 && element_dgfv != 0 # bad
-            u_ll = get_node_vars(u, equations, j1, j2, j3 - 1, element_dgfv)
-            u_rr = get_node_vars(u, equations, j1, j2, j3, element_dgfv)
+        # if j2 != 1 && j4 == 1 # bad
+        #     u_ll = get_node_vars(u, equations, j1, j2 - 1, j3, k)
+        #     u_rr = get_node_vars(u, equations, j1, j2, j3, k)
 
-            f3_node = volume_flux_fv(u_ll, u_rr, 3, equations)
+        #     f2_node = volume_flux_fv(u_ll, u_rr, 2, equations)
 
-            f3_L_node = nonconservative_flux_fv(u_ll, u_rr, 3, equations)
-            f3_R_node = nonconservative_flux_fv(u_rr, u_ll, 3, equations)
+        #     f2_L_node = noncons_flux_fv(u_ll, u_rr, 2, equations)
+        #     f2_R_node = noncons_flux_fv(u_rr, u_ll, 2, equations)
 
-            for ii in axes(u, 1)
-                @inbounds begin
-                    fstar3_L[ii, j1, j2, j3, element_dgfv] = f3_node[ii] + 0.5f0 * f3_L_node[ii]
-                    fstar3_R[ii, j1, j2, j3, element_dgfv] = f3_node[ii] + 0.5f0 * f3_R_node[ii]
-                end
-            end
-        end
+        #     for ii in axes(u, 1)
+        #         @inbounds begin
+        #             fstar2_L[ii, j1, j2, j3, k] = f2_node[ii] + 0.5f0 * f2_L_node[ii] * (1 - dg_only)
+        #             fstar2_R[ii, j1, j2, j3, k] = f2_node[ii] + 0.5f0 * f2_R_node[ii] * (1 - dg_only)
+        #         end
+        #     end
+        # end
+
+        # if j3 != 1 && j4 == 1 # bad
+        #     u_ll = get_node_vars(u, equations, j1, j2, j3 - 1, k)
+        #     u_rr = get_node_vars(u, equations, j1, j2, j3, k)
+
+        #     f3_node = volume_flux_fv(u_ll, u_rr, 3, equations)
+
+        #     f3_L_node = noncons_flux_fv(u_ll, u_rr, 3, equations)
+        #     f3_R_node = noncons_flux_fv(u_rr, u_ll, 3, equations)
+
+        #     for ii in axes(u, 1)
+        #         @inbounds begin
+        #             fstar3_L[ii, j1, j2, j3, k] = f3_node[ii] + 0.5f0 * f3_L_node[ii] * (1 - dg_only)
+        #             fstar3_R[ii, j1, j2, j3, k] = f3_node[ii] + 0.5f0 * f3_R_node[ii] * (1 - dg_only)
+        #         end
+        #     end
+        # end
     end
 
     return nothing
@@ -2007,30 +2038,25 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
     RealT = eltype(du)
 
-    volume_flux_dg, nonconservative_flux_dg = dg.volume_integral.volume_flux_dg
-    volume_flux_fv, nonconservative_flux_fv = dg.volume_integral.volume_flux_fv
+    volume_flux_dg, noncons_flux_dg = dg.volume_integral.volume_flux_dg
+    volume_flux_fv, noncons_flux_fv = dg.volume_integral.volume_flux_fv
     indicator = dg.volume_integral.indicator
+    derivative_split = dg.basis.derivative_split
+    inverse_weights = dg.basis.inverse_weights
+
+    fstar1_L = cache.fstar1_L
+    fstar1_R = cache.fstar1_R
+    fstar2_L = cache.fstar2_L
+    fstar2_R = cache.fstar2_R
+    fstar3_L = cache.fstar3_L
+    fstar3_R = cache.fstar3_R
 
     # TODO: Get copies of `u` and `du` on both device and host
     # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
     alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
     alpha = CuArray(alpha)
-
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
-    element_ids_dg = CUDA.zeros(Int, length(alpha))
-    element_ids_dgfv = CUDA.zeros(Int, length(alpha))
 
-    # See `pure_and_blended_element_ids!` in Trixi.jl (now deprecated)
-    pure_blended_element_count_kernel = @cuda launch=false pure_blended_element_count_kernel!(element_ids_dg,
-                                                                                              element_ids_dgfv,
-                                                                                              alpha,
-                                                                                              atol)
-    pure_blended_element_count_kernel(element_ids_dg, element_ids_dgfv, alpha, atol;
-                                      kernel_configurator_1d(pure_blended_element_count_kernel,
-                                                             length(alpha))...)
-
-    derivative_split = dg.basis.derivative_split
-    inverse_weights = dg.basis.inverse_weights
     volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                       size(u, 2), size(u, 5))
     volume_flux_arr2 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
@@ -2044,13 +2070,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     noncons_flux_arr3 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                        size(u, 2), size(u, 5))
 
-    fstar1_L = cache.fstar1_L
-    fstar1_R = cache.fstar1_R
-    fstar2_L = cache.fstar2_L
-    fstar2_R = cache.fstar2_R
-    fstar3_L = cache.fstar3_L
-    fstar3_R = cache.fstar3_R
-
     volume_flux_dgfv_kernel = @cuda launch=false volume_flux_dgfv_kernel!(volume_flux_arr1,
                                                                           volume_flux_arr2,
                                                                           volume_flux_arr3,
@@ -2060,18 +2079,18 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                           fstar1_L, fstar1_R,
                                                                           fstar2_L, fstar2_R,
                                                                           fstar3_L, fstar3_R,
-                                                                          u, element_ids_dgfv,
+                                                                          u, alpha, atol,
                                                                           derivative_split,
                                                                           equations,
                                                                           volume_flux_dg,
-                                                                          nonconservative_flux_dg,
+                                                                          noncons_flux_dg,
                                                                           volume_flux_fv,
-                                                                          nonconservative_flux_fv)
+                                                                          noncons_flux_fv)
     volume_flux_dgfv_kernel(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3,
                             noncons_flux_arr1, noncons_flux_arr2, noncons_flux_arr3,
                             fstar1_L, fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R,
-                            u, element_ids_dgfv, derivative_split, equations, volume_flux_dg,
-                            nonconservative_flux_dg, volume_flux_fv, nonconservative_flux_fv;
+                            u, alpha, atol, derivative_split, equations, volume_flux_dg,
+                            noncons_flux_dg, volume_flux_fv, noncons_flux_fv;
                             kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^4,
                                                    size(u, 5))...)
 

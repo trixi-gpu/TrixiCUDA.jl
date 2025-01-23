@@ -327,14 +327,13 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, fstar1_L, fstar1_R, u,
 
         volume_flux_node = volume_flux_dg(u_node, u_node1, 1, equations)
 
-        # Small optimization, no much performance gain
-        flux_fv_node = isequal(j1 + 1, j2) * volume_flux_fv(u_node, u_node1, 1, equations)
-
         for ii in axes(u, 1)
             @inbounds volume_flux_arr[ii, j1, j2, k] = volume_flux_node[ii]
 
             # Small optimization, no much performance gain
             if isequal(j1 + 1, j2) # avoid race condition
+                flux_fv_node = volume_flux_fv(u_node, u_node1, 1, equations)
+
                 @inbounds begin
                     fstar1_L[ii, j2, k] = flux_fv_node[ii] * (1 - dg_only)
                     fstar1_R[ii, j2, k] = flux_fv_node[ii] * (1 - dg_only)
@@ -395,8 +394,8 @@ end
 function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R, u,
                                   alpha, atol, derivative_split,
                                   equations::AbstractEquations{1},
-                                  volume_flux_dg::Any, nonconservative_flux_dg::Any,
-                                  volume_flux_fv::Any, nonconservative_flux_fv::Any)
+                                  volume_flux_dg::Any, noncons_flux_dg::Any,
+                                  volume_flux_fv::Any, noncons_flux_fv::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     k = (blockIdx().y - 1) * blockDim().y + threadIdx().y
 
@@ -410,12 +409,7 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, f
         u_node1 = get_node_vars(u, equations, j2, k)
 
         volume_flux_node = volume_flux_dg(u_node, u_node1, 1, equations)
-        noncons_flux_node = nonconservative_flux_dg(u_node, u_node1, 1, equations)
-
-        # Small optimization, no much performance gain
-        f1_node = isequal(j1 + 1, j2) * volume_flux_fv(u_node, u_node1, 1, equations)
-        f1_L_node = isequal(j1 + 1, j2) * nonconservative_flux_fv(u_node, u_node1, 1, equations)
-        f1_R_node = isequal(j1 + 1, j2) * nonconservative_flux_fv(u_node1, u_node, 1, equations)
+        noncons_flux_node = noncons_flux_dg(u_node, u_node1, 1, equations)
 
         for ii in axes(u, 1)
             @inbounds begin
@@ -426,6 +420,10 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, f
 
             # Small optimization, no much performance gain
             if isequal(j1 + 1, j2) # avoid race condition
+                f1_node = volume_flux_fv(u_node, u_node1, 1, equations)
+                f1_L_node = noncons_flux_fv(u_node, u_node1, 1, equations)
+                f1_R_node = noncons_flux_fv(u_node1, u_node, 1, equations)
+
                 @inbounds begin
                     fstar1_L[ii, j2, k] = (f1_node[ii] + 0.5f0 * f1_L_node[ii]) * (1 - dg_only)
                     fstar1_R[ii, j2, k] = (f1_node[ii] + 0.5f0 * f1_R_node[ii]) * (1 - dg_only)
@@ -439,8 +437,8 @@ function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, f
 
         #     f1_node = volume_flux_fv(u_ll, u_rr, 1, equations)
 
-        #     f1_L_node = nonconservative_flux_fv(u_ll, u_rr, 1, equations)
-        #     f1_R_node = nonconservative_flux_fv(u_rr, u_ll, 1, equations)
+        #     f1_L_node = noncons_flux_fv(u_ll, u_rr, 1, equations)
+        #     f1_R_node = noncons_flux_fv(u_rr, u_ll, 1, equations)
 
         #     for ii in axes(u, 1)
         #         @inbounds begin
@@ -919,8 +917,8 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
     RealT = eltype(du)
 
-    volume_flux_dg, nonconservative_flux_dg = dg.volume_integral.volume_flux_dg
-    volume_flux_fv, nonconservative_flux_fv = dg.volume_integral.volume_flux_fv
+    volume_flux_dg, noncons_flux_dg = dg.volume_integral.volume_flux_dg
+    volume_flux_fv, noncons_flux_fv = dg.volume_integral.volume_flux_fv
     indicator = dg.volume_integral.indicator
     derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights
@@ -944,12 +942,12 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
                                                                           derivative_split,
                                                                           equations,
                                                                           volume_flux_dg,
-                                                                          nonconservative_flux_dg,
+                                                                          noncons_flux_dg,
                                                                           volume_flux_fv,
-                                                                          nonconservative_flux_fv)
+                                                                          noncons_flux_fv)
     volume_flux_dgfv_kernel(volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R, u,
                             alpha, atol, derivative_split, equations, volume_flux_dg,
-                            nonconservative_flux_dg, volume_flux_fv, nonconservative_flux_fv;
+                            noncons_flux_dg, volume_flux_fv, noncons_flux_fv;
                             kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^2,
                                                    size(u, 3))...)
 

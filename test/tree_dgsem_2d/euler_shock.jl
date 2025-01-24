@@ -12,8 +12,10 @@ include("../test_macros.jl")
 
     surface_flux = flux_lax_friedrichs
     volume_flux = flux_shima_etal
+
     basis = LobattoLegendreBasis(3)
     basis_gpu = LobattoLegendreBasisGPU(3)
+
     indicator_sc = IndicatorHennemannGassner(equations, basis,
                                              alpha_max = 0.5,
                                              alpha_min = 0.001,
@@ -22,6 +24,7 @@ include("../test_macros.jl")
     volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                      volume_flux_dg = volume_flux,
                                                      volume_flux_fv = surface_flux)
+
     solver = DGSEM(basis, surface_flux, volume_integral)
     solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
 

@@ -404,8 +404,8 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
     # Allocate dynamic shared memory
     shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_fstar = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width + 1),
-                                      offset)
+    shmem_fstar1 = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width + 1),
+                                       offset)
     offset += sizeof(eltype(du)) * size(du, 1) * (tile_width + 1)
     shmem_value = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width),
                                       offset)
@@ -438,13 +438,13 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
             # Initialize `du` with zeros
             shmem_value[tx, ty] = zero(eltype(du))
             # Initialize `fstar` side columes with zeros 
-            shmem_fstar[tx, 1] = zero(eltype(du))
-            shmem_fstar[tx, tile_width + 1] = zero(eltype(du))
+            shmem_fstar1[tx, 1] = zero(eltype(du))
+            shmem_fstar1[tx, tile_width + 1] = zero(eltype(du))
         end
 
         if ty + 1 <= tile_width
             # Set with FV volume fluxes
-            @inbounds shmem_fstar[tx, ty + 1] = flux_fv_node[tx] * (1 - dg_only)
+            @inbounds shmem_fstar1[tx, ty + 1] = flux_fv_node[tx] * (1 - dg_only)
         end
     end
 
@@ -453,7 +453,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
     # Contribute FV to the volume integrals
     for tx in axes(du, 1)
         @inbounds shmem_value[tx, ty] += alpha_element * inverse_weights[ty] *
-                                         (shmem_fstar[tx, ty + 1] - shmem_fstar[tx, ty]) * (1 - dg_only)
+                                         (shmem_fstar1[tx, ty + 1] - shmem_fstar1[tx, ty]) * (1 - dg_only)
     end
 
     # Compute DG volume fluxes
@@ -464,10 +464,10 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
         # Contribute DG to the volume integrals
         for tx in axes(du, 1)
-            @inbounds shmem_value[tx, ty] += derivative_split[ty, thread] *
+            @inbounds shmem_value[tx, ty] += shmem_split[thread, ty] *
                                              (1 - isequal(ty, thread)) * # set diagonal elements to zeros
                                              volume_flux_node[tx] * dg_only +
-                                             (1 - alpha_element) * derivative_split[ty, thread] *
+                                             (1 - alpha_element) * shmem_split[thread, ty] *
                                              (1 - isequal(ty, thread)) * # set diagonal elements to zeros
                                              volume_flux_node[tx] * (1 - dg_only)
         end

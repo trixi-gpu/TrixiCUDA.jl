@@ -8,13 +8,24 @@ equations = CompressibleEulerEquations1D(1.4f0)
 
 initial_condition = initial_condition_weak_blast_wave
 
-volume_flux = flux_ranocha
-solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_ranocha,
-                      volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
-                      RealT = RealT)
+surface_flux = flux_lax_friedrichs
+volume_flux = flux_shima_etal
 
-coordinates_min = (-2.0f0,)
-coordinates_max = (2.0f0,)
+basis_gpu = LobattoLegendreBasisGPU(3, RealT)
+
+indicator_sc = IndicatorHennemannGassner(equations, basis_gpu,
+                                         alpha_max = 0.5f0,
+                                         alpha_min = 0.001f0,
+                                         alpha_smooth = true,
+                                         variable = density_pressure)
+volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
+                                                 volume_flux_dg = volume_flux,
+                                                 volume_flux_fv = surface_flux)
+
+solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
+
+coordinates_min = -2.0f0
+coordinates_max = 2.0f0
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 5,
                 n_cells_max = 10_000, RealT = RealT)

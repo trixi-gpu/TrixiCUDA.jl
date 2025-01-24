@@ -512,6 +512,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
     offset = 0 # offset bytes for shared memory
 
     # Allocate dynamic shared memory
+    # TODO: Combine `fstar` into single allocation
     shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
     shmem_fstar1 = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width + 1, tile_width),
@@ -566,7 +567,6 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
             # Set with FV volume fluxes
             @inbounds shmem_fstar1[tx, ty1 + 1, ty2] = flux_fv_node1[tx] * (1 - dg_only)
         end
-
         if ty2 + 1 <= tile_width
             # Set with FV volume fluxes
             @inbounds shmem_fstar2[tx, ty1, ty2 + 1] = flux_fv_node2[tx] * (1 - dg_only)

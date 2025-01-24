@@ -249,9 +249,6 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Allocate dynamic shared memory
     shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_szero = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width),
-                                      offset)
-    offset += sizeof(eltype(du)) * tile_width^2
     shmem_value = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width),
                                       offset)
 
@@ -268,12 +265,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Load data from global memory into shared memory
     for ty2 in axes(du, 2)
         # Transposed access
-        # TODO: Combine into single shared memory
-        @inbounds begin
-            shmem_split[ty2, ty] = derivative_split[ty, ty2]
-            shmem_szero[ty2, ty] = derivative_split[ty, ty2] *
-                                   (1 - isequal(ty, ty2)) # set diagonal elements to zeros         
-        end
+        @inbounds shmem_split[ty2, ty] = derivative_split[ty, ty2]
     end
 
     # Synchronization is not needed here given the access pattern
@@ -294,7 +286,8 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
         # TODO: Avoid potential bank conflicts
         for tx in axes(du, 1)
-            @inbounds shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_szero[thread, ty] +
+            @inbounds shmem_value[tx, ty] += symmetric_flux_node[tx] * shmem_split[thread, ty] *
+                                             (1 - isequal(ty, thread)) + # set diagonal elements to zeros
                                              0.5f0 *
                                              noncons_flux_node[tx] * shmem_split[thread, ty]
         end
@@ -945,7 +938,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
         volume_integral_kernel(du, derivative_split, symmetric_flux_arr, noncons_flux_arr;
                                kernel_configurator_3d(volume_integral_kernel, size(du)...)...)
     else
-        shmem_size = (size(du, 2)^2 * 2 + size(du, 1) * size(du, 2)) * sizeof(RealT)
+        shmem_size = (size(du, 2)^2 + size(du, 1) * size(du, 2)) * sizeof(RealT)
         threads = (1, size(du, 2), 1)
         blocks = (1, 1, size(du, 3))
         @cuda threads=threads blocks=blocks shmem=shmem_size volume_flux_integral_kernel!(du, u,

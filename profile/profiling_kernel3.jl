@@ -4,14 +4,15 @@ using Trixi, TrixiCUDA
 RealT = Float32
 
 # Set up the problem
-equations = CompressibleEulerEquations2D(1.4f0)
+equations = CompressibleEulerEquations3D(1.4f0)
 
 initial_condition = initial_condition_weak_blast_wave
 
-surface_flux = flux_lax_friedrichs
-volume_flux = flux_shima_etal
+surface_flux = flux_ranocha
+volume_flux = flux_ranocha
 
-basis_gpu = LobattoLegendreBasisGPU(3, RealT)
+polydeg = 3
+basis_gpu = LobattoLegendreBasisGPU(polydeg, RealT)
 
 indicator_sc = IndicatorHennemannGassner(equations, basis_gpu,
                                          alpha_max = 0.5f0,
@@ -24,15 +25,16 @@ volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
 
 solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
 
-coordinates_min = (-2.0f0, -2.0f0)
-coordinates_max = (2.0f0, 2.0f0)
+coordinates_min = (-2.0f0, -2.0f0, -2.0f0)
+coordinates_max = (2.0f0, 2.0f0, 2.0f0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 5,
-                n_cells_max = 10_000, RealT = RealT)
+                initial_refinement_level = 3,
+                n_cells_max = 100_000, RealT = RealT)
 
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
+                                           source_terms = source_terms_convergence_test)
 
-tspan_gpu = (0.0f0, 1.0f0)
+tspan_gpu = (0.0f0, 0.4f0)
 t_gpu = 0.0f0
 
 # Semi on GPU

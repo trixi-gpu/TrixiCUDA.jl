@@ -593,9 +593,11 @@ end
 
 ############################################################################## New optimization
 # Kernel for calculating pure DG and DG-FV volume integrals without conservative terms
-# function volume_flux_integral_dgfv_kernel!()
-#     return nothing
-# end
+function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split, inverse_weights,
+                                           equations::AbstractEquations{3},
+                                           volume_flux_dg::Any, volume_flux_fv::Any)
+    return nothing
+end
 
 # Kernel for calculating pure DG and DG-FV volume fluxes
 function volume_flux_dgfv_kernel!(volume_flux_arr1, volume_flux_arr2, volume_flux_arr3,

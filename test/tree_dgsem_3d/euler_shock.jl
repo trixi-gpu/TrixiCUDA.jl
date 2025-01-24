@@ -16,6 +16,7 @@ include("../test_macros.jl")
     polydeg = 3
     basis = LobattoLegendreBasis(polydeg)
     basis_gpu = LobattoLegendreBasisGPU(polydeg)
+
     indicator_sc = IndicatorHennemannGassner(equations, basis,
                                              alpha_max = 0.5,
                                              alpha_min = 0.001,
@@ -24,6 +25,7 @@ include("../test_macros.jl")
     volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                      volume_flux_dg = volume_flux,
                                                      volume_flux_fv = surface_flux)
+
     solver = DGSEM(basis, surface_flux, volume_integral)
     solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
 

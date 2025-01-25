@@ -44,8 +44,9 @@ function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64) # how about 
     weights = CuArray{RealT}(weights_)
     inverse_weights = CuArray{RealT}(inverse_weights_)
 
-    inverse_vandermonde_legendre = CuArray{RealT}(inverse_vandermonde_legendre_)
-    # boundary_interpolation = CuArray(boundary_interpolation_) # avoid scalar indexing
+    # Avoid scalar indexing
+    # inverse_vandermonde_legendre = CuArray{RealT}(inverse_vandermonde_legendre_)
+    # boundary_interpolation = CuArray(boundary_interpolation_)
 
     derivative_matrix = CuArray{RealT}(derivative_matrix_)
     derivative_split = CuArray{RealT}(derivative_split_)
@@ -54,11 +55,11 @@ function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64) # how about 
 
     # TODO: Implement a custom struct for finer control over data types
     return LobattoLegendreBasis{RealT, nnodes_, typeof(nodes),
-                                typeof(inverse_vandermonde_legendre),
+                                typeof(inverse_vandermonde_legendre_),
                                 typeof(boundary_interpolation_),
                                 typeof(derivative_matrix)}(nodes_, weights,
                                                            inverse_weights,
-                                                           inverse_vandermonde_legendre,
+                                                           inverse_vandermonde_legendre_,
                                                            boundary_interpolation_,
                                                            derivative_matrix,
                                                            derivative_split,

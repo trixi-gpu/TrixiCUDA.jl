@@ -56,7 +56,6 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations,
                              VolumeIntegralFluxDifferencing(volume_integral.volume_flux_dg),
                              dg, uEltype, cache)
 
-    # Remove `element_ids_dg` and `element_ids_dgfv` here
     return (; cache..., fstar1_L, fstar1_R)
 end
 

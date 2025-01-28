@@ -70,11 +70,11 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     offset = 0 # offset bytes for shared memory
 
     # Allocate dynamic shared memory
-    shmem_dhat = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+    shmem_dhat = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_flux = @cuDynamicSharedMem(eltype(du),
-                                     (size(du, 1), tile_width, tile_width, tile_width, 3),
-                                     offset)
+    shmem_flux = CuDynamicSharedArray(eltype(du),
+                                      (size(du, 1), tile_width, tile_width, tile_width, 3),
+                                      offset)
 
     # Get thread and block indices only we need save registers
     tx, ty = threadIdx().x, threadIdx().y
@@ -194,10 +194,10 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     offset = 0 # offset bytes for shared memory
 
     # Allocate dynamic shared memory
-    shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+    shmem_split = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_value = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width, tile_width, tile_width),
-                                      offset)
+    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width, tile_width, tile_width),
+                                       offset)
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
@@ -347,10 +347,10 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     offset = 0 # offset bytes for shared memory
 
     # Allocate dynamic shared memory
-    shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+    shmem_split = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_value = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width, tile_width, tile_width),
-                                      offset)
+    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width, tile_width, tile_width),
+                                       offset)
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
@@ -597,19 +597,19 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
     # Allocate dynamic shared memory
     # TODO: Combine `fstar` into single allocation
-    shmem_split = @cuDynamicSharedMem(eltype(du), (tile_width, tile_width))
+    shmem_split = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_fstar1 = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width + 1, tile_width, tile_width),
-                                       offset)
+    shmem_fstar1 = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width + 1, tile_width, tile_width),
+                                        offset)
     offset += sizeof(eltype(du)) * size(du, 1) * (tile_width + 1) * tile_width * tile_width
-    shmem_fstar2 = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width, tile_width + 1, tile_width),
-                                       offset)
+    shmem_fstar2 = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width, tile_width + 1, tile_width),
+                                        offset)
     offset += sizeof(eltype(du)) * size(du, 1) * tile_width * (tile_width + 1) * tile_width
-    shmem_fstar3 = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width, tile_width, tile_width + 1),
-                                       offset)
+    shmem_fstar3 = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width, tile_width, tile_width + 1),
+                                        offset)
     offset += sizeof(eltype(du)) * size(du, 1) * tile_width * tile_width * (tile_width + 1)
-    shmem_value = @cuDynamicSharedMem(eltype(du), (size(du, 1), tile_width, tile_width, tile_width),
-                                      offset)
+    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width, tile_width, tile_width),
+                                       offset)
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y

@@ -39,7 +39,8 @@ function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64) # how about 
     derivative_dhat_ = calc_dhat(nodes_, weights_)
 
     # Convert to GPU arrays
-    # TODO: `RealT` can be removed once Trixi.jl can be updated to the latest one
+    # TODO: `RealT` can be removed once it is confirmed that theses arrays are
+    # type-stable in above process
     nodes = CuArray{RealT}(nodes_)
     weights = CuArray{RealT}(weights_)
     inverse_weights = CuArray{RealT}(inverse_weights_)
@@ -96,7 +97,8 @@ function MortarL2GPU(basis::LobattoLegendreBasis)
     reverse_lower_ = calc_reverse_lower(nnodes_, Val(:gauss), RealT)
 
     # Convert to GPU arrays
-    # TODO: `RealT` can be removed once Trixi.jl can be updated to the latest one
+    # TODO: `RealT` can be removed once it is confirmed that theses arrays are
+    # type-stable in above process
     forward_upper = CuArray{RealT}(forward_upper_)
     forward_lower = CuArray{RealT}(forward_lower_)
     reverse_upper = CuArray{RealT}(reverse_upper_)

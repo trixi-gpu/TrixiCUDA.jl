@@ -11,21 +11,23 @@ include("dg.jl")
 include("dgsem.jl")
 
 # See also `rhs!` function in Trixi.jl
-function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolic, t)
-    (; mesh, equations, boundary_conditions, source_terms, solver, cache) = semi
+function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
+    (; mesh, equations, boundary_conditions, source_terms, solver,
+    cache_gpu, cache_cpu) = semi
 
     # In Trixi.jl, function `wrap_array` is called to adapt adaptive mesh refinement (AMR).
     # For more details, see https://trixi-framework.github.io/Trixi.jl/stable/conventions/#Array-types-and-wrapping
-    u = wrap_array(u_ode, mesh, equations, solver, cache)
-    du = wrap_array(du_ode, mesh, equations, solver, cache)
+    u = wrap_array(u_ode, mesh, equations, solver, cache_gpu)
+    du = wrap_array(du_ode, mesh, equations, solver, cache_gpu)
 
-    rhs_gpu!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
+    rhs_gpu!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver,
+             cache_gpu, cache_cpu)
 
     return nothing
 end
 
 # See also `semidiscretize` function in Trixi.jl
-function semidiscretizeGPU(semi::SemidiscretizationHyperbolic, tspan)
+function semidiscretizeGPU(semi::SemidiscretizationHyperbolicGPU, tspan)
     # Computing coefficients on GPUs may not be as fast as on CPUs due to the overhead. 
     # Therefore, we currently use the GPU version. Note that the actual speedup on GPUs
     # largely depends on the problem size (e.g., large arrays typically gain much more 

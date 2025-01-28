@@ -4,7 +4,7 @@
                             dg::DG, cache)
     # TODO: Assert array length before calling `reshape`
     u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
-                    nelements(dg, cache))
+                    nelements(cache.elements))
 
     return u_ode
 end
@@ -15,7 +15,7 @@ end
                                    dg::DG, cache)
     # TODO: Assert array length before calling `reshape`
     u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
-                    nelements(dg, cache))
+                    nelements(cache.elements))
 
     return u_ode
 end

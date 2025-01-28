@@ -8,31 +8,36 @@ using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, reshape, similar, launch_configuration
 
 # Trixi.jl methods
-using Trixi: allocate_coefficients, compute_coefficients, mesh_equations_solver_cache,
-             flux, ntuple, nnodes, nvariables, nelements,
+using Trixi: allocate_coefficients, compute_coefficients, create_cache,
+             flux, ntuple, nnodes, nvariables, ndofs,
              local_leaf_cells, init_elements, init_interfaces, init_boundaries, init_mortars,
              have_nonconservative_terms, boundary_condition_periodic,
              digest_boundary_conditions, check_periodicity_mesh_boundary_conditions,
              gauss_lobatto_nodes_weights, vandermonde_legendre,
              calc_dsplit, calc_dhat, calc_lhat, polynomial_derivative_matrix,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
-             set_log_type!, set_sqrt_type!
+             calc_error_norms,
+             set_log_type!, set_sqrt_type!,
+             summary_header, summary_line, summary_footer, increment_indent # IO functions
 
 # Trixi.jl structs
 using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidiscretization,
-             AbstractSurfaceIntegral,
-             True, False, TreeMesh, DG, DGSEM, SemidiscretizationHyperbolic,
+             AbstractSurfaceIntegral, PerformanceCounter,
+             True, False, TreeMesh, StructuredMesh,
+             DG, DGSEM, SemidiscretizationHyperbolic,
              LobattoLegendreBasis, LobattoLegendreMortarL2,
              ElementContainer1D, ElementContainer2D, ElementContainer3D,
              InterfaceContainer1D, InterfaceContainer2D, InterfaceContainer3D,
              BoundaryContainer1D, BoundaryContainer2D, BoundaryContainer3D,
              L2MortarContainer2D, L2MortarContainer3D,
              SurfaceIntegralWeakForm, VolumeIntegralWeakForm,
-             BoundaryConditionPeriodic,
+             BoundaryConditionPeriodic, UnstructuredSortedBoundaryTypes,
              VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG
 
 import Trixi: get_node_vars, get_node_coords, get_surface_node_vars,
-              nelements, ninterfaces, nmortars, wrap_array, wrap_array_native
+              nelements, ninterfaces, nmortars, wrap_array, wrap_array_native,
+              calc_error_norms,
+              mesh_equations_solver_cache
 
 using SciMLBase: ODEProblem, FullSpecialize
 

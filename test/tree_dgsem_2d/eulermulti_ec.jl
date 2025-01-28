@@ -92,8 +92,7 @@ include("../test_macros.jl")
     TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
                                     TrixiCUDA.check_cache_mortars(cache_gpu),
                                     solver_gpu, cache_gpu)
-    Trixi.prolong2mortars!(cache, u, mesh, equations, solver.mortar,
-                           solver.surface_integral, solver)
+    Trixi.prolong2mortars!(cache, u, mesh, equations, solver.mortar, solver)
     @test_approx (cache_gpu.mortars.u_upper, cache.mortars.u_upper)
     @test_approx (cache_gpu.mortars.u_lower, cache.mortars.u_lower)
 

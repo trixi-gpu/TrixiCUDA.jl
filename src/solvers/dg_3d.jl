@@ -1956,7 +1956,8 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, equations,
-                               volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
+                               volume_integral::VolumeIntegralWeakForm, dg::DGSEM,
+                               cache_gpu, cache_cpu)
     derivative_dhat = dg.basis.derivative_dhat
 
     # The maximum number of threads per block is the dominant factor when choosing the optimization 
@@ -1996,7 +1997,8 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM,
+                               cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
@@ -2042,7 +2044,8 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM,
+                               cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
@@ -2108,7 +2111,8 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM,
+                               cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux_dg, volume_flux_fv = dg.volume_integral.volume_flux_dg,
@@ -2118,20 +2122,19 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     inverse_weights = dg.basis.inverse_weights
 
     # TODO: Get copies of `u` and `du` on both device and host
-    # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
-    alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
+    alpha = indicator(Array(u), mesh, equations, dg, cache_cpu)
     alpha = CuArray(alpha)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
     thread_per_block = size(du, 2)^3
     if thread_per_block > MAX_THREADS_PER_BLOCK
         # TODO: Remove `fstar` from cache initialization
-        fstar1_L = cache.fstar1_L
-        fstar1_R = cache.fstar1_R
-        fstar2_L = cache.fstar2_L
-        fstar2_R = cache.fstar2_R
-        fstar3_L = cache.fstar3_L
-        fstar3_R = cache.fstar3_R
+        fstar1_L = cache_gpu.fstar1_L
+        fstar1_R = cache_gpu.fstar1_R
+        fstar2_L = cache_gpu.fstar2_L
+        fstar2_R = cache_gpu.fstar2_R
+        fstar3_L = cache_gpu.fstar3_L
+        fstar3_R = cache_gpu.fstar3_R
 
         volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                           size(u, 2), size(u, 5))
@@ -2190,7 +2193,8 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM, cache)
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM,
+                               cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux_dg, noncons_flux_dg = dg.volume_integral.volume_flux_dg
@@ -2200,17 +2204,16 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     inverse_weights = dg.basis.inverse_weights
 
     # TODO: Get copies of `u` and `du` on both device and host
-    # FIXME: Scalar indexing on GPU arrays caused by using GPU cache
-    alpha = indicator(Array(u), mesh, equations, dg, cache) # GPU cache
+    alpha = indicator(Array(u), mesh, equations, dg, cache_cpu)
     alpha = CuArray(alpha)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
-    fstar1_L = cache.fstar1_L
-    fstar1_R = cache.fstar1_R
-    fstar2_L = cache.fstar2_L
-    fstar2_R = cache.fstar2_R
-    fstar3_L = cache.fstar3_L
-    fstar3_R = cache.fstar3_R
+    fstar1_L = cache_gpu.fstar1_L
+    fstar1_R = cache_gpu.fstar1_R
+    fstar2_L = cache_gpu.fstar2_L
+    fstar2_R = cache_gpu.fstar2_R
+    fstar3_L = cache_gpu.fstar3_L
+    fstar3_R = cache_gpu.fstar3_R
 
     volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                       size(u, 2), size(u, 5))
@@ -3046,33 +3049,33 @@ end
 
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du, u, t, mesh::TreeMesh{3}, equations, boundary_conditions,
-                  source_terms::Source, dg::DGSEM, cache) where {Source}
+                  source_terms::Source, dg::DGSEM, cache_gpu, cache_cpu) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 
     # removing the need for a separate function call.
 
     cuda_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
-                          dg.volume_integral, dg, cache)
+                          dg.volume_integral, dg, cache_gpu, cache_cpu)
 
-    cuda_prolong2interfaces!(u, mesh, equations, cache)
+    cuda_prolong2interfaces!(u, mesh, equations, cache_gpu)
 
-    cuda_interface_flux!(mesh, have_nonconservative_terms(equations), equations, dg, cache)
+    cuda_interface_flux!(mesh, have_nonconservative_terms(equations), equations, dg, cache_gpu)
 
-    cuda_prolong2boundaries!(u, mesh, boundary_conditions, equations, cache)
+    cuda_prolong2boundaries!(u, mesh, boundary_conditions, equations, cache_gpu)
 
     cuda_boundary_flux!(t, mesh, boundary_conditions,
-                        have_nonconservative_terms(equations), equations, dg, cache)
+                        have_nonconservative_terms(equations), equations, dg, cache_gpu)
 
-    cuda_prolong2mortars!(u, mesh, check_cache_mortars(cache), dg, cache)
+    cuda_prolong2mortars!(u, mesh, check_cache_mortars(cache_gpu), dg, cache_gpu)
 
-    cuda_mortar_flux!(mesh, check_cache_mortars(cache), have_nonconservative_terms(equations),
-                      equations, dg, cache)
+    cuda_mortar_flux!(mesh, check_cache_mortars(cache_gpu), have_nonconservative_terms(equations),
+                      equations, dg, cache_gpu)
 
-    cuda_surface_integral!(du, mesh, equations, dg, cache)
+    cuda_surface_integral!(du, mesh, equations, dg, cache_gpu)
 
-    cuda_jacobian!(du, mesh, equations, cache)
+    cuda_jacobian!(du, mesh, equations, cache_gpu)
 
-    cuda_sources!(du, u, t, source_terms, equations, cache)
+    cuda_sources!(du, u, t, source_terms, equations, cache_gpu)
 
     return nothing
 end

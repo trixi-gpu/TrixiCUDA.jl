@@ -35,7 +35,7 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DG, RealT, uEltype)
 
     # Add specialized parts of the cache required to compute the volume integral etc.
     cache = (; cache_gpu...,
-             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_cpu)...)
+             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_gpu)...)
 
     return cache
 end
@@ -87,8 +87,8 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
 
     # Add specialized parts of the cache required to compute the volume integral etc.
     cache_gpu = (; cache_gpu...,
-                 create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_cpu)...)
-    cache = (; cache_gpu..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache_cpu)...)
+                 create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_gpu)...)
+    cache = (; cache_gpu..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache_gpu)...)
 
     return cache
 end
@@ -160,8 +160,8 @@ function create_cache_gpu(mesh::TreeMesh{3}, equations,
 
     # Add specialized parts of the cache required to compute the volume integral etc.
     cache_gpu = (; cache_gpu...,
-                 create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_cpu)...)
-    cache = (; cache_gpu..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache_cpu)...)
+                 create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_gpu)...)
+    cache = (; cache_gpu..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache_gpu)...)
 
     return cache
 end

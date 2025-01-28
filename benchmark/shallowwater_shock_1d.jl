@@ -41,6 +41,7 @@ volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
 surface_flux = (FluxHydrostaticReconstruction(flux_lax_friedrichs,
                                               hydrostatic_reconstruction_audusse_etal),
                 flux_nonconservative_audusse_etal)
+
 basis = LobattoLegendreBasis(RealT, 4)
 basis_gpu = LobattoLegendreBasisGPU(4, RealT)
 
@@ -79,10 +80,9 @@ t = t_gpu = 0.0f0
 (; mesh, equations, boundary_conditions, source_terms, solver, cache) = semi
 
 # Semi on GPU
-equations_gpu = semi_gpu.equations
-mesh_gpu, solver_gpu, cache_gpu = semi_gpu.mesh, semi_gpu.solver, semi_gpu.cache
-boundary_conditions_gpu = semi_gpu.boundary_conditions
-source_terms_gpu = semi_gpu.source_terms
+equations_gpu, mesh_gpu, solver_gpu = semi_gpu.equations, semi_gpu.mesh, semi_gpu.solver
+cache_gpu, cache_cpu = semi_gpu.cache_gpu, semi_gpu.cache_cpu
+boundary_conditions_gpu, source_terms_gpu = semi_gpu.boundary_conditions, semi_gpu.source_terms
 
 # ODE on CPU
 ode = semidiscretize(semi, tspan)
@@ -103,4 +103,4 @@ du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cach
 @benchmark CUDA.@sync TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                                       Trixi.have_nonconservative_terms(equations_gpu),
                                                       equations_gpu, solver_gpu.volume_integral, solver_gpu,
-                                                      cache_gpu)
+                                                      cache_gpu, cache_cpu)

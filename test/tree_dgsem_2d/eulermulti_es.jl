@@ -38,10 +38,9 @@ include("../test_macros.jl")
     (; mesh, equations, boundary_conditions, source_terms, solver, cache) = semi
 
     # Semi on GPU
-    equations_gpu = semi_gpu.equations
-    mesh_gpu, solver_gpu, cache_gpu = semi_gpu.mesh, semi_gpu.solver, semi_gpu.cache
-    boundary_conditions_gpu = semi_gpu.boundary_conditions
-    source_terms_gpu = semi_gpu.source_terms
+    equations_gpu, mesh_gpu, solver_gpu = semi_gpu.equations, semi_gpu.mesh, semi_gpu.solver
+    cache_gpu, cache_cpu = semi_gpu.cache_gpu, semi_gpu.cache_cpu
+    boundary_conditions_gpu, source_terms_gpu = semi_gpu.boundary_conditions, semi_gpu.source_terms
 
     # ODE on CPU
     ode = semidiscretize(semi, tspan)
@@ -64,7 +63,7 @@ include("../test_macros.jl")
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                     Trixi.have_nonconservative_terms(equations_gpu),
                                     equations_gpu, solver_gpu.volume_integral, solver_gpu,
-                                    cache_gpu)
+                                    cache_gpu, cache_cpu)
     Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                 equations, solver.volume_integral, solver, cache)
     @test_approx (du_gpu, du)

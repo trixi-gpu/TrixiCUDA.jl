@@ -6,17 +6,19 @@
 
 TrixiCUDA.jl offers CUDA acceleration for solving hyperbolic PDEs.
 
+Package docs: https://trixi-gpu.github.io/TrixiCUDA.jl/dev \
+General docs: https://trixi-gpu.github.io
+
 ⚠️ **Warning:** Our package may not always be updated with the latest updates or improvements in Trixi.jl. Forcing an update of Trixi.jl as a dependency for TrixiCUDA.jl beyond the version bounds specified in `Project.toml` may cause unexpected errors.
 
+*Update on Jan 28, 2025*:
+- It is recommended to update your Julia version to 1.10.8 (the latest LTS release) to avoid the issue of circular dependencies during package precompilation, which is present in Julia 1.10.7 (see [issue](https://discourse.julialang.org/t/circular-dependency-warning/123388)).
+
 *Update on Dec 31, 2024*:
-- The initial round of kernel optimization starts with the volume integral kernels (see [TrixiCUDA.jl PR #102](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/102)) and will later extend to all existing kernels used in the semidiscretization process. The primary approach includes improving global memory access patterns, using shared memory, and selecting appropriate launch sizes to reduce warp stalls and achieve better occupancy.
+- The kernel optimization starts with the volume integral kernels (see [TrixiCUDA.jl PR #102](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/102)) and will extend to all existing kernels used in the semidiscretization. The approach includes improving global memory access patterns, using shared memory, and selecting appropriate launch sizes to reduce warp stalls and achieve better occupancy.
 
 *Update on Nov 21, 2024*:
 - Due to the [issue](https://github.com/trixi-framework/Trixi.jl/issues/2108) from upstream with Trixi.jl and CUDA.jl in Julia v1.11, this package now supports only Julia v1.10. Using or developing this package with Julia v1.11 will result in precompilation errors. To fix this, downgrade to Julia v1.10. If you have any other problems, please file issues [here](https://github.com/trixi-gpu/TrixiCUDA.jl/issues).
-
-*Update on Oct 30, 2024*: 
-- The general documentation is now available at https://trixi-gpu.github.io (in development).  
-- Documentation specific to this package can be found at https://trixi-gpu.github.io/TrixiCUDA.jl/dev (in development).
 
 [Archived Update](https://trixi-gpu.github.io/update/)
 

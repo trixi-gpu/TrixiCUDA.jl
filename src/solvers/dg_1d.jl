@@ -577,8 +577,94 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
     shmem_split = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
     shmem_fstar1 = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width + 1, 2), offset)
-    offset += sizeof(eltype(du)) * size(du, 1) * (tile_width + 1)
+    offset += sizeof(eltype(du)) * size(du, 1) * (tile_width + 1) * 2
     shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width), offset)
+
+    # Get thread and block indices only we need to save registers
+    ty = threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    # Load global `derivative_split` into shared memory
+    for ty2 in axes(du, 2)
+        # Transposed access
+        @inbounds shmem_split[ty2, ty] = derivative_split[ty, ty2]
+    end
+
+    # Get variables for computation
+    @inbounds alpha_element = alpha[k]
+    dg_only = isapprox(alpha_element, 0, atol = atol)
+
+    # Compute FV volume fluxes
+    u_node = get_node_vars(u, equations, ty, k)
+    if ty + 1 <= tile_width
+        f1_node = volume_flux_fv(u_node,
+                                 get_node_vars(u, equations, ty + 1, k),
+                                 1, equations)
+        f1_L_node = noncons_flux_fv(u_node,
+                                    get_node_vars(u, equations, ty + 1, k),
+                                    1, equations)
+        f1_R_node = noncons_flux_fv(get_node_vars(u, equations, ty + 1, k),
+                                    u_node,
+                                    1, equations)
+    end
+
+    lr = mod(ty, 2) + 1 # decide which side to store (1: left, 2: right)
+
+    # Initialize the values
+    for tx in axes(du, 1)
+        @inbounds begin
+            # Initialize `du` with zeros
+            shmem_value[tx, ty] = zero(eltype(du))
+            # Initialize `fstar` side columes with zeros
+            # This step is optimized but need to be careful that the thread number should 
+            # at least be larger than 1 along y direction within a single block (i.e., polydeg > 0)
+            shmem_fstar1[tx, 1, lr] = zero(eltype(du))
+            shmem_fstar1[tx, tile_width + 1, lr] = zero(eltype(du))
+        end
+
+        if ty + 1 <= tile_width
+            # Set with FV volume fluxes
+            @inbounds begin
+                shmem_fstar1[tx, ty + 1, 1] = (f1_node[tx] + 0.5f0 * f1_L_node[tx]) * (1 - dg_only)
+                shmem_fstar1[tx, ty + 1, 2] = (f1_node[tx] + 0.5f0 * f1_R_node[tx]) * (1 - dg_only)
+            end
+        end
+    end
+
+    sync_threads()
+
+    # Contribute FV to the volume integrals
+    for tx in axes(du, 1)
+        @inbounds shmem_value[tx, ty] += alpha_element * inverse_weights[ty] *
+                                         (shmem_fstar1[tx, ty + 1, 1] - shmem_fstar1[tx, ty, 2]) * (1 - dg_only)
+    end
+
+    # Compute DG volume fluxes
+    for thread in 1:tile_width
+        volume_flux_node = volume_flux_dg(u_node,
+                                          get_node_vars(u, equations, thread, k),
+                                          1, equations)
+        noncons_flux_node = noncons_flux_dg(u_node,
+                                            get_node_vars(u, equations, thread, k),
+                                            1, equations)
+
+        # Contribute DG to the volume integrals
+        for tx in axes(du, 1)
+            @inbounds shmem_value[tx, ty] += (volume_flux_node[tx] * shmem_split[thread, ty] *
+                                              (1 - isequal(ty, thread)) + # set diagonal elements to zeros
+                                              0.5f0 *
+                                              shmem_split[thread, ty] * noncons_flux_node[tx]) * dg_only +
+                                             ((1 - alpha_element) * volume_flux_node[tx] * shmem_split[thread, ty] *
+                                              (1 - isequal(ty, thread)) + # set diagonal elements to zeros
+                                              0.5f0 * (1 - alpha_element) *
+                                              shmem_split[thread, ty] * noncons_flux_node[tx]) * (1 - dg_only)
+        end
+    end
+
+    # Finalize the values
+    for tx in axes(du, 1)
+        @inbounds du[tx, ty, k] = shmem_value[tx, ty]
+    end
 
     return nothing
 end
@@ -1042,38 +1128,55 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     alpha = CuArray(alpha)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
-    fstar1_L = cache_gpu.fstar1_L
-    fstar1_R = cache_gpu.fstar1_R
+    thread_per_block = size(du, 2)
+    if thread_per_block > MAX_THREADS_PER_BLOCK # Add one more check: polydeg > 0 (fall back to default)
+        # TODO: Remove `fstar` from cache initialization
+        fstar1_L = cache_gpu.fstar1_L
+        fstar1_R = cache_gpu.fstar1_R
 
-    volume_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
-    noncons_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
+        volume_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
+        noncons_flux_arr = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 3))
 
-    volume_flux_dgfv_kernel = @cuda launch=false volume_flux_dgfv_kernel!(volume_flux_arr,
-                                                                          noncons_flux_arr,
-                                                                          fstar1_L, fstar1_R, u,
-                                                                          alpha, atol,
-                                                                          derivative_split,
-                                                                          equations,
-                                                                          volume_flux_dg,
-                                                                          noncons_flux_dg,
-                                                                          volume_flux_fv,
-                                                                          noncons_flux_fv)
-    volume_flux_dgfv_kernel(volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R, u,
-                            alpha, atol, derivative_split, equations, volume_flux_dg,
-                            noncons_flux_dg, volume_flux_fv, noncons_flux_fv;
-                            kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^2,
-                                                   size(u, 3))...)
+        volume_flux_dgfv_kernel = @cuda launch=false volume_flux_dgfv_kernel!(volume_flux_arr,
+                                                                              noncons_flux_arr,
+                                                                              fstar1_L, fstar1_R, u,
+                                                                              alpha, atol,
+                                                                              derivative_split,
+                                                                              equations,
+                                                                              volume_flux_dg,
+                                                                              noncons_flux_dg,
+                                                                              volume_flux_fv,
+                                                                              noncons_flux_fv)
+        volume_flux_dgfv_kernel(volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R, u,
+                                alpha, atol, derivative_split, equations, volume_flux_dg,
+                                noncons_flux_dg, volume_flux_fv, noncons_flux_fv;
+                                kernel_configurator_2d(volume_flux_dgfv_kernel, size(u, 2)^2,
+                                                       size(u, 3))...)
 
-    volume_integral_dgfv_kernel = @cuda launch=false volume_integral_dgfv_kernel!(du, alpha,
-                                                                                  derivative_split,
-                                                                                  inverse_weights,
-                                                                                  volume_flux_arr,
-                                                                                  noncons_flux_arr,
-                                                                                  fstar1_L, fstar1_R,
-                                                                                  atol, equations)
-    volume_integral_dgfv_kernel(du, alpha, derivative_split, inverse_weights, volume_flux_arr,
-                                noncons_flux_arr, fstar1_L, fstar1_R, atol, equations;
-                                kernel_configurator_3d(volume_integral_dgfv_kernel, size(du)...)...)
+        volume_integral_dgfv_kernel = @cuda launch=false volume_integral_dgfv_kernel!(du, alpha,
+                                                                                      derivative_split,
+                                                                                      inverse_weights,
+                                                                                      volume_flux_arr,
+                                                                                      noncons_flux_arr,
+                                                                                      fstar1_L, fstar1_R,
+                                                                                      atol, equations)
+        volume_integral_dgfv_kernel(du, alpha, derivative_split, inverse_weights, volume_flux_arr,
+                                    noncons_flux_arr, fstar1_L, fstar1_R, atol, equations;
+                                    kernel_configurator_3d(volume_integral_dgfv_kernel, size(du)...)...)
+    else
+        shmem_size = (size(du, 2)^2 + size(du, 1) * (size(du, 2) + 1) * 2 +
+                      size(du, 1) * size(du, 2)) * sizeof(RealT)
+        threads = (1, size(du, 2), 1)
+        blocks = (1, 1, size(du, 3))
+        @cuda threads=threads blocks=blocks shmem=shmem_size volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,
+                                                                                               derivative_split,
+                                                                                               inverse_weights,
+                                                                                               equations,
+                                                                                               volume_flux_dg,
+                                                                                               noncons_flux_dg,
+                                                                                               volume_flux_fv,
+                                                                                               noncons_flux_fv)
+    end
 
     return nothing
 end

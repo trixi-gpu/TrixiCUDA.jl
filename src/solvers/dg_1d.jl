@@ -49,8 +49,7 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     # Allocate dynamic shared memory
     shmem_dhat = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_flux = CuDynamicSharedArray(eltype(du),
-                                      (size(du, 1), tile_width), offset)
+    shmem_flux = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width), offset)
 
     # Get thread and block indices only we need to save registers
     tx, ty = threadIdx().x, threadIdx().y
@@ -140,8 +139,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Allocate dynamic shared memory
     shmem_split = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width),
-                                       offset)
+    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width), offset)
 
     # Get thread and block indices only we need to save registers
     ty = threadIdx().y
@@ -249,8 +247,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     # Allocate dynamic shared memory
     shmem_split = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width),
-                                       offset)
+    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width), offset)
 
     # Get thread and block indices only we need to save registers
     ty = threadIdx().y
@@ -397,11 +394,9 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
     # Allocate dynamic shared memory
     shmem_split = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
     offset += sizeof(eltype(du)) * tile_width^2
-    shmem_fstar1 = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width + 1),
-                                        offset)
+    shmem_fstar1 = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width + 1), offset)
     offset += sizeof(eltype(du)) * size(du, 1) * (tile_width + 1)
-    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width),
-                                       offset)
+    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width), offset)
 
     # Get thread and block indices only we need to save registers
     ty = threadIdx().y
@@ -475,8 +470,8 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 end
 
 # Kernel for calculating pure DG and DG-FV volume fluxes
-function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R, u,
-                                  alpha, atol, derivative_split,
+function volume_flux_dgfv_kernel!(volume_flux_arr, noncons_flux_arr, fstar1_L, fstar1_R,
+                                  u, alpha, atol, derivative_split,
                                   equations::AbstractEquations{1},
                                   volume_flux_dg::Any, noncons_flux_dg::Any,
                                   volume_flux_fv::Any, noncons_flux_fv::Any)
@@ -576,6 +571,14 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
                                            volume_flux_fv::Any, noncons_flux_fv::Any)
     # Set tile width
     tile_width = size(du, 2)
+    offset = 0 # offset bytes for shared memory
+
+    # Allocate dynamic shared memory
+    shmem_split = CuDynamicSharedArray(eltype(du), (tile_width, tile_width))
+    offset += sizeof(eltype(du)) * tile_width^2
+    shmem_fstar1 = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width + 1, 2), offset)
+    offset += sizeof(eltype(du)) * size(du, 1) * (tile_width + 1)
+    shmem_value = CuDynamicSharedArray(eltype(du), (size(du, 1), tile_width), offset)
 
     return nothing
 end

@@ -570,6 +570,15 @@ end
 
 ############################################################################## New optimization
 # Kernel for calculating pure DG and DG-FV volume integrals with conservative terms
+function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split, inverse_weights,
+                                           equations::AbstractEquations{1},
+                                           volume_flux_dg::Any, noncons_flux_dg::Any,
+                                           volume_flux_fv::Any, noncons_flux_fv::Any)
+    # Set tile width
+    tile_width = size(du, 2)
+
+    return nothing
+end
 
 # Kernel for prolonging two interfaces
 function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids)

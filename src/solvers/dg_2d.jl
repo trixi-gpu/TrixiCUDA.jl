@@ -811,20 +811,25 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
                                     2, equations)
     end
 
-    lr = mod(ty, 2) + 1 # decide which side to store (1: left, 2: right)
-
     # Initialize the values
     for tx in axes(du, 1)
         @inbounds begin
             # Initialize `du` with zeros
             shmem_value[tx, ty1, ty2] = zero(eltype(du))
-            # Initialize `fstar` side columes with zeros
-            # This step is optimized but need to be careful that the thread number should 
-            # at least be larger than 1 along y direction within a single block (i.e., polydeg > 0)
-            shmem_fstar1[tx, 1, ty2, lr] = zero(eltype(du))
-            shmem_fstar1[tx, tile_width + 1, ty2, lr] = zero(eltype(du))
-            shmem_fstar2[tx, ty1, 1, lr] = zero(eltype(du))
-            shmem_fstar2[tx, ty1, tile_width + 1, lr] = zero(eltype(du))
+
+            # TODO: Remove shared memory for `fstar` and use local memory
+
+            # Initialize `fstar` side columes with zeros (1: left)
+            shmem_fstar1[tx, 1, ty2, 1] = zero(eltype(du))
+            shmem_fstar1[tx, tile_width + 1, ty2, 1] = zero(eltype(du))
+            shmem_fstar2[tx, ty1, 1, 1] = zero(eltype(du))
+            shmem_fstar2[tx, ty1, tile_width + 1, 1] = zero(eltype(du))
+
+            # Initialize `fstar` side columes with zeros (2: right)
+            shmem_fstar1[tx, 1, ty2, 2] = zero(eltype(du))
+            shmem_fstar1[tx, tile_width + 1, ty2, 2] = zero(eltype(du))
+            shmem_fstar2[tx, ty1, 1, 2] = zero(eltype(du))
+            shmem_fstar2[tx, ty1, tile_width + 1, 2] = zero(eltype(du))
         end
 
         if ty1 + 1 <= tile_width
@@ -1700,7 +1705,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
     thread_per_block = size(du, 2)^2
-    if thread_per_block > MAX_THREADS_PER_BLOCK # Add one more check: polydeg > 0 (fall back to default)
+    if thread_per_block > MAX_THREADS_PER_BLOCK
         # TODO: Remove `fstar` from cache initialization
         fstar1_L = cache_gpu.fstar1_L
         fstar1_R = cache_gpu.fstar1_R

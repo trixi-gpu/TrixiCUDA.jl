@@ -949,7 +949,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
     thread_per_block = size(du, 1) * size(du, 2)
     shmem_per_block = (size(du, 2)^2 + size(du, 1) * size(du, 2)) * sizeof(RealT)
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
-        # Go with the optimized version (frequency use)
+        # Go with the optimized version (frequent use)
         threads = (size(du, 1), size(du, 2), 1)
         blocks = (1, 1, size(du, 3))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block flux_weak_form_kernel!(du, u,
@@ -984,7 +984,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     thread_per_block = size(du, 2)
     shmem_per_block = (size(du, 2)^2 + size(du, 1) * size(du, 2)) * sizeof(RealT)
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
-        # Go with the optimized version (frequency use)
+        # Go with the optimized version (frequent use)
         threads = (1, size(du, 2), 1)
         blocks = (1, 1, size(du, 3))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_kernel!(du, u,
@@ -1022,7 +1022,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     thread_per_block = size(du, 2)
     shmem_per_block = (size(du, 2)^2 + size(du, 1) * size(du, 2)) * sizeof(RealT)
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
-        # Go with the optimized version (frequency use)
+        # Go with the optimized version (frequent use)
         threads = (1, size(du, 2), 1)
         blocks = (1, 1, size(du, 3))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_kernel!(du, u,
@@ -1078,7 +1078,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     shmem_per_block = (size(du, 2)^2 + size(du, 1) * (size(du, 2) + 1) +
                        size(du, 1) * size(du, 2)) * sizeof(RealT)
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
-        # Go with the optimized version (frequency use)
+        # Go with the optimized version (frequent use)
         threads = (1, size(du, 2), 1)
         blocks = (1, 1, size(du, 3))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,
@@ -1139,7 +1139,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     shmem_per_block = (size(du, 2)^2 + size(du, 1) * (size(du, 2) + 1) * 2 +
                        size(du, 1) * size(du, 2)) * sizeof(RealT)
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
-        # Go with the optimized version (frequency use)
+        # Go with the optimized version (frequent use)
         threads = (1, size(du, 2), 1)
         blocks = (1, 1, size(du, 3))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,

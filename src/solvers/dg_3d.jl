@@ -86,8 +86,8 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     value = zero(eltype(du))
 
     # Load global `derivative_dhat` into shared memory
-    # Transposed access
-    @inbounds shmem_dhat[ty2, ty1] = derivative_dhat[ty1, ty2]
+    # Transposed load
+    @inbounds shmem_dhat[ty1, ty2] = derivative_dhat[ty2, ty1]
 
     # Compute flux values
     u_node = get_node_vars(u, equations, ty1, ty2, ty3, k)
@@ -212,8 +212,8 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     end
 
     # Load global `derivative_split` into shared memory
-    # Transposed access
-    @inbounds shmem_split[ty2, ty1] = derivative_split[ty1, ty2] *
+    # Transposed load
+    @inbounds shmem_split[ty1, ty2] = derivative_split[ty2, ty1] *
                                       (1 - isequal(ty1, ty2)) # set diagonal elements to zeros
 
     sync_threads()
@@ -365,8 +365,8 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
     end
 
     # Load data from global memory into shared memory
-    # Transposed access
-    @inbounds shmem_split[ty2, ty1] = derivative_split[ty1, ty2]
+    # Transposed load
+    @inbounds shmem_split[ty1, ty2] = derivative_split[ty2, ty1]
 
     sync_threads()
 
@@ -618,8 +618,8 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
 
     # Load global `derivative_split` into shared memory
-    # Transposed access
-    @inbounds shmem_split[ty2, ty1] = derivative_split[ty1, ty2]
+    # Transposed load
+    @inbounds shmem_split[ty1, ty2] = derivative_split[ty2, ty1]
 
     # Get variables for computation
     @inbounds alpha_element = alpha[k]

@@ -11,6 +11,7 @@ function init_device()
         # Get the device properties
         global MULTIPROCESSOR_COUNT = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)
         global MAX_THREADS_PER_BLOCK = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK)
+        global MAX_SHARED_MEMORY_PER_BLOCK = CUDA.attribute(device, CUDA.CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK)
     catch e
         # Handle the errors
         if e isa CUDA.CuError
@@ -23,5 +24,6 @@ function init_device()
         # Fall back to set default values
         global MULTIPROCESSOR_COUNT = 0
         global MAX_THREADS_PER_BLOCK = 0
+        global MAX_SHARED_MEMORY_PER_BLOCK = 0
     end
 end

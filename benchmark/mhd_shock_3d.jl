@@ -13,8 +13,8 @@ initial_condition = initial_condition_weak_blast_wave
 surface_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
 volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
 
-basis = LobattoLegendreBasis(RealT, 3) # change back to 4 once shared memory check in on
-basis_gpu = LobattoLegendreBasisGPU(3, RealT) # change back to 4 once shared memory check in on
+basis = LobattoLegendreBasis(RealT, 4)
+basis_gpu = LobattoLegendreBasisGPU(4, RealT)
 
 indicator_sc = IndicatorHennemannGassner(equations, basis,
                                          alpha_max = 0.5f0,

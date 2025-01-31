@@ -13,8 +13,8 @@ include("../test_macros.jl")
     surface_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
     volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
 
-    basis = LobattoLegendreBasis(3) # change back to 4 once shared memory check in on
-    basis_gpu = LobattoLegendreBasisGPU(3) # change back to 4 once shared memory check in on
+    basis = LobattoLegendreBasis(4)
+    basis_gpu = LobattoLegendreBasisGPU(4)
 
     indicator_sc = IndicatorHennemannGassner(equations, basis,
                                              alpha_max = 0.5,

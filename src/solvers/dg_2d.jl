@@ -1476,20 +1476,29 @@ end
 # Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently experimental
 # in Trixi.jl and it is not implemented here.
 
+# The maximum number of threads per block is the dominant factor when choosing the optimization 
+# method. But note that there are other factors such as max register number per block and we will
+# enhance the checking mechanism in the future.
+
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, equations,
                                volume_integral::VolumeIntegralWeakForm, dg::DGSEM,
                                cache_gpu, cache_cpu)
+    RealT = eltype(du)
+
     derivative_dhat = dg.basis.derivative_dhat
 
-    # The maximum number of threads per block is the dominant factor when choosing the optimization 
-    # method. However, there are other factors that may cause a launch failure, such as the maximum 
-    # shared memory per block. Here, we have omitted all other factors, but this should be enhanced 
-    # later for a safer kernel launch.
-
-    # TODO: More checks before the kernel launch
     thread_per_block = size(du, 1) * size(du, 2)^2
-    if thread_per_block > MAX_THREADS_PER_BLOCK
+    shmem_per_block = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(RealT)
+    if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
+        # Go with the optimized version (frequent use)
+        threads = (size(du, 1), size(du, 2)^2, 1)
+        blocks = (1, 1, size(du, 4))
+        @cuda threads=threads blocks=blocks shmem=shmem_per_block flux_weak_form_kernel!(du, u,
+                                                                                         derivative_dhat,
+                                                                                         equations,
+                                                                                         flux)
+    else
         # How to optimize when size is large (less common use)?
         flux_arr1 = similar(u)
         flux_arr2 = similar(u)
@@ -1503,14 +1512,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, 
         weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2;
                          kernel_configurator_3d(weak_form_kernel, size(du, 1), size(du, 2)^2,
                                                 size(du, 4))...)
-    else
-        shmem_size = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(eltype(du))
-        threads = (size(du, 1), size(du, 2)^2, 1)
-        blocks = (1, 1, size(du, 4))
-        @cuda threads=threads blocks=blocks shmem=shmem_size flux_weak_form_kernel!(du, u,
-                                                                                    derivative_dhat,
-                                                                                    equations,
-                                                                                    flux)
     end
 
     return nothing
@@ -1526,7 +1527,16 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     derivative_split = dg.basis.derivative_split
 
     thread_per_block = size(du, 2)^2
-    if thread_per_block > MAX_THREADS_PER_BLOCK
+    shmem_per_block = (size(du, 2)^2 + size(du, 1) * size(du, 2)^2) * sizeof(RealT)
+    if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
+        # Go with the optimized version (frequent use)
+        threads = (1, size(du, 2)^2, 1)
+        blocks = (1, 1, size(du, 4))
+        @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_kernel!(du, u,
+                                                                                               derivative_split,
+                                                                                               equations,
+                                                                                               volume_flux)
+    else
         # How to optimize when size is large (less common use)?
         volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                           size(u, 4))
@@ -1544,14 +1554,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
         volume_integral_kernel(du, derivative_split, volume_flux_arr1, volume_flux_arr2, equations;
                                kernel_configurator_3d(volume_integral_kernel, size(du, 1),
                                                       size(du, 2)^2, size(du, 4))...)
-    else
-        shmem_size = (size(du, 2)^2 + size(du, 1) * size(du, 2)^2) * sizeof(RealT)
-        threads = (1, size(du, 2)^2, 1)
-        blocks = (1, 1, size(du, 4))
-        @cuda threads=threads blocks=blocks shmem=shmem_size volume_flux_integral_kernel!(du, u,
-                                                                                          derivative_split,
-                                                                                          equations,
-                                                                                          volume_flux)
     end
 
     return nothing
@@ -1567,7 +1569,17 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     derivative_split = dg.basis.derivative_split
 
     thread_per_block = size(du, 2)^2
-    if thread_per_block > MAX_THREADS_PER_BLOCK
+    shmem_per_block = (size(du, 2)^2 + size(du, 1) * size(du, 2)^2) * sizeof(RealT)
+    if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
+        # Go with the optimized version (frequent use)
+        threads = (1, size(du, 2)^2, 1)
+        blocks = (1, 1, size(du, 4))
+        @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_kernel!(du, u,
+                                                                                               derivative_split,
+                                                                                               equations,
+                                                                                               symmetric_flux,
+                                                                                               nonconservative_flux)
+    else
         # How to optimize when size is large (less common use)?
         symmetric_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                              size(u, 4))
@@ -1601,15 +1613,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                noncons_flux_arr1, noncons_flux_arr2;
                                kernel_configurator_3d(volume_integral_kernel, size(du, 1),
                                                       size(du, 2)^2, size(du, 4))...)
-    else
-        shmem_size = (size(du, 2)^2 + size(du, 1) * size(du, 2)^2) * sizeof(RealT)
-        threads = (1, size(du, 2)^2, 1)
-        blocks = (1, 1, size(du, 4))
-        @cuda threads=threads blocks=blocks shmem=shmem_size volume_flux_integral_kernel!(du, u,
-                                                                                          derivative_split,
-                                                                                          equations,
-                                                                                          symmetric_flux,
-                                                                                          nonconservative_flux)
     end
 
     return nothing
@@ -1633,7 +1636,19 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
     thread_per_block = size(du, 2)^2
-    if thread_per_block > MAX_THREADS_PER_BLOCK
+    shmem_per_block = (size(u, 2)^2 + size(u, 1) * size(u, 2) * (size(u, 2) + 1) * 2 +
+                       size(u, 1) * size(u, 2)^2) * sizeof(RealT)
+    if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
+        # Go with the optimized version (frequent use)
+        threads = (1, size(u, 2)^2, 1)
+        blocks = (1, 1, size(u, 4))
+        @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,
+                                                                                                    derivative_split,
+                                                                                                    inverse_weights,
+                                                                                                    equations,
+                                                                                                    volume_flux_dg,
+                                                                                                    volume_flux_fv)
+    else
         # TODO: Remove `fstar` from cache initialization
         fstar1_L = cache_gpu.fstar1_L
         fstar1_R = cache_gpu.fstar1_R
@@ -1671,17 +1686,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                     equations;
                                     kernel_configurator_3d(volume_integral_dgfv_kernel, size(du, 1),
                                                            size(du, 2)^2, size(du, 4))...)
-    else
-        shmem_size = (size(u, 2)^2 + size(u, 1) * size(u, 2) * (size(u, 2) + 1) * 2 +
-                      size(u, 1) * size(u, 2)^2) * sizeof(RealT)
-        threads = (1, size(u, 2)^2, 1)
-        blocks = (1, 1, size(u, 4))
-        @cuda threads=threads blocks=blocks shmem=shmem_size volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,
-                                                                                               derivative_split,
-                                                                                               inverse_weights,
-                                                                                               equations,
-                                                                                               volume_flux_dg,
-                                                                                               volume_flux_fv)
     end
 
     return nothing
@@ -1705,7 +1709,21 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
     thread_per_block = size(du, 2)^2
-    if thread_per_block > MAX_THREADS_PER_BLOCK
+    shmem_per_block = (size(u, 2)^2 + size(u, 1) * size(u, 2) * (size(u, 2) + 1) * 4 +
+                       size(u, 1) * size(u, 2)^2) * sizeof(RealT)
+    if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
+        # Go with the optimized version (frequent use)
+        threads = (1, size(u, 2)^2, 1)
+        blocks = (1, 1, size(u, 4))
+        @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,
+                                                                                                    derivative_split,
+                                                                                                    inverse_weights,
+                                                                                                    equations,
+                                                                                                    volume_flux_dg,
+                                                                                                    noncons_flux_dg,
+                                                                                                    volume_flux_fv,
+                                                                                                    noncons_flux_fv)
+    else
         # TODO: Remove `fstar` from cache initialization
         fstar1_L = cache_gpu.fstar1_L
         fstar1_R = cache_gpu.fstar1_R
@@ -1756,19 +1774,6 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
                                     fstar1_R, fstar2_L, fstar2_R, atol, equations;
                                     kernel_configurator_3d(volume_integral_dgfv_kernel, size(du, 1),
                                                            size(du, 2)^2, size(du, 4))...)
-    else
-        shmem_size = (size(u, 2)^2 + size(u, 1) * size(u, 2) * (size(u, 2) + 1) * 4 +
-                      size(u, 1) * size(u, 2)^2) * sizeof(RealT)
-        threads = (1, size(u, 2)^2, 1)
-        blocks = (1, 1, size(u, 4))
-        @cuda threads=threads blocks=blocks shmem=shmem_size volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,
-                                                                                               derivative_split,
-                                                                                               inverse_weights,
-                                                                                               equations,
-                                                                                               volume_flux_dg,
-                                                                                               noncons_flux_dg,
-                                                                                               volume_flux_fv,
-                                                                                               noncons_flux_fv)
     end
 
     return nothing

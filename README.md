@@ -6,7 +6,7 @@
 
 TrixiCUDA.jl offers CUDA acceleration for solving hyperbolic PDEs.
 
-Package docs: https://trixi-gpu.github.io/TrixiCUDA.jl/dev \
+Package docs: https://trixi-gpu.github.io/TrixiCUDA.jl/dev (in development) \
 General docs: https://trixi-gpu.github.io
 
 ⚠️ **Warning:** Our package may not always be updated with the latest updates or improvements in Trixi.jl. Forcing an update of Trixi.jl as a dependency for TrixiCUDA.jl beyond the version bounds specified in `Project.toml` may cause unexpected errors.

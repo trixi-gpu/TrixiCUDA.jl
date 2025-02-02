@@ -1084,24 +1084,24 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
         # Contribute DG to the volume integrals
         for tx in axes(du, 1)
             @inbounds shmem_value[tx, ty1, ty2, ty3] += (volume_flux_node1[tx] * shmem_split[thread, ty1] *
-                                                         (1 - isequal(ty1, thread)) +
+                                                         (1 - isequal(ty1, thread)) + # set diagonal elements to zeros
                                                          volume_flux_node2[tx] * shmem_split[thread, ty2] *
-                                                         (1 - isequal(ty2, thread)) +
+                                                         (1 - isequal(ty2, thread)) + # set diagonal elements to zeros
                                                          volume_flux_node3[tx] * shmem_split[thread, ty3] *
-                                                         (1 - isequal(ty3, thread)) +
+                                                         (1 - isequal(ty3, thread)) + # set diagonal elements to zeros
                                                          0.5f0 *
                                                          (shmem_split[thread, ty1] * noncons_flux_node1[tx] +
                                                           shmem_split[thread, ty2] * noncons_flux_node2[tx] +
                                                           shmem_split[thread, ty3] * noncons_flux_node3[tx])) * dg_only +
                                                         ((1 - alpha_element) *
                                                          volume_flux_node1[tx] * shmem_split[thread, ty1] *
-                                                         (1 - isequal(ty1, thread)) +
+                                                         (1 - isequal(ty1, thread)) + # set diagonal elements to zeros
                                                          (1 - alpha_element) *
                                                          volume_flux_node2[tx] * shmem_split[thread, ty2] *
-                                                         (1 - isequal(ty2, thread)) +
+                                                         (1 - isequal(ty2, thread)) + # set diagonal elements to zeros
                                                          (1 - alpha_element) *
                                                          volume_flux_node3[tx] * shmem_split[thread, ty3] *
-                                                         (1 - isequal(ty3, thread)) +
+                                                         (1 - isequal(ty3, thread)) + # set diagonal elements to zeros
                                                          0.5f0 * (1 - alpha_element) *
                                                          (shmem_split[thread, ty1] * noncons_flux_node1[tx] +
                                                           shmem_split[thread, ty2] * noncons_flux_node2[tx] +

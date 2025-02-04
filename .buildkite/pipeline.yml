@@ -1,0 +1,28 @@
+steps:
+  - label: "Julia 1.10 - Linux x64"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.10"
+      - JuliaCI/julia-test#v1: ~
+      - JuliaCI/julia-coverage#v1:
+          codecov: true
+    agents:
+      queue: "juliagpu"
+      cuda: "*"
+      os: "linux"
+      arch: "x64"
+    timeout_in_minutes: 60
+    if: build.message !~ /\[skip tests\]/
+
+  - label: "Julia 1.10 - Windows x64"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.10"
+      - JuliaCI/julia-test#v1: ~
+    agents:
+      queue: "juliagpu"
+      cuda: "*"
+      os: "windows"
+      arch: "x64"
+    timeout_in_minutes: 60
+    if: build.message !~ /\[skip tests\]/

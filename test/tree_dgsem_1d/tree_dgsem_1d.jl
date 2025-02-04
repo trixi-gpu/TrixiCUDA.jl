@@ -1,9 +1,9 @@
-module TreeDGSEM1D
+module DGSEMTree1D
 
 using Trixi, TrixiCUDA
 using Test
 
-@testset "TreeDGSEM1D" begin
+@testset "DGSEM Tree 1D" begin
     # Include all the existing DESEM tree mesh tests in 1D
     include("advection_basic.jl")
     include("advection_extended.jl")

@@ -1,5 +1,5 @@
 steps:
-  - label: "CUDA - Julia 1.10"
+  - label: "CUDA Test - Julia 1.10"
     plugins:
       - JuliaCI/julia#v1:
           version: "1.10"
@@ -14,5 +14,27 @@ steps:
     agents:
       queue: "juliagpu"
       cuda: "*"
-    timeout_in_minutes: 60
     if: build.message !~ /\[skip tests\]/
+    timeout_in_minutes: 60
+
+  - label: "Documentation - Julia 1.10"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.10"
+    command: |
+      julia --project -e '
+        println("--- :julia: Instantiating project")
+        using Pkg
+        Pkg.instantiate()
+        Pkg.build()
+        Pkg.activate("docs")
+        Pkg.instantiate()
+        push!(LOAD_PATH, @__DIR__)
+
+        println("+++ :julia: Building documentation")
+        include("docs/make.jl")'
+    agents:
+      queue: "juliagpu"
+      cuda: "*"
+    if: build.message !~ /\[skip docs\]/
+    timeout_in_minutes: 10

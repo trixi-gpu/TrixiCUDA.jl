@@ -1,3 +1,5 @@
+module TreeDGSEM1D
+
 include("advection_basic.jl")
 include("advection_extended.jl")
 include("burgers_basic.jl")
@@ -17,3 +19,5 @@ include("hypdiff_nonperiodic.jl")
 include("mhd_alfven_wave.jl")
 include("mhd_ec.jl")
 include("shallowwater_shock.jl")
+
+end # module 

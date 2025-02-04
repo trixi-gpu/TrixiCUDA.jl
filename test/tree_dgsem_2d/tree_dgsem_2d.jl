@@ -1,3 +1,5 @@
+module TreeDGSEM2D
+
 include("advection_basic.jl")
 include("advection_mortar.jl")
 include("euler_blob_mortar.jl")
@@ -15,3 +17,5 @@ include("mhd_shock.jl")
 include("shallowwater_ec.jl")
 include("shallowwater_source_terms.jl")
 include("shawllowwater_source_terms_nonperiodic.jl")
+
+end # module

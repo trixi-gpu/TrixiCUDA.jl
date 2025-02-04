@@ -1,26 +1,18 @@
 steps:
-  - label: "Julia 1.10 - Linux x64"
+  - label: "CUDA - Julia 1.10"
     plugins:
       - JuliaCI/julia#v1:
           version: "1.10"
-      - JuliaCI/julia-test#v1: ~
-    agents:
-      queue: "juliagpu"
-      cuda: "*"
-      os: "linux"
-      arch: "x64"
-    timeout_in_minutes: 60
-    if: build.message !~ /\[skip tests\]/
+    command: |
+      julia -e 'using Pkg
 
-  - label: "Julia 1.10 - Windows x64"
-    plugins:
-      - JuliaCI/julia#v1:
-          version: "1.10"
-      - JuliaCI/julia-test#v1: ~
+                println("--- :julia: Instantiating environment")
+                Pkg.develop(path=".")
+
+                println("+++ :julia: Running tests")
+                Pkg.test("TrixiCUDA")'
     agents:
       queue: "juliagpu"
       cuda: "*"
-      os: "windows"
-      arch: "x64"
     timeout_in_minutes: 60
     if: build.message !~ /\[skip tests\]/

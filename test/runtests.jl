@@ -11,9 +11,9 @@ CUDA.allowscalar(true)
     # Log testing environment
     @info "Logging testing environment information..."
     CUDA.versioninfo()
-    @info "Multiprocessor count: $(TrixiCUDA.MULTIPROCESSOR_COUNT)"
-    @info "Max threads per block: $(TrixiCUDA.MAX_THREADS_PER_BLOCK)"
-    @info "Max shared memory per block: $(TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK)"
+    println("- Multiprocessor count: ", TrixiCUDA.MULTIPROCESSOR_COUNT)
+    println("- Max threads per block: ", TrixiCUDA.MAX_THREADS_PER_BLOCK)
+    println("- Max shared memory per block: ", TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK)
 
     @info "Starting TrixiCUDA test suite..."
 

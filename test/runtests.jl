@@ -1,11 +1,21 @@
+using TrixiCUDA
 using Test
+
 using CUDA
 # Currently we need to allow scalar indexing on GPU arrays for the tests to pass,
 # once the issues are resolved, this line can be removed.
 CUDA.allowscalar(true)
 
 @testset "TrixiCUDA.jl tests" begin
-    # @info "Starting TrixiCUDA GPU test suite"
+
+    # Log testing environment
+    @info "Logging testing environment information..."
+    CUDA.versioninfo()
+    @info "Multiprocessor count: $(TrixiCUDA.MULTIPROCESSOR_COUNT)"
+    @info "Max threads per block: $(TrixiCUDA.MAX_THREADS_PER_BLOCK)"
+    @info "Max shared memory per block: $(TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK)"
+
+    # @info "Starting TrixiCUDA test suite..."
 
     # for (dim, path) in [("1D", "./tree_dgsem_1d/tree_dgsem_1d.jl"),
     #     ("2D", "./tree_dgsem_2d/tree_dgsem_2d.jl"),

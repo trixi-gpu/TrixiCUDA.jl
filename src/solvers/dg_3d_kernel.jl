@@ -1831,129 +1831,9 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
     return nothing
 end
 
-# # Kernel for copying mortar fluxes small to small and small to large - step 1
-# function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_upper_left, tmp_upper_right,
-#                                      tmp_lower_left, tmp_lower_right,
-#                                      fstar_primary_upper_left, fstar_primary_upper_right,
-#                                      fstar_primary_lower_left, fstar_primary_lower_right,
-#                                      fstar_secondary_upper_left, fstar_secondary_upper_right,
-#                                      fstar_secondary_lower_left, fstar_secondary_lower_right,
-#                                      reverse_upper, reverse_lower, neighbor_ids, large_sides,
-#                                      orientations)
-#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-#     if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_values, 2)^2 &&
-#         k <= length(orientations))
-#         j1 = div(j - 1, size(surface_flux_values, 2)) + 1
-#         j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
-
-#         lower_left_element = neighbor_ids[1, k]
-#         lower_right_element = neighbor_ids[2, k]
-#         upper_left_element = neighbor_ids[3, k]
-#         upper_right_element = neighbor_ids[4, k]
-#         large_element = neighbor_ids[5, k]
-
-#         large_side = large_sides[k]
-#         orientation = orientations[k]
-
-#         # Use simple math expression to enhance the performance (against control flow), 
-#         # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
-#         #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
-#         #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
-#         #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
-#         #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
-#         #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
-#         # Please also check the original code in Trixi.jl when you modify this code.
-#         direction = 2 * orientation + large_side - 2
-
-#         surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
-#         surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
-#         surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
-#         surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
-
-#         # Use simple math expression to enhance the performance (against control flow), 
-#         # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
-#         #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
-#         #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
-#         #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
-#         #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
-#         #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
-#         # Please also check the original code in Trixi.jl when you modify this code.
-#         direction = 2 * orientation - large_side + 1
-
-#         @inbounds begin
-#             for j1j1 in axes(reverse_upper, 2)
-#                 tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-#                                                                        fstar_secondary_upper_left[i, j1j1, j2, k]
-#                 tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-#                                                                         fstar_secondary_upper_right[i, j1j1, j2, k]
-#                 tmp_lower_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-#                                                                        fstar_secondary_lower_left[i, j1j1, j2, k]
-#                 tmp_lower_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-#                                                                         fstar_secondary_lower_right[i, j1j1, j2, k]
-#             end
-#         end
-#     end
-
-#     return nothing
-# end
-
-# # Kernel for copying mortar fluxes small to small and small to large - step 2
-# function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_values, tmp_upper_left,
-#                                      tmp_upper_right, tmp_lower_left, tmp_lower_right,
-#                                      reverse_upper, reverse_lower, neighbor_ids, large_sides,
-#                                      orientations, equations::AbstractEquations{3})
-#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-#     if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_values, 2)^2 &&
-#         k <= length(orientations))
-#         j1 = div(j - 1, size(surface_flux_values, 2)) + 1
-#         j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
-
-#         large_element = neighbor_ids[5, k]
-
-#         large_side = large_sides[k]
-#         orientation = orientations[k]
-
-#         # See step 1 for the explanation of the following expression
-#         direction = 2 * orientation - large_side + 1
-
-#         @inbounds begin
-#             for j2j2 in axes(reverse_lower, 2)
-#                 tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
-#                                                                                 tmp_upper_left[i, j1, j2j2,
-#                                                                                                direction,
-#                                                                                                large_element]
-#                 tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
-#                                                                                 tmp_upper_right[i, j1, j2j2,
-#                                                                                                 direction,
-#                                                                                                 large_element]
-#                 tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
-#                                                                                 tmp_lower_left[i, j1, j2j2,
-#                                                                                                direction,
-#                                                                                                large_element]
-#                 tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
-#                                                                                 tmp_lower_right[i, j1, j2j2,
-#                                                                                                 direction,
-#                                                                                                 large_element]
-#             end
-
-#             surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
-#                                                                                                direction,
-#                                                                                                large_element]
-#         end
-#     end
-
-#     return nothing
-# end
-
-# Kernel for copying mortar fluxes small to small and small to large (optimized)
-function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_values,
-                                     tmp_upper_left, tmp_upper_right, tmp_lower_left, tmp_lower_right,
+# Kernel for copying mortar fluxes small to small and small to large - step 1
+function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_upper_left, tmp_upper_right,
+                                     tmp_lower_left, tmp_lower_right,
                                      fstar_primary_upper_left, fstar_primary_upper_right,
                                      fstar_primary_lower_left, fstar_primary_lower_right,
                                      fstar_secondary_upper_left, fstar_secondary_upper_right,
@@ -1964,104 +1844,224 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    # Loop stride for each dimension
-    stride_x = gridDim().x * blockDim().x
-    stride_y = gridDim().y * blockDim().y
-    stride_z = gridDim().z * blockDim().z
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_values, 2)^2 &&
+        k <= length(orientations))
+        j1 = div(j - 1, size(surface_flux_values, 2)) + 1
+        j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
 
-    # Cooperative kernel needs stride loops to handle the constrained launch size
-    while i <= size(surface_flux_values, 1)
-        while j <= size(surface_flux_values, 2)^2
-            while k <= length(orientations)
-                j1 = div(j - 1, size(surface_flux_values, 2)) + 1
-                j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
+        lower_left_element = neighbor_ids[1, k]
+        lower_right_element = neighbor_ids[2, k]
+        upper_left_element = neighbor_ids[3, k]
+        upper_right_element = neighbor_ids[4, k]
+        large_element = neighbor_ids[5, k]
 
-                @inbounds begin
-                    lower_left_element = neighbor_ids[1, k]
-                    lower_right_element = neighbor_ids[2, k]
-                    upper_left_element = neighbor_ids[3, k]
-                    upper_right_element = neighbor_ids[4, k]
-                    large_element = neighbor_ids[5, k]
+        large_side = large_sides[k]
+        orientation = orientations[k]
 
-                    large_side = large_sides[k]
-                    orientation = orientations[k]
+        # Use simple math expression to enhance the performance (against control flow), 
+        # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
+        #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
+        #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
+        #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
+        #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
+        #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
+        # Please also check the original code in Trixi.jl when you modify this code.
+        direction = 2 * orientation + large_side - 2
 
-                    # Use simple math expression to enhance the performance (against control flow), 
-                    # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
-                    #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
-                    #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
-                    #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
-                    #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
-                    #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
-                    # Please also check the original code in Trixi.jl when you modify this code.
-                    direction = 2 * orientation + large_side - 2
+        surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
+        surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
+        surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
+        surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
 
-                    surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
-                    surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
-                    surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
-                    surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
+        # Use simple math expression to enhance the performance (against control flow), 
+        # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
+        #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
+        #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
+        #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
+        #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
+        #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
+        # Please also check the original code in Trixi.jl when you modify this code.
+        direction = 2 * orientation - large_side + 1
 
-                    # Use simple math expression to enhance the performance (against control flow), 
-                    # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
-                    #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
-                    #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
-                    #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
-                    #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
-                    #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
-                    # Please also check the original code in Trixi.jl when you modify this code.
-                    direction = 2 * orientation - large_side + 1
-                end
-
-                for j1j1 in axes(reverse_upper, 2)
-                    @inbounds begin
-                        tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-                                                                               fstar_secondary_upper_left[i, j1j1, j2, k]
-                        tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-                                                                                fstar_secondary_upper_right[i, j1j1, j2, k]
-                        tmp_lower_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-                                                                               fstar_secondary_lower_left[i, j1j1, j2, k]
-                        tmp_lower_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-                                                                                fstar_secondary_lower_right[i, j1j1, j2, k]
-                    end
-                end
-
-                # Grid scope synchronization
-                grid = CG.this_grid()
-                CG.sync(grid)
-
-                for j2j2 in axes(reverse_lower, 2)
-                    @inbounds begin
-                        tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
-                                                                                        tmp_upper_left[i, j1, j2j2,
-                                                                                                       direction,
-                                                                                                       large_element]
-                        tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
-                                                                                        tmp_upper_right[i, j1, j2j2,
-                                                                                                        direction,
-                                                                                                        large_element]
-                        tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
-                                                                                        tmp_lower_left[i, j1, j2j2,
-                                                                                                       direction,
-                                                                                                       large_element]
-                        tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
-                                                                                        tmp_lower_right[i, j1, j2j2,
-                                                                                                        direction,
-                                                                                                        large_element]
-                    end
-                end
-
-                @inbounds surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
-                                                                                                             direction,
-                                                                                                             large_element]
-                k += stride_z
+        @inbounds begin
+            for j1j1 in axes(reverse_upper, 2)
+                tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
+                                                                       fstar_secondary_upper_left[i, j1j1, j2, k]
+                tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
+                                                                        fstar_secondary_upper_right[i, j1j1, j2, k]
+                tmp_lower_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
+                                                                       fstar_secondary_lower_left[i, j1j1, j2, k]
+                tmp_lower_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
+                                                                        fstar_secondary_lower_right[i, j1j1, j2, k]
             end
-            j += stride_y
         end
-        i += stride_x
     end
 
     return nothing
 end
+
+# Kernel for copying mortar fluxes small to small and small to large - step 2
+function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_values, tmp_upper_left,
+                                     tmp_upper_right, tmp_lower_left, tmp_lower_right,
+                                     reverse_upper, reverse_lower, neighbor_ids, large_sides,
+                                     orientations, equations::AbstractEquations{3})
+    i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+    j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_values, 2)^2 &&
+        k <= length(orientations))
+        j1 = div(j - 1, size(surface_flux_values, 2)) + 1
+        j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
+
+        large_element = neighbor_ids[5, k]
+
+        large_side = large_sides[k]
+        orientation = orientations[k]
+
+        # See step 1 for the explanation of the following expression
+        direction = 2 * orientation - large_side + 1
+
+        @inbounds begin
+            for j2j2 in axes(reverse_lower, 2)
+                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
+                                                                                tmp_upper_left[i, j1, j2j2,
+                                                                                               direction,
+                                                                                               large_element]
+                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
+                                                                                tmp_upper_right[i, j1, j2j2,
+                                                                                                direction,
+                                                                                                large_element]
+                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
+                                                                                tmp_lower_left[i, j1, j2j2,
+                                                                                               direction,
+                                                                                               large_element]
+                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
+                                                                                tmp_lower_right[i, j1, j2j2,
+                                                                                                direction,
+                                                                                                large_element]
+            end
+
+            surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
+                                                                                               direction,
+                                                                                               large_element]
+        end
+    end
+
+    return nothing
+end
+
+# # Kernel for copying mortar fluxes small to small and small to large (optimized)
+# function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_values,
+#                                      tmp_upper_left, tmp_upper_right, tmp_lower_left, tmp_lower_right,
+#                                      fstar_primary_upper_left, fstar_primary_upper_right,
+#                                      fstar_primary_lower_left, fstar_primary_lower_right,
+#                                      fstar_secondary_upper_left, fstar_secondary_upper_right,
+#                                      fstar_secondary_lower_left, fstar_secondary_lower_right,
+#                                      reverse_upper, reverse_lower, neighbor_ids, large_sides,
+#                                      orientations)
+#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
+#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
+#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+
+#     # Loop stride for each dimension
+#     stride_x = gridDim().x * blockDim().x
+#     stride_y = gridDim().y * blockDim().y
+#     stride_z = gridDim().z * blockDim().z
+
+#     # Cooperative kernel needs stride loops to handle the constrained launch size
+#     while i <= size(surface_flux_values, 1)
+#         while j <= size(surface_flux_values, 2)^2
+#             while k <= length(orientations)
+#                 j1 = div(j - 1, size(surface_flux_values, 2)) + 1
+#                 j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
+
+#                 @inbounds begin
+#                     lower_left_element = neighbor_ids[1, k]
+#                     lower_right_element = neighbor_ids[2, k]
+#                     upper_left_element = neighbor_ids[3, k]
+#                     upper_right_element = neighbor_ids[4, k]
+#                     large_element = neighbor_ids[5, k]
+
+#                     large_side = large_sides[k]
+#                     orientation = orientations[k]
+
+#                     # Use simple math expression to enhance the performance (against control flow), 
+#                     # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
+#                     #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
+#                     #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
+#                     #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
+#                     #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
+#                     #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
+#                     # Please also check the original code in Trixi.jl when you modify this code.
+#                     direction = 2 * orientation + large_side - 2
+
+#                     surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
+#                     surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
+#                     surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
+#                     surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
+
+#                     # Use simple math expression to enhance the performance (against control flow), 
+#                     # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
+#                     #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
+#                     #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
+#                     #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
+#                     #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
+#                     #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
+#                     # Please also check the original code in Trixi.jl when you modify this code.
+#                     direction = 2 * orientation - large_side + 1
+#                 end
+
+#                 for j1j1 in axes(reverse_upper, 2)
+#                     @inbounds begin
+#                         tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
+#                                                                                fstar_secondary_upper_left[i, j1j1, j2, k]
+#                         tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
+#                                                                                 fstar_secondary_upper_right[i, j1j1, j2, k]
+#                         tmp_lower_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
+#                                                                                fstar_secondary_lower_left[i, j1j1, j2, k]
+#                         tmp_lower_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
+#                                                                                 fstar_secondary_lower_right[i, j1j1, j2, k]
+#                     end
+#                 end
+
+#                 # Grid scope synchronization
+#                 grid = CG.this_grid()
+#                 CG.sync(grid)
+
+#                 for j2j2 in axes(reverse_lower, 2)
+#                     @inbounds begin
+#                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
+#                                                                                         tmp_upper_left[i, j1, j2j2,
+#                                                                                                        direction,
+#                                                                                                        large_element]
+#                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
+#                                                                                         tmp_upper_right[i, j1, j2j2,
+#                                                                                                         direction,
+#                                                                                                         large_element]
+#                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
+#                                                                                         tmp_lower_left[i, j1, j2j2,
+#                                                                                                        direction,
+#                                                                                                        large_element]
+#                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
+#                                                                                         tmp_lower_right[i, j1, j2j2,
+#                                                                                                         direction,
+#                                                                                                         large_element]
+#                     end
+#                 end
+
+#                 @inbounds surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
+#                                                                                                              direction,
+#                                                                                                              large_element]
+#                 k += stride_z
+#             end
+#             j += stride_y
+#         end
+#         i += stride_x
+#     end
+
+#     return nothing
+# end
 
 # Kernel for calculating surface integrals
 function surface_integral_kernel!(du, factor_arr, surface_flux_values,

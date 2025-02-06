@@ -572,7 +572,7 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DG
                                                               size(u_upper_left, 3)^2,
                                                               size(u_upper_left, 5))...)
 
-    # Create temperture arrays on the GPU
+    # Create temporary arrays on the GPU
     tmp_upper_left = CUDA.zeros(RealT, size(u_upper_left))
     tmp_upper_right = CUDA.zeros(RealT, size(u_upper_right))
     tmp_lower_left = CUDA.zeros(RealT, size(u_lower_left))
@@ -664,7 +664,7 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                               size(u_upper_left, 4),
                                               length(orientations))...)
 
-    # Create temperture arrays on the GPU
+    # Create temporary arrays on the GPU
     tmp_upper_left = CUDA.zeros(RealT, size(surface_flux_values))
     tmp_upper_right = CUDA.zeros(RealT, size(surface_flux_values))
     tmp_lower_left = CUDA.zeros(RealT, size(surface_flux_values))
@@ -753,7 +753,7 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                               size(u_upper_left, 4),
                                               length(orientations))...)
 
-    # Create temperture arrays on the GPU
+    # Create temporary arrays on the GPU
     tmp_upper_left = CUDA.zeros(RealT, size(surface_flux_values))
     tmp_upper_right = CUDA.zeros(RealT, size(surface_flux_values))
     tmp_lower_left = CUDA.zeros(RealT, size(surface_flux_values))

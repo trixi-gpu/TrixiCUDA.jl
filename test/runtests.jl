@@ -17,13 +17,15 @@ CUDA.allowscalar(true)
 
     @info "Starting TrixiCUDA test suite..."
 
-    for (dim, path) in [("1D", "./tree_dgsem_1d/tree_dgsem_1d.jl"),
-        ("2D", "./tree_dgsem_2d/tree_dgsem_2d.jl"),
-        ("3D", "./tree_dgsem_3d/tree_dgsem_3d.jl")]
-        @info "Running $dim DGSEM tree tests..."
-        @time include(path)
-        @info "Completed $dim DGSEM tree tests"
-    end
+    # for (dim, path) in [("1D", "./tree_dgsem_1d/tree_dgsem_1d.jl"),
+    #     ("2D", "./tree_dgsem_2d/tree_dgsem_2d.jl"),
+    #     ("3D", "./tree_dgsem_3d/tree_dgsem_3d.jl")]
+    #     @info "Running $dim DGSEM tree tests..."
+    #     @time include(path)
+    #     @info "Completed $dim DGSEM tree tests"
+    # end
+
+    include("../test.jl")
 
     @info "All TrixiCUDA tests completed successfully"
 end

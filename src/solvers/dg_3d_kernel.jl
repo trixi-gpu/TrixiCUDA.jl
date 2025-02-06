@@ -1433,258 +1433,156 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
     return nothing
 end
 
-# Kernel for interpolating data large to small on mortars - step 1
-function prolong_mortars_large2small_kernel!(tmp_upper_left, tmp_upper_right, tmp_lower_left,
-                                             tmp_lower_right, u, forward_upper,
-                                             forward_lower, neighbor_ids, large_sides, orientations)
+############################################################################## New optimization 
+# Kernel for interpolating data large to small on mortars
+function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lower_left, u_lower_right,
+                                             tmp_upper_left, tmp_upper_right, tmp_lower_left, tmp_lower_right,
+                                             u, forward_upper, forward_lower, neighbor_ids, large_sides,
+                                             orientations)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(tmp_upper_left, 2) && j <= size(tmp_upper_left, 3)^2 &&
-        k <= size(tmp_upper_left, 5))
-        u2 = size(tmp_upper_left, 3) # size(tmp_upper_left, 3) == size(u, 2)
+    # Loop stride for each dimension
+    stride_x = gridDim().x * blockDim().x
+    stride_y = gridDim().y * blockDim().y
+    stride_z = gridDim().z * blockDim().z
 
-        j1 = div(j - 1, u2) + 1
-        j2 = rem(j - 1, u2) + 1
+    # Cooperative kernel needs stride loops to handle the constrained launch size
+    while i <= size(tmp_upper_left, 2)
+        while j <= size(tmp_upper_left, 3)^2
+            while k <= size(tmp_upper_left, 5)
+                u2 = size(tmp_upper_left, 3) # size(tmp_upper_left, 3) == size(u, 2)
 
-        large_side = large_sides[k]
-        orientation = orientations[k]
-        large_element = neighbor_ids[5, k]
+                j1 = div(j - 1, u2) + 1
+                j2 = rem(j - 1, u2) + 1
 
-        leftright = large_side
+                @inbounds begin
+                    large_side = large_sides[k]
+                    orientation = orientations[k]
+                    large_element = neighbor_ids[5, k]
+                end
 
-        @inbounds begin
-            for j1j1 in axes(forward_lower, 2)
-                tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-                                                           u[i,
-                                                             isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
-                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                                             large_element] * (2 - large_side)
+                leftright = large_side
 
-                tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-                                                            u[i,
-                                                              isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
-                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                                              large_element] * (2 - large_side)
+                for j1j1 in axes(forward_lower, 2)
+                    @inbounds begin
+                        tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                                   u[i,
+                                                                     isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                                     isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                                                     isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                                                     large_element] * (2 - large_side)
 
-                tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-                                                           u[i,
-                                                             isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
-                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                                             large_element] * (2 - large_side)
+                        tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                                    u[i,
+                                                                      isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                                      isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                                                      isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                                                      large_element] * (2 - large_side)
 
-                tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-                                                            u[i,
-                                                              isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
-                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-                                                              large_element] * (2 - large_side)
+                        tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                                   u[i,
+                                                                     isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                                     isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                                                     isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                                                     large_element] * (2 - large_side)
+
+                        tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                                    u[i,
+                                                                      isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                                      isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
+                                                                      isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
+                                                                      large_element] * (2 - large_side)
+                    end
+                end
+
+                for j1j1 in axes(forward_lower, 2)
+                    @inbounds begin
+                        tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                                   u[i,
+                                                                     isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                                     isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                                                     isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                                           3),
+                                                                     large_element] * (large_side - 1)
+
+                        tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                                    u[i,
+                                                                      isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                                      isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                                                      isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                                            3),
+                                                                      large_element] * (large_side - 1)
+
+                        tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                                   u[i,
+                                                                     isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                                     isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                                                     isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                                           3),
+                                                                     large_element] * (large_side - 1)
+
+                        tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                                    u[i,
+                                                                      isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
+                                                                      isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
+                                                                      isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
+                                                                                                                                            3),
+                                                                      large_element] * (large_side - 1)
+                    end
+                end
+                k += stride_z
             end
-
-            for j1j1 in axes(forward_lower, 2)
-                tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-                                                           u[i,
-                                                             isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
-                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
-                                                             large_element] * (large_side - 1)
-
-                tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-                                                            u[i,
-                                                              isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
-                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
-                                                              large_element] * (large_side - 1)
-
-                tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-                                                           u[i,
-                                                             isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                             isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
-                                                             isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
-                                                             large_element] * (large_side - 1)
-
-                tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-                                                            u[i,
-                                                              isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-                                                              isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
-                                                              isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3),
-                                                              large_element] * (large_side - 1)
-            end
+            j += stride_y
         end
+        i += stride_x
     end
 
-    return nothing
-end
+    # Grid scope synchronization
+    grid = CG.this_grid()
+    CG.sync(grid)
 
-# Kernel for interpolating data large to small on mortars - step 2
-function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lower_left,
-                                             u_lower_right, tmp_upper_left, tmp_upper_right,
-                                             tmp_lower_left, tmp_lower_right, forward_upper,
-                                             forward_lower, large_sides)
+    # Reclaim the thread Ids for the next iteration
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(u_upper_left, 2) && j <= size(u_upper_left, 3)^2 &&
-        k <= size(u_upper_left, 5))
-        u2 = size(u_upper_left, 3) # size(u_upper_left, 3) == size(u, 2)
+    # Cooperative kernel needs stride loops to handle the constrained launch size
+    while i <= size(tmp_upper_left, 2)
+        while j <= size(tmp_upper_left, 3)^2
+            while k <= size(tmp_upper_left, 5)
+                u2 = size(tmp_upper_left, 3) # size(tmp_upper_left, 3) == size(u, 2)
 
-        j1 = div(j - 1, u2) + 1
-        j2 = rem(j - 1, u2) + 1
+                j1 = div(j - 1, u2) + 1
+                j2 = rem(j - 1, u2) + 1
 
-        leftright = large_sides[k]
+                @inbounds leftright = large_sides[k]
 
-        @inbounds begin
-            for j2j2 in axes(forward_upper, 2)
-                u_upper_left[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
-                                                         tmp_upper_left[leftright, i, j1, j2j2, k]
+                for j2j2 in axes(forward_upper, 2)
+                    @inbounds begin
+                        u_upper_left[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
+                                                                 tmp_upper_left[leftright, i, j1, j2j2, k]
 
-                u_upper_right[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
-                                                          tmp_upper_right[leftright, i, j1, j2j2, k]
+                        u_upper_right[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
+                                                                  tmp_upper_right[leftright, i, j1, j2j2, k]
 
-                u_lower_left[leftright, i, j1, j2, k] += forward_lower[j2, j2j2] *
-                                                         tmp_lower_left[leftright, i, j1, j2j2, k]
+                        u_lower_left[leftright, i, j1, j2, k] += forward_lower[j2, j2j2] *
+                                                                 tmp_lower_left[leftright, i, j1, j2j2, k]
 
-                u_lower_right[leftright, i, j1, j2, k] += forward_lower[j2, j2j2] *
-                                                          tmp_lower_right[leftright, i, j1, j2j2, k]
+                        u_lower_right[leftright, i, j1, j2, k] += forward_lower[j2, j2j2] *
+                                                                  tmp_lower_right[leftright, i, j1, j2j2, k]
+                    end
+                end
+                k += stride_z
             end
+            j += stride_y
         end
+        i += stride_x
     end
 
     return nothing
 end
-
-# # Kernel for interpolating data large to small on mortars (optimized)
-# function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lower_left, u_lower_right,
-#                                              tmp_upper_left, tmp_upper_right, tmp_lower_left, tmp_lower_right,
-#                                              u, forward_upper, forward_lower, neighbor_ids, large_sides,
-#                                              orientations)
-#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-#     # Loop stride for each dimension
-#     stride_x = gridDim().x * blockDim().x
-#     stride_y = gridDim().y * blockDim().y
-#     stride_z = gridDim().z * blockDim().z
-
-#     # Cooperative kernel needs stride loops to handle the constrained launch size
-#     while i <= size(tmp_upper_left, 2)
-#         while j <= size(tmp_upper_left, 3)^2
-#             while k <= size(tmp_upper_left, 5)
-#                 u2 = size(tmp_upper_left, 3) # size(tmp_upper_left, 3) == size(u, 2)
-
-#                 j1 = div(j - 1, u2) + 1
-#                 j2 = rem(j - 1, u2) + 1
-
-#                 @inbounds begin
-#                     large_side = large_sides[k]
-#                     orientation = orientations[k]
-#                     large_element = neighbor_ids[5, k]
-#                 end
-
-#                 leftright = large_side
-
-#                 for j1j1 in axes(forward_lower, 2)
-#                     @inbounds begin
-#                         tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-#                                                                    u[i,
-#                                                                      isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-#                                                                      isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
-#                                                                      isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-#                                                                      large_element] * (2 - large_side)
-
-#                         tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-#                                                                     u[i,
-#                                                                       isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-#                                                                       isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
-#                                                                       isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-#                                                                       large_element] * (2 - large_side)
-
-#                         tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-#                                                                    u[i,
-#                                                                      isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-#                                                                      isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
-#                                                                      isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-#                                                                      large_element] * (2 - large_side)
-
-#                         tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-#                                                                     u[i,
-#                                                                       isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-#                                                                       isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2,
-#                                                                       isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2,
-#                                                                       large_element] * (2 - large_side)
-#                     end
-#                 end
-
-#                 for j1j1 in axes(forward_lower, 2)
-#                     @inbounds begin
-#                         tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-#                                                                    u[i,
-#                                                                      isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-#                                                                      isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
-#                                                                      isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-#                                                                                                                                            3),
-#                                                                      large_element] * (large_side - 1)
-
-#                         tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-#                                                                     u[i,
-#                                                                       isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-#                                                                       isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
-#                                                                       isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-#                                                                                                                                             3),
-#                                                                       large_element] * (large_side - 1)
-
-#                         tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-#                                                                    u[i,
-#                                                                      isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-#                                                                      isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
-#                                                                      isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-#                                                                                                                                            3),
-#                                                                      large_element] * (large_side - 1)
-
-#                         tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-#                                                                     u[i,
-#                                                                       isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1,
-#                                                                       isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2,
-#                                                                       isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation,
-#                                                                                                                                             3),
-#                                                                       large_element] * (large_side - 1)
-#                     end
-#                 end
-
-#                 # Grid scope synchronization
-#                 grid = CG.this_grid()
-#                 CG.sync(grid)
-
-#                 for j2j2 in axes(forward_upper, 2)
-#                     @inbounds begin
-#                         u_upper_left[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
-#                                                                  tmp_upper_left[leftright, i, j1, j2j2, k]
-
-#                         u_upper_right[leftright, i, j1, j2, k] += forward_upper[j2, j2j2] *
-#                                                                   tmp_upper_right[leftright, i, j1, j2j2, k]
-
-#                         u_lower_left[leftright, i, j1, j2, k] += forward_lower[j2, j2j2] *
-#                                                                  tmp_lower_left[leftright, i, j1, j2j2, k]
-
-#                         u_lower_right[leftright, i, j1, j2, k] += forward_lower[j2, j2j2] *
-#                                                                   tmp_lower_right[leftright, i, j1, j2j2, k]
-#                     end
-#                 end
-#                 k += stride_z
-#             end
-#             j += stride_y
-#         end
-#         i += stride_x
-#     end
-
-#     return nothing
-# end
 
 # Kernel for calculating mortar fluxes
 function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right,
@@ -1831,7 +1729,8 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
     return nothing
 end
 
-# Kernel for copying mortar fluxes small to small and small to large - step 1
+############################################################################## New optimization 
+# Kernel for copying mortar fluxes small to small and small to large
 function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_upper_left, tmp_upper_right,
                                      tmp_lower_left, tmp_lower_right,
                                      fstar_primary_upper_left, fstar_primary_upper_right,
@@ -1844,224 +1743,122 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_upper_left, tmp_up
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_values, 2)^2 &&
-        k <= length(orientations))
-        j1 = div(j - 1, size(surface_flux_values, 2)) + 1
-        j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
+    # Loop stride for each dimension
+    stride_x = gridDim().x * blockDim().x
+    stride_y = gridDim().y * blockDim().y
+    stride_z = gridDim().z * blockDim().z
 
-        lower_left_element = neighbor_ids[1, k]
-        lower_right_element = neighbor_ids[2, k]
-        upper_left_element = neighbor_ids[3, k]
-        upper_right_element = neighbor_ids[4, k]
-        large_element = neighbor_ids[5, k]
+    # Cooperative kernel needs stride loops to handle the constrained launch size
+    while i <= size(surface_flux_values, 1)
+        while j <= size(surface_flux_values, 2)^2
+            while k <= length(orientations)
+                j1 = div(j - 1, size(surface_flux_values, 2)) + 1
+                j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
 
-        large_side = large_sides[k]
-        orientation = orientations[k]
+                @inbounds begin
+                    lower_left_element = neighbor_ids[1, k]
+                    lower_right_element = neighbor_ids[2, k]
+                    upper_left_element = neighbor_ids[3, k]
+                    upper_right_element = neighbor_ids[4, k]
+                    large_element = neighbor_ids[5, k]
 
-        # Use simple math expression to enhance the performance (against control flow), 
-        # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
-        #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
-        #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
-        #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
-        #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
-        #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
-        # Please also check the original code in Trixi.jl when you modify this code.
-        direction = 2 * orientation + large_side - 2
+                    large_side = large_sides[k]
+                    orientation = orientations[k]
 
-        surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
-        surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
-        surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
-        surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
+                    # Use simple math expression to enhance the performance (against control flow), 
+                    # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
+                    #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
+                    #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
+                    # Please also check the original code in Trixi.jl when you modify this code.
+                    direction = 2 * orientation + large_side - 2
 
-        # Use simple math expression to enhance the performance (against control flow), 
-        # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
-        #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
-        #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
-        #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
-        #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
-        #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
-        # Please also check the original code in Trixi.jl when you modify this code.
-        direction = 2 * orientation - large_side + 1
+                    surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
+                    surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
+                    surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
+                    surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
 
-        @inbounds begin
-            for j1j1 in axes(reverse_upper, 2)
-                tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-                                                                       fstar_secondary_upper_left[i, j1j1, j2, k]
-                tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-                                                                        fstar_secondary_upper_right[i, j1j1, j2, k]
-                tmp_lower_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-                                                                       fstar_secondary_lower_left[i, j1j1, j2, k]
-                tmp_lower_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-                                                                        fstar_secondary_lower_right[i, j1j1, j2, k]
+                    # Use simple math expression to enhance the performance (against control flow), 
+                    # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
+                    #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
+                    #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
+                    #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
+                    # Please also check the original code in Trixi.jl when you modify this code.
+                    direction = 2 * orientation - large_side + 1
+                end
+
+                for j1j1 in axes(reverse_upper, 2)
+                    @inbounds begin
+                        tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
+                                                                               fstar_secondary_upper_left[i, j1j1, j2, k]
+                        tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
+                                                                                fstar_secondary_upper_right[i, j1j1, j2, k]
+                        tmp_lower_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
+                                                                               fstar_secondary_lower_left[i, j1j1, j2, k]
+                        tmp_lower_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
+                                                                                fstar_secondary_lower_right[i, j1j1, j2, k]
+                    end
+                end
+                k += stride_z
             end
+            j += stride_y
         end
+        i += stride_x
     end
 
-    return nothing
-end
+    # Grid scope synchronization
+    grid = CG.this_grid()
+    CG.sync(grid)
 
-# Kernel for copying mortar fluxes small to small and small to large - step 2
-function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_values, tmp_upper_left,
-                                     tmp_upper_right, tmp_lower_left, tmp_lower_right,
-                                     reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                                     orientations, equations::AbstractEquations{3})
+    # Reclaim the thread Ids for the next iteration
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
-    if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_values, 2)^2 &&
-        k <= length(orientations))
-        j1 = div(j - 1, size(surface_flux_values, 2)) + 1
-        j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
+    # Cooperative kernel needs stride loops to handle the constrained launch size
+    while i <= size(surface_flux_values, 1)
+        while j <= size(surface_flux_values, 2)^2
+            while k <= length(orientations)
+                j1 = div(j - 1, size(surface_flux_values, 2)) + 1
+                j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
 
-        large_element = neighbor_ids[5, k]
+                @inbounds begin
+                    large_element = neighbor_ids[5, k]
+                    large_side = large_sides[k]
+                    orientation = orientations[k]
+                end
 
-        large_side = large_sides[k]
-        orientation = orientations[k]
+                # See above for the explanation of the following expression
+                direction = 2 * orientation - large_side + 1
+                value = zero(eltype(surface_flux_values)) # initialize tempraroy variable
 
-        # See step 1 for the explanation of the following expression
-        direction = 2 * orientation - large_side + 1
+                @inbounds begin
+                    for j2j2 in axes(reverse_lower, 2)
+                        value += reverse_upper[j2, j2j2] *
+                                 tmp_upper_left[i, j1, j2j2, direction, large_element] +
+                                 reverse_upper[j2, j2j2] *
+                                 tmp_upper_right[i, j1, j2j2, direction, large_element] +
+                                 reverse_lower[j2, j2j2] *
+                                 tmp_lower_left[i, j1, j2j2, direction, large_element] +
+                                 reverse_lower[j2, j2j2] *
+                                 tmp_lower_right[i, j1, j2j2, direction, large_element]
+                    end
 
-        @inbounds begin
-            for j2j2 in axes(reverse_lower, 2)
-                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
-                                                                                tmp_upper_left[i, j1, j2j2,
-                                                                                               direction,
-                                                                                               large_element]
-                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
-                                                                                tmp_upper_right[i, j1, j2j2,
-                                                                                                direction,
-                                                                                                large_element]
-                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
-                                                                                tmp_lower_left[i, j1, j2j2,
-                                                                                               direction,
-                                                                                               large_element]
-                tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
-                                                                                tmp_lower_right[i, j1, j2j2,
-                                                                                                direction,
-                                                                                                large_element]
+                    surface_flux_values[i, j1, j2, direction, large_element] = value
+                end
+                k += stride_z
             end
-
-            surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
-                                                                                               direction,
-                                                                                               large_element]
+            j += stride_y
         end
+        i += stride_x
     end
 
     return nothing
 end
-
-# # Kernel for copying mortar fluxes small to small and small to large (optimized)
-# function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_values,
-#                                      tmp_upper_left, tmp_upper_right, tmp_lower_left, tmp_lower_right,
-#                                      fstar_primary_upper_left, fstar_primary_upper_right,
-#                                      fstar_primary_lower_left, fstar_primary_lower_right,
-#                                      fstar_secondary_upper_left, fstar_secondary_upper_right,
-#                                      fstar_secondary_lower_left, fstar_secondary_lower_right,
-#                                      reverse_upper, reverse_lower, neighbor_ids, large_sides,
-#                                      orientations)
-#     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
-#     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
-#     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
-
-#     # Loop stride for each dimension
-#     stride_x = gridDim().x * blockDim().x
-#     stride_y = gridDim().y * blockDim().y
-#     stride_z = gridDim().z * blockDim().z
-
-#     # Cooperative kernel needs stride loops to handle the constrained launch size
-#     while i <= size(surface_flux_values, 1)
-#         while j <= size(surface_flux_values, 2)^2
-#             while k <= length(orientations)
-#                 j1 = div(j - 1, size(surface_flux_values, 2)) + 1
-#                 j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
-
-#                 @inbounds begin
-#                     lower_left_element = neighbor_ids[1, k]
-#                     lower_right_element = neighbor_ids[2, k]
-#                     upper_left_element = neighbor_ids[3, k]
-#                     upper_right_element = neighbor_ids[4, k]
-#                     large_element = neighbor_ids[5, k]
-
-#                     large_side = large_sides[k]
-#                     orientation = orientations[k]
-
-#                     # Use simple math expression to enhance the performance (against control flow), 
-#                     # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 1 +
-#                     #                       isequal(large_side, 1) * isequal(orientation, 2) * 3 +
-#                     #                       isequal(large_side, 1) * isequal(orientation, 3) * 5 +
-#                     #                       isequal(large_side, 2) * isequal(orientation, 1) * 2 +
-#                     #                       isequal(large_side, 2) * isequal(orientation, 2) * 4 +
-#                     #                       isequal(large_side, 2) * isequal(orientation, 3) * 6`.
-#                     # Please also check the original code in Trixi.jl when you modify this code.
-#                     direction = 2 * orientation + large_side - 2
-
-#                     surface_flux_values[i, j1, j2, direction, upper_left_element] = fstar_primary_upper_left[i, j1, j2, k]
-#                     surface_flux_values[i, j1, j2, direction, upper_right_element] = fstar_primary_upper_right[i, j1, j2, k]
-#                     surface_flux_values[i, j1, j2, direction, lower_left_element] = fstar_primary_lower_left[i, j1, j2, k]
-#                     surface_flux_values[i, j1, j2, direction, lower_right_element] = fstar_primary_lower_right[i, j1, j2, k]
-
-#                     # Use simple math expression to enhance the performance (against control flow), 
-#                     # it is equivalent to, `isequal(large_side, 1) * isequal(orientation, 1) * 2 +
-#                     #                       isequal(large_side, 1) * isequal(orientation, 2) * 4 +
-#                     #                       isequal(large_side, 1) * isequal(orientation, 3) * 6 +
-#                     #                       isequal(large_side, 2) * isequal(orientation, 1) * 1 +
-#                     #                       isequal(large_side, 2) * isequal(orientation, 2) * 3 +
-#                     #                       isequal(large_side, 2) * isequal(orientation, 3) * 5`.
-#                     # Please also check the original code in Trixi.jl when you modify this code.
-#                     direction = 2 * orientation - large_side + 1
-#                 end
-
-#                 for j1j1 in axes(reverse_upper, 2)
-#                     @inbounds begin
-#                         tmp_upper_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-#                                                                                fstar_secondary_upper_left[i, j1j1, j2, k]
-#                         tmp_upper_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-#                                                                                 fstar_secondary_upper_right[i, j1j1, j2, k]
-#                         tmp_lower_left[i, j1, j2, direction, large_element] += reverse_lower[j1, j1j1] *
-#                                                                                fstar_secondary_lower_left[i, j1j1, j2, k]
-#                         tmp_lower_right[i, j1, j2, direction, large_element] += reverse_upper[j1, j1j1] *
-#                                                                                 fstar_secondary_lower_right[i, j1j1, j2, k]
-#                     end
-#                 end
-
-#                 # Grid scope synchronization
-#                 grid = CG.this_grid()
-#                 CG.sync(grid)
-
-#                 for j2j2 in axes(reverse_lower, 2)
-#                     @inbounds begin
-#                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
-#                                                                                         tmp_upper_left[i, j1, j2j2,
-#                                                                                                        direction,
-#                                                                                                        large_element]
-#                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_upper[j2, j2j2] *
-#                                                                                         tmp_upper_right[i, j1, j2j2,
-#                                                                                                         direction,
-#                                                                                                         large_element]
-#                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
-#                                                                                         tmp_lower_left[i, j1, j2j2,
-#                                                                                                        direction,
-#                                                                                                        large_element]
-#                         tmp_surface_flux_values[i, j1, j2, direction, large_element] += reverse_lower[j2, j2j2] *
-#                                                                                         tmp_lower_right[i, j1, j2j2,
-#                                                                                                         direction,
-#                                                                                                         large_element]
-#                     end
-#                 end
-
-#                 @inbounds surface_flux_values[i, j1, j2, direction, large_element] = tmp_surface_flux_values[i, j1, j2,
-#                                                                                                              direction,
-#                                                                                                              large_element]
-#                 k += stride_z
-#             end
-#             j += stride_y
-#         end
-#         i += stride_x
-#     end
-
-#     return nothing
-# end
 
 # Kernel for calculating surface integrals
 function surface_integral_kernel!(du, factor_arr, surface_flux_values,

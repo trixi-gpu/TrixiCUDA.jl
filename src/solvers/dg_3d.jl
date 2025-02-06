@@ -538,8 +538,13 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::False, dg::D
     @assert iszero(length(cache.mortars.orientations))
 end
 
-# Pack kernels for prolonging solution to mortars
+# Pack kernels for prolonging solution to mortars 
+# Note: Cooperative groups are used in the second kernel, which requires  devices with compute 
+# capability 6.0 or higher. 
+# See https://cuda.juliagpu.org/stable/development/kernel/#Cooperative-groups for more details.
 function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DGSEM, cache)
+    RealT = eltype(u)
+
     neighbor_ids = cache.mortars.neighbor_ids
     large_sides = cache.mortars.large_sides
     orientations = cache.mortars.orientations
@@ -567,28 +572,11 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DG
                                                               size(u_upper_left, 3)^2,
                                                               size(u_upper_left, 5))...)
 
-    tmp_upper_left = zero(similar(u_upper_left)) # undef to zero
-    tmp_upper_right = zero(similar(u_upper_right)) # undef to zero
-    tmp_lower_left = zero(similar(u_lower_left)) # undef to zero
-    tmp_lower_right = zero(similar(u_lower_right)) # undef to zero
-
-    prolong_mortars_large2small_kernel = @cuda launch=false prolong_mortars_large2small_kernel!(tmp_upper_left,
-                                                                                                tmp_upper_right,
-                                                                                                tmp_lower_left,
-                                                                                                tmp_lower_right,
-                                                                                                u,
-                                                                                                forward_upper,
-                                                                                                forward_lower,
-                                                                                                neighbor_ids,
-                                                                                                large_sides,
-                                                                                                orientations)
-    prolong_mortars_large2small_kernel(tmp_upper_left, tmp_upper_right, tmp_lower_left,
-                                       tmp_lower_right, u, forward_upper, forward_lower,
-                                       neighbor_ids, large_sides, orientations;
-                                       kernel_configurator_3d(prolong_mortars_large2small_kernel,
-                                                              size(u_upper_left, 2),
-                                                              size(u_upper_left, 3)^2,
-                                                              size(u_upper_left, 5))...)
+    # Create temperture arrays on the GPU
+    tmp_upper_left = CUDA.zeros(RealT, size(u_upper_left))
+    tmp_upper_right = CUDA.zeros(RealT, size(u_upper_right))
+    tmp_lower_left = CUDA.zeros(RealT, size(u_lower_left))
+    tmp_lower_right = CUDA.zeros(RealT, size(u_lower_right))
 
     prolong_mortars_large2small_kernel = @cuda launch=false prolong_mortars_large2small_kernel!(u_upper_left,
                                                                                                 u_upper_right,
@@ -598,78 +586,22 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DG
                                                                                                 tmp_upper_right,
                                                                                                 tmp_lower_left,
                                                                                                 tmp_lower_right,
-                                                                                                forward_upper,
+                                                                                                u, forward_upper,
                                                                                                 forward_lower,
-                                                                                                large_sides)
+                                                                                                neighbor_ids,
+                                                                                                large_sides,
+                                                                                                orientations)
     prolong_mortars_large2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right,
                                        tmp_upper_left, tmp_upper_right, tmp_lower_left,
-                                       tmp_lower_right, forward_upper, forward_lower, large_sides;
-                                       kernel_configurator_3d(prolong_mortars_large2small_kernel,
-                                                              size(u_upper_left, 2),
-                                                              size(u_upper_left, 3)^2,
-                                                              size(u_upper_left, 5))...)
+                                       tmp_lower_right, u, forward_upper, forward_lower, neighbor_ids,
+                                       large_sides, orientations; cooperative = true,
+                                       kernel_configurator_coop_3d(prolong_mortars_large2small_kernel,
+                                                                   size(u_upper_left, 2),
+                                                                   size(u_upper_left, 3)^2,
+                                                                   size(u_upper_left, 5))...)
 
     return nothing
 end
-
-# # Pack kernels for prolonging solution to mortars (optimized)
-# function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DGSEM, cache)
-#     neighbor_ids = cache.mortars.neighbor_ids
-#     large_sides = cache.mortars.large_sides
-#     orientations = cache.mortars.orientations
-
-#     # The original CPU arrays hold NaNs
-#     u_upper_left = cache.mortars.u_upper_left
-#     u_upper_right = cache.mortars.u_upper_right
-#     u_lower_left = cache.mortars.u_lower_left
-#     u_lower_right = cache.mortars.u_lower_right
-#     forward_upper = dg.mortar.forward_upper
-#     forward_lower = dg.mortar.forward_lower
-
-#     prolong_mortars_small2small_kernel = @cuda launch=false prolong_mortars_small2small_kernel!(u_upper_left,
-#                                                                                                 u_upper_right,
-#                                                                                                 u_lower_left,
-#                                                                                                 u_lower_right,
-#                                                                                                 u,
-#                                                                                                 neighbor_ids,
-#                                                                                                 large_sides,
-#                                                                                                 orientations)
-#     prolong_mortars_small2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u,
-#                                        neighbor_ids, large_sides, orientations;
-#                                        kernel_configurator_3d(prolong_mortars_small2small_kernel,
-#                                                               size(u_upper_left, 2),
-#                                                               size(u_upper_left, 3)^2,
-#                                                               size(u_upper_left, 5))...)
-
-#     tmp_upper_left = zero(similar(u_upper_left)) # undef to zero
-#     tmp_upper_right = zero(similar(u_upper_right)) # undef to zero
-#     tmp_lower_left = zero(similar(u_lower_left)) # undef to zero
-#     tmp_lower_right = zero(similar(u_lower_right)) # undef to zero
-
-#     prolong_mortars_large2small_kernel = @cuda launch=false prolong_mortars_large2small_kernel!(u_upper_left,
-#                                                                                                 u_upper_right,
-#                                                                                                 u_lower_left,
-#                                                                                                 u_lower_right,
-#                                                                                                 tmp_upper_left,
-#                                                                                                 tmp_upper_right,
-#                                                                                                 tmp_lower_left,
-#                                                                                                 tmp_lower_right,
-#                                                                                                 u, forward_upper,
-#                                                                                                 forward_lower,
-#                                                                                                 neighbor_ids,
-#                                                                                                 large_sides,
-#                                                                                                 orientations)
-#     prolong_mortars_large2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right,
-#                                        tmp_upper_left, tmp_upper_right, tmp_lower_left,
-#                                        tmp_lower_right, u, forward_upper, forward_lower, neighbor_ids,
-#                                        large_sides, orientations; cooperative = true,
-#                                        kernel_configurator_coop_3d(prolong_mortars_large2small_kernel,
-#                                                                    size(u_upper_left, 2),
-#                                                                    size(u_upper_left, 3)^2,
-#                                                                    size(u_upper_left, 5))...)
-
-#     return nothing
-# end
 
 # Dummy function for asserting mortar fluxes
 function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::False, nonconservative_terms,
@@ -678,8 +610,13 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::False, nonconservat
 end
 
 # Pack kernels for calculating mortar fluxes
+# Note: Cooperative groups are used in the second kernel, which requires  devices with compute 
+# capability 6.0 or higher. 
+# See https://cuda.juliagpu.org/stable/development/kernel/#Cooperative-groups for more details.
 function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::False,
                            equations, dg::DGSEM, cache)
+    RealT = eltype(cache.elements.surface_flux_values)
+
     surface_flux = dg.surface_integral.surface_flux
 
     neighbor_ids = cache.mortars.neighbor_ids
@@ -695,7 +632,6 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     reverse_lower = dg.mortar.reverse_lower
 
     surface_flux_values = cache.elements.surface_flux_values
-    tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
 
     fstar_primary_upper_left = cache.fstar_primary_upper_left
     fstar_primary_upper_right = cache.fstar_primary_upper_right
@@ -728,16 +664,15 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                               size(u_upper_left, 4),
                                               length(orientations))...)
 
-    tmp_upper_left = zero(similar(surface_flux_values)) # undef to zero
-    tmp_upper_right = zero(similar(surface_flux_values)) # undef to zero
-    tmp_lower_left = zero(similar(surface_flux_values)) # undef to zero
-    tmp_lower_right = zero(similar(surface_flux_values)) # undef to zero
+    # Create temperture arrays on the GPU
+    tmp_upper_left = CUDA.zeros(RealT, size(surface_flux_values))
+    tmp_upper_right = CUDA.zeros(RealT, size(surface_flux_values))
+    tmp_lower_left = CUDA.zeros(RealT, size(surface_flux_values))
+    tmp_lower_right = CUDA.zeros(RealT, size(surface_flux_values))
 
     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
-                                                                                tmp_upper_left,
-                                                                                tmp_upper_right,
-                                                                                tmp_lower_left,
-                                                                                tmp_lower_right,
+                                                                                tmp_upper_left, tmp_upper_right,
+                                                                                tmp_lower_left, tmp_lower_right,
                                                                                 fstar_primary_upper_left,
                                                                                 fstar_primary_upper_right,
                                                                                 fstar_primary_lower_left,
@@ -746,138 +681,30 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                                                                 fstar_secondary_upper_right,
                                                                                 fstar_secondary_lower_left,
                                                                                 fstar_secondary_lower_right,
-                                                                                reverse_upper,
-                                                                                reverse_lower,
-                                                                                neighbor_ids,
-                                                                                large_sides,
+                                                                                reverse_upper, reverse_lower,
+                                                                                neighbor_ids, large_sides,
                                                                                 orientations)
-    mortar_flux_copy_to_kernel(surface_flux_values, tmp_upper_left, tmp_upper_right, tmp_lower_left,
-                               tmp_lower_right, fstar_primary_upper_left, fstar_primary_upper_right,
-                               fstar_primary_lower_left, fstar_primary_lower_right,
-                               fstar_secondary_upper_left, fstar_secondary_upper_right,
-                               fstar_secondary_lower_left, fstar_secondary_lower_right,
-                               reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                               orientations;
-                               kernel_configurator_3d(mortar_flux_copy_to_kernel,
-                                                      size(surface_flux_values, 1),
-                                                      size(surface_flux_values, 2)^2,
-                                                      length(orientations))...)
-
-    mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
-                                                                                tmp_surface_flux_values,
-                                                                                tmp_upper_left,
-                                                                                tmp_upper_right,
-                                                                                tmp_lower_left,
-                                                                                tmp_lower_right,
-                                                                                reverse_upper,
-                                                                                reverse_lower,
-                                                                                neighbor_ids,
-                                                                                large_sides,
-                                                                                orientations,
-                                                                                equations)
-    mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, tmp_upper_left,
-                               tmp_upper_right, tmp_lower_left, tmp_lower_right, reverse_upper,
-                               reverse_lower, neighbor_ids, large_sides, orientations, equations;
-                               kernel_configurator_3d(mortar_flux_copy_to_kernel,
-                                                      size(surface_flux_values, 1),
-                                                      size(surface_flux_values, 2)^2,
-                                                      length(orientations))...)
+    mortar_flux_copy_to_kernel(surface_flux_values, tmp_upper_left, tmp_upper_right, tmp_lower_left, tmp_lower_right,
+                               fstar_primary_upper_left, fstar_primary_upper_right, fstar_primary_lower_left,
+                               fstar_primary_lower_right, fstar_secondary_upper_left, fstar_secondary_upper_right,
+                               fstar_secondary_lower_left, fstar_secondary_lower_right, reverse_upper, reverse_lower,
+                               neighbor_ids, large_sides, orientations; cooperative = true,
+                               kernel_configurator_coop_3d(mortar_flux_copy_to_kernel,
+                                                           size(surface_flux_values, 1),
+                                                           size(surface_flux_values, 2)^2,
+                                                           length(orientations))...)
 
     return nothing
 end
 
-# # Pack kernels for calculating mortar fluxes (optimized)
-# function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::False,
-#                            equations, dg::DGSEM, cache)
-#     surface_flux = dg.surface_integral.surface_flux
-
-#     neighbor_ids = cache.mortars.neighbor_ids
-#     large_sides = cache.mortars.large_sides
-#     orientations = cache.mortars.orientations
-
-#     # The original CPU arrays hold NaNs
-#     u_upper_left = cache.mortars.u_upper_left
-#     u_upper_right = cache.mortars.u_upper_right
-#     u_lower_left = cache.mortars.u_lower_left
-#     u_lower_right = cache.mortars.u_lower_right
-#     reverse_upper = dg.mortar.reverse_upper
-#     reverse_lower = dg.mortar.reverse_lower
-
-#     surface_flux_values = cache.elements.surface_flux_values
-#     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
-
-#     fstar_primary_upper_left = cache.fstar_primary_upper_left
-#     fstar_primary_upper_right = cache.fstar_primary_upper_right
-#     fstar_primary_lower_left = cache.fstar_primary_lower_left
-#     fstar_primary_lower_right = cache.fstar_primary_lower_right
-#     fstar_secondary_upper_left = cache.fstar_secondary_upper_left
-#     fstar_secondary_upper_right = cache.fstar_secondary_upper_right
-#     fstar_secondary_lower_left = cache.fstar_secondary_lower_left
-#     fstar_secondary_lower_right = cache.fstar_secondary_lower_right
-
-#     mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_primary_upper_left,
-#                                                                 fstar_primary_upper_right,
-#                                                                 fstar_primary_lower_left,
-#                                                                 fstar_primary_lower_right,
-#                                                                 fstar_secondary_upper_left,
-#                                                                 fstar_secondary_upper_right,
-#                                                                 fstar_secondary_lower_left,
-#                                                                 fstar_secondary_lower_right,
-#                                                                 u_upper_left, u_upper_right,
-#                                                                 u_lower_left, u_lower_right,
-#                                                                 orientations, equations,
-#                                                                 surface_flux)
-#     mortar_flux_kernel(fstar_primary_upper_left, fstar_primary_upper_right,
-#                        fstar_primary_lower_left, fstar_primary_lower_right,
-#                        fstar_secondary_upper_left, fstar_secondary_upper_right,
-#                        fstar_secondary_lower_left, fstar_secondary_lower_right,
-#                        u_upper_left, u_upper_right, u_lower_left, u_lower_right, orientations,
-#                        equations, surface_flux;
-#                        kernel_configurator_3d(mortar_flux_kernel, size(u_upper_left, 3),
-#                                               size(u_upper_left, 4),
-#                                               length(orientations))...)
-
-#     tmp_upper_left = zero(similar(surface_flux_values)) # undef to zero
-#     tmp_upper_right = zero(similar(surface_flux_values)) # undef to zero
-#     tmp_lower_left = zero(similar(surface_flux_values)) # undef to zero
-#     tmp_lower_right = zero(similar(surface_flux_values)) # undef to zero
-
-#     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
-#                                                                                 tmp_surface_flux_values,
-#                                                                                 tmp_upper_left,
-#                                                                                 tmp_upper_right,
-#                                                                                 tmp_lower_left,
-#                                                                                 tmp_lower_right,
-#                                                                                 fstar_primary_upper_left,
-#                                                                                 fstar_primary_upper_right,
-#                                                                                 fstar_primary_lower_left,
-#                                                                                 fstar_primary_lower_right,
-#                                                                                 fstar_secondary_upper_left,
-#                                                                                 fstar_secondary_upper_right,
-#                                                                                 fstar_secondary_lower_left,
-#                                                                                 fstar_secondary_lower_right,
-#                                                                                 reverse_upper,
-#                                                                                 reverse_lower,
-#                                                                                 neighbor_ids,
-#                                                                                 large_sides,
-#                                                                                 orientations)
-#     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, tmp_upper_left, tmp_upper_right,
-#                                tmp_lower_left, tmp_lower_right, fstar_primary_upper_left, fstar_primary_upper_right,
-#                                fstar_primary_lower_left, fstar_primary_lower_right, fstar_secondary_upper_left,
-#                                fstar_secondary_upper_right, fstar_secondary_lower_left, fstar_secondary_lower_right,
-#                                reverse_upper, reverse_lower, neighbor_ids, large_sides, orientations;
-#                                cooperative = true,
-#                                kernel_configurator_coop_3d(mortar_flux_copy_to_kernel,
-#                                                            size(surface_flux_values, 1),
-#                                                            size(surface_flux_values, 2)^2,
-#                                                            length(orientations))...)
-
-#     return nothing
-# end
-
-# Pack kernels for calculating mortar fluxes
+# Pack kernels for calculating mortar fluxes 
+# Note: Cooperative groups are used in the second kernel, which requires  devices with compute 
+# capability 6.0 or higher. 
+# See https://cuda.juliagpu.org/stable/development/kernel/#Cooperative-groups for more details.
 function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DGSEM, cache)
+    RealT = eltype(cache.elements.surface_flux_values)
+
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
 
     neighbor_ids = cache.mortars.neighbor_ids
@@ -893,7 +720,6 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
     reverse_lower = dg.mortar.reverse_lower
 
     surface_flux_values = cache.elements.surface_flux_values
-    tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
 
     fstar_primary_upper_left = cache.fstar_primary_upper_left
     fstar_primary_upper_right = cache.fstar_primary_upper_right
@@ -927,16 +753,15 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                               size(u_upper_left, 4),
                                               length(orientations))...)
 
-    tmp_upper_left = zero(similar(surface_flux_values)) # undef to zero
-    tmp_upper_right = zero(similar(surface_flux_values)) # undef to zero
-    tmp_lower_left = zero(similar(surface_flux_values)) # undef to zero
-    tmp_lower_right = zero(similar(surface_flux_values)) # undef to zero
+    # Create temperture arrays on the GPU
+    tmp_upper_left = CUDA.zeros(RealT, size(surface_flux_values))
+    tmp_upper_right = CUDA.zeros(RealT, size(surface_flux_values))
+    tmp_lower_left = CUDA.zeros(RealT, size(surface_flux_values))
+    tmp_lower_right = CUDA.zeros(RealT, size(surface_flux_values))
 
     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
-                                                                                tmp_upper_left,
-                                                                                tmp_upper_right,
-                                                                                tmp_lower_left,
-                                                                                tmp_lower_right,
+                                                                                tmp_upper_left, tmp_upper_right,
+                                                                                tmp_lower_left, tmp_lower_right,
                                                                                 fstar_primary_upper_left,
                                                                                 fstar_primary_upper_right,
                                                                                 fstar_primary_lower_left,
@@ -945,135 +770,21 @@ function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservati
                                                                                 fstar_secondary_upper_right,
                                                                                 fstar_secondary_lower_left,
                                                                                 fstar_secondary_lower_right,
-                                                                                reverse_upper,
-                                                                                reverse_lower,
-                                                                                neighbor_ids,
-                                                                                large_sides,
+                                                                                reverse_upper, reverse_lower,
+                                                                                neighbor_ids, large_sides,
                                                                                 orientations)
-    mortar_flux_copy_to_kernel(surface_flux_values, tmp_upper_left, tmp_upper_right, tmp_lower_left,
-                               tmp_lower_right, fstar_primary_upper_left, fstar_primary_upper_right,
-                               fstar_primary_lower_left, fstar_primary_lower_right,
-                               fstar_secondary_upper_left, fstar_secondary_upper_right,
-                               fstar_secondary_lower_left, fstar_secondary_lower_right,
-                               reverse_upper, reverse_lower, neighbor_ids, large_sides,
-                               orientations;
-                               kernel_configurator_3d(mortar_flux_copy_to_kernel,
-                                                      size(surface_flux_values, 1),
-                                                      size(surface_flux_values, 2)^2,
-                                                      length(orientations))...)
-
-    mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
-                                                                                tmp_surface_flux_values,
-                                                                                tmp_upper_left,
-                                                                                tmp_upper_right,
-                                                                                tmp_lower_left,
-                                                                                tmp_lower_right,
-                                                                                reverse_upper,
-                                                                                reverse_lower,
-                                                                                neighbor_ids,
-                                                                                large_sides,
-                                                                                orientations,
-                                                                                equations)
-    mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, tmp_upper_left,
-                               tmp_upper_right, tmp_lower_left, tmp_lower_right, reverse_upper,
-                               reverse_lower, neighbor_ids, large_sides, orientations, equations;
-                               kernel_configurator_3d(mortar_flux_copy_to_kernel,
-                                                      size(surface_flux_values, 1),
-                                                      size(surface_flux_values, 2)^2,
-                                                      length(orientations))...)
+    mortar_flux_copy_to_kernel(surface_flux_values, tmp_upper_left, tmp_upper_right, tmp_lower_left, tmp_lower_right,
+                               fstar_primary_upper_left, fstar_primary_upper_right, fstar_primary_lower_left,
+                               fstar_primary_lower_right, fstar_secondary_upper_left, fstar_secondary_upper_right,
+                               fstar_secondary_lower_left, fstar_secondary_lower_right, reverse_upper, reverse_lower,
+                               neighbor_ids, large_sides, orientations; cooperative = true,
+                               kernel_configurator_coop_3d(mortar_flux_copy_to_kernel,
+                                                           size(surface_flux_values, 1),
+                                                           size(surface_flux_values, 2)^2,
+                                                           length(orientations))...)
 
     return nothing
 end
-
-# # Pack kernels for calculating mortar fluxes (optimized)
-# function cuda_mortar_flux!(mesh::TreeMesh{3}, cache_mortars::True, nonconservative_terms::True,
-#                            equations, dg::DGSEM, cache)
-#     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
-
-#     neighbor_ids = cache.mortars.neighbor_ids
-#     large_sides = cache.mortars.large_sides
-#     orientations = cache.mortars.orientations
-
-#     # The original CPU arrays hold NaNs
-#     u_upper_left = cache.mortars.u_upper_left
-#     u_upper_right = cache.mortars.u_upper_right
-#     u_lower_left = cache.mortars.u_lower_left
-#     u_lower_right = cache.mortars.u_lower_right
-#     reverse_upper = dg.mortar.reverse_upper
-#     reverse_lower = dg.mortar.reverse_lower
-
-#     surface_flux_values = cache.elements.surface_flux_values
-#     tmp_surface_flux_values = zero(similar(surface_flux_values)) # undef to zero
-
-#     fstar_primary_upper_left = cache.fstar_primary_upper_left
-#     fstar_primary_upper_right = cache.fstar_primary_upper_right
-#     fstar_primary_lower_left = cache.fstar_primary_lower_left
-#     fstar_primary_lower_right = cache.fstar_primary_lower_right
-#     fstar_secondary_upper_left = cache.fstar_secondary_upper_left
-#     fstar_secondary_upper_right = cache.fstar_secondary_upper_right
-#     fstar_secondary_lower_left = cache.fstar_secondary_lower_left
-#     fstar_secondary_lower_right = cache.fstar_secondary_lower_right
-
-#     mortar_flux_kernel = @cuda launch=false mortar_flux_kernel!(fstar_primary_upper_left,
-#                                                                 fstar_primary_upper_right,
-#                                                                 fstar_primary_lower_left,
-#                                                                 fstar_primary_lower_right,
-#                                                                 fstar_secondary_upper_left,
-#                                                                 fstar_secondary_upper_right,
-#                                                                 fstar_secondary_lower_left,
-#                                                                 fstar_secondary_lower_right,
-#                                                                 u_upper_left, u_upper_right,
-#                                                                 u_lower_left, u_lower_right,
-#                                                                 orientations, large_sides,
-#                                                                 equations, surface_flux,
-#                                                                 nonconservative_flux)
-#     mortar_flux_kernel(fstar_primary_upper_left, fstar_primary_upper_right,
-#                        fstar_primary_lower_left, fstar_primary_lower_right,
-#                        fstar_secondary_upper_left, fstar_secondary_upper_right,
-#                        fstar_secondary_lower_left, fstar_secondary_lower_right,
-#                        u_upper_left, u_upper_right, u_lower_left, u_lower_right, orientations,
-#                        large_sides, equations, surface_flux, nonconservative_flux;
-#                        kernel_configurator_3d(mortar_flux_kernel, size(u_upper_left, 3),
-#                                               size(u_upper_left, 4),
-#                                               length(orientations))...)
-
-#     tmp_upper_left = zero(similar(surface_flux_values)) # undef to zero
-#     tmp_upper_right = zero(similar(surface_flux_values)) # undef to zero
-#     tmp_lower_left = zero(similar(surface_flux_values)) # undef to zero
-#     tmp_lower_right = zero(similar(surface_flux_values)) # undef to zero
-
-#     mortar_flux_copy_to_kernel = @cuda launch=false mortar_flux_copy_to_kernel!(surface_flux_values,
-#                                                                                 tmp_surface_flux_values,
-#                                                                                 tmp_upper_left,
-#                                                                                 tmp_upper_right,
-#                                                                                 tmp_lower_left,
-#                                                                                 tmp_lower_right,
-#                                                                                 fstar_primary_upper_left,
-#                                                                                 fstar_primary_upper_right,
-#                                                                                 fstar_primary_lower_left,
-#                                                                                 fstar_primary_lower_right,
-#                                                                                 fstar_secondary_upper_left,
-#                                                                                 fstar_secondary_upper_right,
-#                                                                                 fstar_secondary_lower_left,
-#                                                                                 fstar_secondary_lower_right,
-#                                                                                 reverse_upper,
-#                                                                                 reverse_lower,
-#                                                                                 neighbor_ids,
-#                                                                                 large_sides,
-#                                                                                 orientations)
-#     mortar_flux_copy_to_kernel(surface_flux_values, tmp_surface_flux_values, tmp_upper_left, tmp_upper_right,
-#                                tmp_lower_left, tmp_lower_right, fstar_primary_upper_left, fstar_primary_upper_right,
-#                                fstar_primary_lower_left, fstar_primary_lower_right, fstar_secondary_upper_left,
-#                                fstar_secondary_upper_right, fstar_secondary_lower_left, fstar_secondary_lower_right,
-#                                reverse_upper, reverse_lower, neighbor_ids, large_sides, orientations;
-#                                cooperative = true,
-#                                kernel_configurator_coop_3d(mortar_flux_copy_to_kernel,
-#                                                            size(surface_flux_values, 1),
-#                                                            size(surface_flux_values, 2)^2,
-#                                                            length(orientations))...)
-
-#     return nothing
-# end
 
 # Pack kernels for calculating surface integrals
 function cuda_surface_integral!(du, mesh::TreeMesh{3}, equations, dg::DGSEM, cache)

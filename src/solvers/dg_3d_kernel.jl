@@ -1452,7 +1452,7 @@ end
 #     while i <= size(tmp_upper_left, 2)
 #         while j <= size(tmp_upper_left, 3)^2
 #             while k <= size(tmp_upper_left, 5)
-#                 u2 = size(tmp_upper_left, 3) # size(tmp_upper_left, 3) == size(u, 2)
+#                 u2 = size(tmp_upper_left, 3) # same as size(u, 2)
 
 #                 j1 = div(j - 1, u2) + 1
 #                 j2 = rem(j - 1, u2) + 1
@@ -1552,7 +1552,7 @@ end
 #     while i <= size(tmp_upper_left, 2)
 #         while j <= size(tmp_upper_left, 3)^2
 #             while k <= size(tmp_upper_left, 5)
-#                 u2 = size(tmp_upper_left, 3) # size(tmp_upper_left, 3) == size(u, 2)
+#                 u2 = size(tmp_upper_left, 3) # same as size(u, 2)
 
 #                 j1 = div(j - 1, u2) + 1
 #                 j2 = rem(j - 1, u2) + 1
@@ -1606,54 +1606,65 @@ function prolong_mortars_large2small_kernel!(tmp_upper_left, tmp_upper_right, tm
 
         leftright = large_side
 
-        @inbounds begin
-            for j1j1 in axes(forward_lower, 2)
-                # Short representation of the indexes on `large_side = 1`
-                idx1 = isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
-                idx2 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2
-                idx3 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2
+        for j2j2 in axes(forward_lower, 2)
+            # Short index representation on large_side = 1
+            idx1 = isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2
+            idx2 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2j2
+            idx3 = isequal(orientation, 1) * j2j2 + isequal(orientation, 2) * j2j2 + isequal(orientation, 3) * u2
 
-                # Short representation of the indexes on `large_side = 2`
-                idx4 = isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
-                idx5 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2
-                idx6 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3)
+            # Short index representation on large_side = 2
+            idx4 = isequal(orientation, 1) + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2
+            idx5 = isequal(orientation, 1) * j2 + isequal(orientation, 2) + isequal(orientation, 3) * j2j2
+            idx6 = isequal(orientation, 1) * j2j2 + isequal(orientation, 2) * j2j2 + isequal(orientation, 3)
 
-                tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-                                                           (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-                                                            u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+            @inbounds begin
+                CUDA.@atomic tmp_upper_left[leftright, i, j1, j2j2, k] += forward_lower[j1, j2] *
+                                                                          (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+                                                                           u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
 
-                tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-                                                            (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-                                                             u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+                CUDA.@atomic tmp_upper_right[leftright, i, j1, j2j2, k] += forward_upper[j1, j2] *
+                                                                           (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+                                                                            u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
 
-                tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-                                                           (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-                                                            u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+                CUDA.@atomic tmp_lower_left[leftright, i, j1, j2j2, k] += forward_lower[j1, j2] *
+                                                                          (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+                                                                           u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
 
-                tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-                                                            (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-                                                             u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+                CUDA.@atomic tmp_lower_right[leftright, i, j1, j2j2, k] += forward_upper[j1, j2] *
+                                                                           (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+                                                                            u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
             end
-
-            # for j1j1 in axes(forward_lower, 2)
-            #     # Short representation of the indexes
-            #     idx4 = isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
-            #     idx5 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2
-            #     idx6 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3)
-
-            #     tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-            #                                                u[i, idx4, idx5, idx6, large_element] * (large_side - 1)
-
-            #     tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-            #                                                 u[i, idx4, idx5, idx6, large_element] * (large_side - 1)
-
-            #     tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-            #                                                u[i, idx4, idx5, idx6, large_element] * (large_side - 1)
-
-            #     tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-            #                                                 u[i, idx4, idx5, idx6, large_element] * (large_side - 1)
-            # end
         end
+
+        # @inbounds begin
+        #     for j1j1 in axes(forward_lower, 2)
+        #         # Short index representation on large_side = 1
+        #         idx1 = isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
+        #         idx2 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2
+        #         idx3 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2
+
+        #         # Short index representation on large_side = 2
+        #         idx4 = isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
+        #         idx5 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2
+        #         idx6 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3)
+
+        #         tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+        #                                                    (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+        #                                                     u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+
+        #         tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+        #                                                     (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+        #                                                      u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+
+        #         tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+        #                                                    (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+        #                                                     u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+
+        #         tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+        #                                                     (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+        #                                                      u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+        #     end
+        # end
     end
 
     return nothing

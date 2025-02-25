@@ -1606,65 +1606,35 @@ function prolong_mortars_large2small_kernel!(tmp_upper_left, tmp_upper_right, tm
 
         leftright = large_side
 
-        for j2j2 in axes(forward_lower, 2)
-            # Short index representation on large_side = 1
-            idx1 = isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2
-            idx2 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2j2
-            idx3 = isequal(orientation, 1) * j2j2 + isequal(orientation, 2) * j2j2 + isequal(orientation, 3) * u2
+        @inbounds begin
+            for j1j1 in axes(forward_lower, 2)
+                # Short index representation on large_side = 1
+                idx1 = isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
+                idx2 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2
+                idx3 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2
 
-            # Short index representation on large_side = 2
-            idx4 = isequal(orientation, 1) + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2
-            idx5 = isequal(orientation, 1) * j2 + isequal(orientation, 2) + isequal(orientation, 3) * j2j2
-            idx6 = isequal(orientation, 1) * j2j2 + isequal(orientation, 2) * j2j2 + isequal(orientation, 3)
+                # Short index representation on large_side = 2
+                idx4 = isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
+                idx5 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2
+                idx6 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3)
 
-            @inbounds begin
-                CUDA.@atomic tmp_upper_left[leftright, i, j1, j2j2, k] += forward_lower[j1, j2] *
-                                                                          (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-                                                                           u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+                tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                           (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+                                                            u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
 
-                CUDA.@atomic tmp_upper_right[leftright, i, j1, j2j2, k] += forward_upper[j1, j2] *
-                                                                           (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-                                                                            u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+                tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                            (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+                                                             u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
 
-                CUDA.@atomic tmp_lower_left[leftright, i, j1, j2j2, k] += forward_lower[j1, j2] *
-                                                                          (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-                                                                           u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+                tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
+                                                           (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+                                                            u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
 
-                CUDA.@atomic tmp_lower_right[leftright, i, j1, j2j2, k] += forward_upper[j1, j2] *
-                                                                           (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-                                                                            u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
+                tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
+                                                            (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
+                                                             u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
             end
         end
-
-        # @inbounds begin
-        #     for j1j1 in axes(forward_lower, 2)
-        #         # Short index representation on large_side = 1
-        #         idx1 = isequal(orientation, 1) * u2 + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
-        #         idx2 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) * u2 + isequal(orientation, 3) * j2
-        #         idx3 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * u2
-
-        #         # Short index representation on large_side = 2
-        #         idx4 = isequal(orientation, 1) + isequal(orientation, 2) * j1j1 + isequal(orientation, 3) * j1j1
-        #         idx5 = isequal(orientation, 1) * j1j1 + isequal(orientation, 2) + isequal(orientation, 3) * j2
-        #         idx6 = isequal(orientation, 1) * j2 + isequal(orientation, 2) * j2 + isequal(orientation, 3)
-
-        #         tmp_upper_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-        #                                                    (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-        #                                                     u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
-
-        #         tmp_upper_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-        #                                                     (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-        #                                                      u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
-
-        #         tmp_lower_left[leftright, i, j1, j2, k] += forward_lower[j1, j1j1] *
-        #                                                    (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-        #                                                     u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
-
-        #         tmp_lower_right[leftright, i, j1, j2, k] += forward_upper[j1, j1j1] *
-        #                                                     (u[i, idx1, idx2, idx3, large_element] * (2 - large_side) +
-        #                                                      u[i, idx4, idx5, idx6, large_element] * (large_side - 1))
-        #     end
-        # end
     end
 
     return nothing
@@ -1704,80 +1674,6 @@ function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lowe
             end
         end
     end
-
-    return nothing
-end
-
-# Pack kernels for prolonging solution to mortars
-function cuda_prolong2mortars!(u, mesh::TreeMesh{3}, cache_mortars::True, dg::DGSEM, cache)
-    neighbor_ids = cache.mortars.neighbor_ids
-    large_sides = cache.mortars.large_sides
-    orientations = cache.mortars.orientations
-
-    # The original CPU arrays hold NaNs
-    u_upper_left = cache.mortars.u_upper_left
-    u_upper_right = cache.mortars.u_upper_right
-    u_lower_left = cache.mortars.u_lower_left
-    u_lower_right = cache.mortars.u_lower_right
-    forward_upper = dg.mortar.forward_upper
-    forward_lower = dg.mortar.forward_lower
-
-    prolong_mortars_small2small_kernel = @cuda launch=false prolong_mortars_small2small_kernel!(u_upper_left,
-                                                                                                u_upper_right,
-                                                                                                u_lower_left,
-                                                                                                u_lower_right,
-                                                                                                u,
-                                                                                                neighbor_ids,
-                                                                                                large_sides,
-                                                                                                orientations)
-    prolong_mortars_small2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right, u,
-                                       neighbor_ids, large_sides, orientations;
-                                       kernel_configurator_3d(prolong_mortars_small2small_kernel,
-                                                              size(u_upper_left, 2),
-                                                              size(u_upper_left, 3)^2,
-                                                              size(u_upper_left, 5))...)
-
-    tmp_upper_left = zero(similar(u_upper_left)) # undef to zero
-    tmp_upper_right = zero(similar(u_upper_right)) # undef to zero
-    tmp_lower_left = zero(similar(u_lower_left)) # undef to zero
-    tmp_lower_right = zero(similar(u_lower_right)) # undef to zero
-
-    prolong_mortars_large2small_kernel = @cuda launch=false prolong_mortars_large2small_kernel!(tmp_upper_left,
-                                                                                                tmp_upper_right,
-                                                                                                tmp_lower_left,
-                                                                                                tmp_lower_right,
-                                                                                                u,
-                                                                                                forward_upper,
-                                                                                                forward_lower,
-                                                                                                neighbor_ids,
-                                                                                                large_sides,
-                                                                                                orientations)
-    prolong_mortars_large2small_kernel(tmp_upper_left, tmp_upper_right, tmp_lower_left,
-                                       tmp_lower_right, u, forward_upper, forward_lower,
-                                       neighbor_ids, large_sides, orientations;
-                                       kernel_configurator_3d(prolong_mortars_large2small_kernel,
-                                                              size(u_upper_left, 2),
-                                                              size(u_upper_left, 3)^2,
-                                                              size(u_upper_left, 5))...)
-
-    prolong_mortars_large2small_kernel = @cuda launch=false prolong_mortars_large2small_kernel!(u_upper_left,
-                                                                                                u_upper_right,
-                                                                                                u_lower_left,
-                                                                                                u_lower_right,
-                                                                                                tmp_upper_left,
-                                                                                                tmp_upper_right,
-                                                                                                tmp_lower_left,
-                                                                                                tmp_lower_right,
-                                                                                                forward_upper,
-                                                                                                forward_lower,
-                                                                                                large_sides)
-    prolong_mortars_large2small_kernel(u_upper_left, u_upper_right, u_lower_left, u_lower_right,
-                                       tmp_upper_left, tmp_upper_right, tmp_lower_left,
-                                       tmp_lower_right, forward_upper, forward_lower, large_sides;
-                                       kernel_configurator_3d(prolong_mortars_large2small_kernel,
-                                                              size(u_upper_left, 2),
-                                                              size(u_upper_left, 3)^2,
-                                                              size(u_upper_left, 5))...)
 
     return nothing
 end

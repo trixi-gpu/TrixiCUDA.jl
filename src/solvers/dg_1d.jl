@@ -424,7 +424,7 @@ end
 # Pack kernels for calculating boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTuple,
                              nonconservative_terms::True, equations, dg::DGSEM, cache)
-    # Contain both symmetric and nonconservative fluxes
+    # Contain both conservative and nonconservative fluxes
     surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = cache.boundaries.n_boundaries_per_direction

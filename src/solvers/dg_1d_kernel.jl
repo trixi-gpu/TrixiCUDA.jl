@@ -836,7 +836,7 @@ end
 function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                                indices_arr, neighbor_ids, neighbor_sides, orientations,
                                boundary_conditions::NamedTuple, equations::AbstractEquations{1},
-                               surface_flux::Any, nonconservative_flux::Any)
+                               surface_flux::Any, nonconservative_terms::True)
     k = (blockIdx().x - 1) * blockDim().x + threadIdx().x
 
     if (k <= length(boundary_arr))
@@ -855,15 +855,11 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
 
         # TODO: Improve this part
         if direction == 1
-            flux_node = boundary_conditions[1](u_inner, orientation, direction, x, t, surface_flux,
-                                               equations)
-            noncons_flux_node = boundary_conditions[1](u_inner, orientation, direction, x, t,
-                                                       nonconservative_flux, equations)
+            flux_node, noncons_flux_node = boundary_conditions[1](u_inner, orientation, direction,
+                                                                  x, t, surface_flux, equations)
         else
-            flux_node = boundary_conditions[2](u_inner, orientation, direction, x, t, surface_flux,
-                                               equations)
-            noncons_flux_node = boundary_conditions[2](u_inner, orientation, direction, x, t,
-                                                       nonconservative_flux, equations)
+            flux_node, noncons_flux_node = boundary_conditions[2](u_inner, orientation, direction,
+                                                                  x, t, surface_flux, equations)
         end
 
         for ii in axes(surface_flux_values, 1)

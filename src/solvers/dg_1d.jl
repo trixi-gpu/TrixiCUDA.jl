@@ -424,7 +424,8 @@ end
 # Pack kernels for calculating boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTuple,
                              nonconservative_terms::True, equations, dg::DGSEM, cache)
-    surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
+    # Contain both conservative and nonconservative fluxes
+    surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = cache.boundaries.n_boundaries_per_direction
     neighbor_ids = cache.boundaries.neighbor_ids
@@ -456,11 +457,11 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
                                                                     boundary_conditions_callable,
                                                                     equations,
                                                                     surface_flux,
-                                                                    nonconservative_flux)
+                                                                    nonconservative_terms)
     boundary_flux_kernel(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                          indices_arr, neighbor_ids, neighbor_sides, orientations,
                          boundary_conditions_callable, equations, surface_flux,
-                         nonconservative_flux;
+                         nonconservative_terms;
                          kernel_configurator_1d(boundary_flux_kernel, length(boundary_arr))...)
 
     return nothing

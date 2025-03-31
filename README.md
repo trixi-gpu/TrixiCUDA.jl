@@ -134,5 +134,8 @@ Please also try the examples in the tests directory, as they are always the most
 Please refer to the benchmark directory to conduct your own benchmarking based on different PDE examples. The official benchmarking report for the semidiscretization process will be released in the future.
 
 
-# Show Your Support
-We always welcome new contributors to join us in future development. Please feel free to reach out if you would like to get involved!
+# Join Our Slack Group
+
+[Join Our Slack Group](https://trixi-framework.slack.com/archives/C056B6F4V47)
+
+If you run into any issues or have questions, join our Slack channel [Trixi framework #gpu](https://trixi-framework.slack.com/archives/C056B6F4V47) for support and discussion. Connect with developers and users to troubleshoot problems, share ideas, and collaborate on improvements.

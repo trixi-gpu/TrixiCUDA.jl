@@ -11,6 +11,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Typo and Spelling Check
-        uses: crate-ci/typos@v1.30.0
+        uses: crate-ci/typos@v1.31.1
         with:
           config: .typos.toml # Specify the custom configuration file

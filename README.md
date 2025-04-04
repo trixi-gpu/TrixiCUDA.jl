@@ -130,8 +130,10 @@ summary_callback()
 ```
 Please also try the examples in the tests directory, as they are always the most up-to-date.
 
+
 # Benchmarks
-Please refer to the benchmark directory to conduct your own benchmarking based on different PDE examples. The official benchmarking report for the semidiscretization process will be released in the future.
+
+Right now, overall performance is primarily held back by two scalar indexing issues (see [issue #113](https://github.com/trixi-gpu/TrixiCUDA.jl/issues/113) and [issue #118](https://github.com/trixi-gpu/TrixiCUDA.jl/issues/118) for details). Please refer to the benchmark directory to conduct your own benchmarking based on different PDE examples. The official benchmarking report for the semidiscretization process will be released in the future.
 
 
 # Join Our Slack Group

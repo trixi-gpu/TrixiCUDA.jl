@@ -1,7 +1,7 @@
 # The `wrap_array` function in Trixi.jl is not compatible with GPU arrays,
 # so here we adapt `wrap_array` to work with GPU arrays.
-@inline function wrap_array(u_ode::CuArray{T, 1}, mesh::AbstractMesh, equations,
-                            dg::DGSEM, cache) where {T}
+@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+                            dg::DGSEM, cache)
     # TODO: Assert array length before calling `reshape`
     u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
                     nelements(cache.elements))
@@ -9,13 +9,13 @@
     return u_ode
 end
 
-@inline function wrap_array(u_ode::CuArray{T, 1}, mesh::AbstractMesh, equations,
-                            dg::FDSBP, cache) where {T}
+@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+                            dg::FDSBP, cache)
     @error("TrixiCUDA.jl does not support FDSBP yet.")
 end
 
-@inline function wrap_array(u_ode::CuArray{T, 1}, mesh::AbstractMesh, equations,
-                            dg::DG, cache) where {T}
+@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+                            dg::DG, cache)
     wrap_array_native(u_ode, mesh, equations, dg, cache)
     return u_ode
 end

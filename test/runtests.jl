@@ -24,6 +24,9 @@ CUDA.allowscalar(true)
         @info "Completed $dim DGSEM tree tests"
     end
 
+    @info "Starting TrixiCUDA quality test..."
+    include("./quality_test.jl")
+
     # For debugging 
     # include("../test.jl")
 

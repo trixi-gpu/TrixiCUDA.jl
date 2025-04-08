@@ -62,7 +62,7 @@ export semidiscretizeGPU
 # Get called every time the package is loaded
 function __init__()
 
-    # Initialize the device properties
+    # Initialize the device
     init_device()
 end
 

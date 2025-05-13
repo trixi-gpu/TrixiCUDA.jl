@@ -9,10 +9,10 @@
     return u_ode
 end
 
-# @inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
-#                             dg::FDSBP, cache)
-#     @error("TrixiCUDA.jl does not support FDSBP yet.")
-# end
+@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+                            dg::FDSBP, cache)
+    @error("TrixiCUDA.jl does not support FDSBP yet.")
+end
 
 @inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
                             dg::DG, cache)

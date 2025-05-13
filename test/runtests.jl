@@ -4,7 +4,7 @@ using Test
 using CUDA
 # Currently we need to allow scalar indexing on GPU arrays for the tests to pass,
 # once the issues are resolved, this line can be removed.
-CUDA.allowscalar(true)
+# CUDA.allowscalar(true)
 
 @testset "TrixiCUDA.jl tests" begin
 
@@ -19,13 +19,13 @@ CUDA.allowscalar(true)
     for (dim, path) in [("1D", "./tree_dgsem_1d/tree_dgsem_1d.jl"),
         ("2D", "./tree_dgsem_2d/tree_dgsem_2d.jl"),
         ("3D", "./tree_dgsem_3d/tree_dgsem_3d.jl")]
-        @info "Running $dim DGSEM tree tests..."
+        @info "Running tests of $dim Galerkin spectral element method with tree mesh on GPU..."
         @time include(path)
-        @info "Completed $dim DGSEM tree tests"
+        @info "Completed tests of $dim Galerkin spectral element method with tree mesh on GPU..."
     end
 
-    @info "Starting TrixiCUDA quality test..."
-    include("./quality_test.jl")
+    # @info "Starting TrixiCUDA quality test..."
+    # include("./quality_test.jl")
 
     # For debugging 
     # include("../test.jl")

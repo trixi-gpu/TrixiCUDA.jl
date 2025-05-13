@@ -22,9 +22,6 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DG, RealT, uEltype)
 
     boundaries = init_boundaries(leaf_cell_ids, mesh, elements)
 
-    # CPU cache
-    cache_cpu = (; elements, interfaces, boundaries)
-
     # Copy cache components from CPU to GPU
     elements = copy_elements(elements)
     interfaces = copy_interfaces(interfaces)
@@ -72,9 +69,6 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
     boundaries = init_boundaries(leaf_cell_ids, mesh, elements)
 
     mortars = init_mortars(leaf_cell_ids, mesh, elements, dg.mortar)
-
-    # CPU cache
-    cache_cpu = (; elements, interfaces, boundaries, mortars)
 
     # Copy cache components from CPU to GPU
     elements = copy_elements(elements)
@@ -145,9 +139,6 @@ function create_cache_gpu(mesh::TreeMesh{3}, equations,
     boundaries = init_boundaries(leaf_cell_ids, mesh, elements)
 
     mortars = init_mortars(leaf_cell_ids, mesh, elements, dg.mortar)
-
-    # CPU cache
-    cache_cpu = (; elements, interfaces, boundaries, mortars)
 
     # Copy cache components from CPU to GPU
     elements = copy_elements(elements)

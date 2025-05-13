@@ -15,7 +15,7 @@ include("dg_1d_kernel.jl")
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
-                               equations, volume_integral::VolumeIntegralWeakForm, dg::DGSEM,
+                               equations, volume_integral::VolumeIntegralWeakForm, dg::DG,
                                cache_gpu, cache_cpu)
     RealT = eltype(du)
 
@@ -50,7 +50,7 @@ end
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False,
                                equations, volume_integral::VolumeIntegralFluxDifferencing,
-                               dg::DGSEM, cache_gpu, cache_cpu)
+                               dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
@@ -87,7 +87,7 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM,
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
                                cache_gpu, cache_cpu)
     RealT = eltype(du)
 
@@ -134,7 +134,7 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM,
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
                                cache_gpu, cache_cpu)
     RealT = eltype(du)
 
@@ -195,7 +195,7 @@ end
 
 # Pack kernels for calculating volume integrals
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralShockCapturingHG, dg::DGSEM,
+                               volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
                                cache_gpu, cache_cpu)
     RealT = eltype(du)
 
@@ -280,7 +280,7 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, equations, cache)
 end
 
 # Pack kernels for calculating interface fluxes
-function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, equations, dg::DGSEM,
+function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, equations, dg::DG,
                               cache)
     RealT = eltype(cache.elements)
 
@@ -308,7 +308,7 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
 end
 
 # Pack kernels for calculating interface fluxes
-function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, equations, dg::DGSEM,
+function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, equations, dg::DG,
                               cache)
     RealT = eltype(cache.elements)
 
@@ -374,13 +374,13 @@ end
 
 # Dummy function for asserting boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_condition::BoundaryConditionPeriodic,
-                             nonconservative_terms, equations, dg::DGSEM, cache)
+                             nonconservative_terms, equations, dg::DG, cache)
     @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Pack kernels for calculating boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTuple,
-                             nonconservative_terms::False, equations, dg::DGSEM, cache)
+                             nonconservative_terms::False, equations, dg::DG, cache)
     surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = cache.boundaries.n_boundaries_per_direction
@@ -423,7 +423,7 @@ end
 
 # Pack kernels for calculating boundary fluxes
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTuple,
-                             nonconservative_terms::True, equations, dg::DGSEM, cache)
+                             nonconservative_terms::True, equations, dg::DG, cache)
     # Contain both conservative and nonconservative fluxes
     surface_flux = dg.surface_integral.surface_flux
 
@@ -468,7 +468,7 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTup
 end
 
 # Pack kernels for calculating surface integrals
-function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DGSEM, cache)
+function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DG, cache)
     factor_arr = CuArray([
                              dg.basis.boundary_interpolation[1, 1],
                              dg.basis.boundary_interpolation[size(du, 2), 2]
@@ -516,7 +516,7 @@ end
 
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions,
-                  source_terms::Source, dg::DGSEM, cache_gpu, cache_cpu) where {Source}
+                  source_terms::Source, dg::DG, cache_gpu, cache_cpu) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 
     # removing the need for a separate function call.

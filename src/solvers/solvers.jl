@@ -4,11 +4,12 @@ include("common.jl")
 include("containers_1d.jl")
 include("containers_2d.jl")
 include("containers_3d.jl")
+include("indicators.jl")
 include("dg_1d.jl")
 include("dg_2d.jl")
 include("dg_3d.jl")
+include("dgsem_gpu.jl")
 include("dg.jl")
-include("dgsem.jl")
 
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)

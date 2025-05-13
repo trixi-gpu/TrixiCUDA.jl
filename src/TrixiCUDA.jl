@@ -9,22 +9,23 @@ using CUDA: @cuda, CuArray, HostKernel,
 
 # Trixi.jl methods
 using Trixi: allocate_coefficients, compute_coefficients, create_cache,
-             flux, ntuple, nnodes, nvariables, ndofs,
-             local_leaf_cells, init_elements, init_interfaces, init_boundaries, init_mortars,
+             flux, ntuple, nvariables, ndofs,
+             local_leaf_cells,
+             init_elements, init_interfaces, init_boundaries, init_mortars,
              have_nonconservative_terms, boundary_condition_periodic,
              digest_boundary_conditions, check_periodicity_mesh_boundary_conditions,
              gauss_lobatto_nodes_weights, vandermonde_legendre,
-             calc_dsplit, calc_dhat, calc_lhat, polynomial_derivative_matrix,
+             calc_dsplit, calc_dhat, calc_lhat,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
-             calc_error_norms,
+             polynomial_derivative_matrix,
              set_log_type!, set_sqrt_type!,
              summary_header, summary_line, summary_footer, increment_indent # IO functions
 
 # Trixi.jl structs
 using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidiscretization,
-             AbstractSurfaceIntegral, PerformanceCounter,
-             True, False, TreeMesh, StructuredMesh,
-             DG, DGSEM, FDSBP, SemidiscretizationHyperbolic,
+             AbstractSurfaceIntegral, AbstractBasisSBP,
+             PerformanceCounter, True, False, TreeMesh, StructuredMesh,
+             DG, FDSBP, SemidiscretizationHyperbolic,
              LobattoLegendreBasis, LobattoLegendreMortarL2,
              ElementContainer1D, ElementContainer2D, ElementContainer3D,
              InterfaceContainer1D, InterfaceContainer2D, InterfaceContainer3D,
@@ -34,9 +35,16 @@ using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidis
              BoundaryConditionPeriodic, UnstructuredSortedBoundaryTypes,
              VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG
 
-import Trixi: get_node_vars, get_node_coords, get_surface_node_vars,
-              nelements, ninterfaces, nmortars, wrap_array, wrap_array_native,
-              calc_error_norms,
+# Trixi.jl indicators (since it is temporarily used to make tests pass,
+# we separate it from the above)
+using Trixi: IndicatorHennemannGassner,
+             eachelement, calc_indicator_hennemann_gassner!, apply_smoothing!
+
+# Trixi.jl imports
+import Trixi: get_nodes, get_node_vars, get_node_coords, get_surface_node_vars,
+              nnodes, nelements, ninterfaces, nmortars,
+              eachnode, integrate,
+              wrap_array, wrap_array_native, calc_error_norms,
               mesh_equations_solver_cache
 
 using SciMLBase: ODEProblem, FullSpecialize

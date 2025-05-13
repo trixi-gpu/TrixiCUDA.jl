@@ -1,25 +1,3 @@
-# The `wrap_array` function in Trixi.jl is not compatible with GPU arrays,
-# so here we adapt `wrap_array` to work with GPU arrays.
-@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
-                            dg::DGSEM, cache)
-    # TODO: Assert array length before calling `reshape`
-    u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
-                    nelements(cache.elements))
-
-    return u_ode
-end
-
-@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
-                            dg::FDSBP, cache)
-    @error("TrixiCUDA.jl does not support FDSBP yet.")
-end
-
-@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
-                            dg::DG, cache)
-    wrap_array_native(u_ode, mesh, equations, dg, cache)
-    return u_ode
-end
-
 # The `wrap_array_native` function in Trixi.jl is not compatible with GPU arrays,
 # so here we adapt `wrap_array_native` to work with GPU arrays.
 @inline function wrap_array_native(u_ode::CuArray, mesh::AbstractMesh, equations,
@@ -30,6 +8,27 @@ end
 
     return u_ode
 end
+
+# @inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+#                             dg::FDSBP, cache)
+#     @error("TrixiCUDA.jl does not support FDSBP yet.")
+# end
+
+@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+                            dg::DG, cache)
+    wrap_array_native(u_ode, mesh, equations, dg, cache)
+    return u_ode
+end
+
+# Deprecated since `DGSEMGPU` degrades to `DG` type
+# @inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+#                             dg::DGSEM, cache)
+#     # TODO: Assert array length before calling `reshape`
+#     u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
+#                     nelements(cache.elements))
+
+#     return u_ode
+# end
 
 # Do we really need to compute the coefficients on the GPU, and do we need to
 # initialize `du` and `u` with a 1D shape, as Trixi.jl does?
@@ -108,7 +107,7 @@ function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
 end
 
 # Call kernels to compute the coefficients for 1D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, dg::DGSEM, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, dg::DG, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
@@ -123,7 +122,7 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, 
 end
 
 # Call kernels to compute the coefficients for 2D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, dg::DGSEM, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, dg::DG, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
@@ -138,7 +137,7 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, 
 end
 
 # Call kernels to compute the coefficients for 2D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DGSEM, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DG, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,

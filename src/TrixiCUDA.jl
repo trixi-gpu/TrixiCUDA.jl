@@ -47,8 +47,9 @@ import Trixi: get_nodes, get_node_vars, get_node_coords, get_surface_node_vars,
               nnodes, nelements, ninterfaces, nmortars,
               polydeg, eachnode, integrate,
               wrap_array, wrap_array_native, calc_error_norms,
-              mesh_equations_solver_cache,
-              integrate_via_indices, SolutionAnalyzer
+              create_cache, mesh_equations_solver_cache,
+              integrate_via_indices,
+              SolutionAnalyzer
 
 using SciMLBase: ODEProblem, FullSpecialize
 

@@ -15,10 +15,11 @@ using Trixi: allocate_coefficients, compute_coefficients, create_cache,
              have_nonconservative_terms, boundary_condition_periodic,
              digest_boundary_conditions, check_periodicity_mesh_boundary_conditions,
              gauss_lobatto_nodes_weights, vandermonde_legendre,
+             polynomial_interpolation_matrix, volume_jacobian, total_volume,
              calc_dsplit, calc_dhat, calc_lhat,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
              polynomial_derivative_matrix,
-             set_log_type!, set_sqrt_type!,
+             set_log_type!, set_sqrt_type!, multiply_dimensionwise!,
              summary_header, summary_line, summary_footer, increment_indent # IO functions
 
 # Trixi.jl structs
@@ -33,7 +34,8 @@ using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidis
              L2MortarContainer2D, L2MortarContainer3D,
              SurfaceIntegralWeakForm, VolumeIntegralWeakForm,
              BoundaryConditionPeriodic, UnstructuredSortedBoundaryTypes,
-             VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG
+             VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG,
+             LobattoLegendreAnalyzer
 
 # Trixi.jl indicators (since it is temporarily used to make tests pass,
 # we separate it from the above)
@@ -43,9 +45,11 @@ using Trixi: IndicatorHennemannGassner,
 # Trixi.jl imports
 import Trixi: get_nodes, get_node_vars, get_node_coords, get_surface_node_vars,
               nnodes, nelements, ninterfaces, nmortars,
-              eachnode, integrate,
+              polydeg, eachnode, integrate,
               wrap_array, wrap_array_native, calc_error_norms,
-              mesh_equations_solver_cache
+              create_cache, mesh_equations_solver_cache,
+              integrate_via_indices,
+              SolutionAnalyzer
 
 using SciMLBase: ODEProblem, FullSpecialize
 
@@ -60,6 +64,7 @@ set_sqrt_type!("sqrt_Base")
 include("auxiliary/auxiliary.jl")
 include("semidiscretization/semidiscretization.jl")
 include("solvers/solvers.jl")
+include("callbacks_step/callbacks_step.jl")
 
 # Export the public APIs
 export LobattoLegendreBasisGPU

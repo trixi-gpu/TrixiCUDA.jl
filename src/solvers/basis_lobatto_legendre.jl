@@ -99,6 +99,26 @@ end
 
 @inline eachnode(basis::LobattoLegendreBasisGPU) = Base.OneTo(nnodes(basis))
 
+@inline polydeg(basis::LobattoLegendreBasisGPU) = nnodes(basis) - 1
+
+function SolutionAnalyzer(basis::LobattoLegendreBasisGPU;
+                          analysis_polydeg = 2 * polydeg(basis))
+    RealT = real(basis)
+    nnodes_ = analysis_polydeg + 1
+
+    nodes_, weights_ = gauss_lobatto_nodes_weights(nnodes_, RealT)
+    vandermonde = polynomial_interpolation_matrix(get_nodes(basis), nodes_)
+
+    # Type conversions to enable possible optimizations of runtime performance 
+    # and latency
+    nodes = SVector{nnodes_, RealT}(nodes_)
+    weights = SVector{nnodes_, RealT}(weights_)
+
+    return LobattoLegendreAnalyzer{RealT, nnodes_, typeof(nodes), typeof(vandermonde)}(nodes,
+                                                                                       weights,
+                                                                                       vandermonde)
+end
+
 # CPU version of LobattoLegendreMortarL2 from Trixi.jl (for reference)
 # struct LobattoLegendreMortarL2{RealT <: Real, NNODES,
 #                                ForwardMatrix <: AbstractMatrix{RealT},

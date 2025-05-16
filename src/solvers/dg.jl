@@ -1,4 +1,4 @@
-# Adapt a general polynomial degree funtion since `DGSEMGPU` gives a `DG` type
+# Adapt a general polynomial degree function since `DGSEMGPU` gives a `DG` type
 @inline polydeg(dg::DG) = polydeg(dg.basis)
 
 # The `wrap_array_native` function in Trixi.jl is not compatible with GPU arrays,

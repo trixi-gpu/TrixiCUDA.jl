@@ -1,4 +1,5 @@
 # Currently hold cache for indicators on CPU
+# Note that this should be optimized on GPU in the future.
 function create_cache(::Type{IndicatorHennemannGassner},
                       equations::AbstractEquations{1}, basis::LobattoLegendreBasisGPU)
     alpha = Vector{real(basis)}()

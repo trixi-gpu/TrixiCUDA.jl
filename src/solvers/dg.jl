@@ -1,3 +1,6 @@
+# Adapt a general polynomial degree function since `DGSEMGPU` gives a `DG` type
+@inline polydeg(dg::DG) = polydeg(dg.basis)
+
 # The `wrap_array_native` function in Trixi.jl is not compatible with GPU arrays,
 # so here we adapt `wrap_array_native` to work with GPU arrays.
 @inline function wrap_array_native(u_ode::CuArray, mesh::AbstractMesh, equations,

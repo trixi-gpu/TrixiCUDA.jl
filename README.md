@@ -80,6 +80,7 @@ using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
 using CUDA
+CUDA.allowscalar(true)
 
 ###############################################################################
 # semidiscretization of the linear advection equation

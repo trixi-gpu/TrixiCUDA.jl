@@ -2,7 +2,6 @@
 using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
-# Currently skip the issue of scalar indexing
 using CUDA
 CUDA.allowscalar(true)
 

@@ -1,7 +1,6 @@
 using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
-# Currently skip the issue of scalar indexing
 using CUDA
 CUDA.allowscalar(true)
 
@@ -49,12 +48,13 @@ save_solution = SaveSolutionCallback(interval = 100,
 
 stepsize_callback = StepsizeCallback(cfl = 0.8)
 
-time_series = TimeSeriesCallback(semi, [0.0, 0.33, 1.0], interval = 10)
+# Disable the time series callback for now
+# time_series = TimeSeriesCallback(semi, [0.0, 0.33, 1.0], interval = 10)
 
 callbacks = CallbackSet(summary_callback,
                         analysis_callback, alive_callback,
                         save_solution,
-                        time_series,
+                        # time_series, # disable time series callback
                         stepsize_callback)
 
 ###############################################################################

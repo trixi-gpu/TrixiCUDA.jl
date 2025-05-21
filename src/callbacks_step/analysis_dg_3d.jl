@@ -34,6 +34,7 @@ function calc_error_norms(func, u, t, analyzer,
     # Move GPU arrays to CPU
     # Note: This should be optimized to avoid data transfer overhead in the future. 
     # For example, the following steps can be done on GPU.
+    # See https://github.com/trixi-gpu/TrixiCUDA.jl/pull/155 for more details.
     node_coordinates = Array(node_coordinates)
 
     # Set up data structures

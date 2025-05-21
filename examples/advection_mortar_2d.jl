@@ -1,6 +1,9 @@
 using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
+using CUDA
+CUDA.allowscalar(true)
+
 # The example is taken from the Trixi.jl 
 
 ###############################################################################

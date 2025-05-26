@@ -19,7 +19,8 @@ using Trixi: allocate_coefficients, compute_coefficients, create_cache,
              calc_dsplit, calc_dhat, calc_lhat,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
              polynomial_derivative_matrix,
-             set_log_type!, set_sqrt_type!, multiply_dimensionwise!,
+             multiply_dimensionwise!,
+             set_log_type!, set_sqrt_type!, set_loop_vectorization!,
              summary_header, summary_line, summary_footer, increment_indent # IO functions
 
 # Trixi.jl structs
@@ -55,10 +56,11 @@ using SciMLBase: ODEProblem, FullSpecialize
 
 using StaticArrays: SVector
 
-# Change to use the Base.log and Base.sqrt 
+# Change to use the Base.log and Base.sqrt and disable loop vectorization
 # FIXME: Need to be fixed to avoid precompilation outputs
 set_log_type!("log_Base")
 set_sqrt_type!("sqrt_Base")
+set_loop_vectorization!(false)
 
 # Include other source files
 include("auxiliary/auxiliary.jl")

@@ -79,6 +79,7 @@ Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the 
 using Trixi, TrixiCUDA
 using OrdinaryDiffEq
 
+# See issue https://github.com/trixi-gpu/TrixiCUDA.jl/issues/156
 using CUDA
 CUDA.allowscalar(true)
 

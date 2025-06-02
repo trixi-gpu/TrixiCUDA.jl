@@ -1,30 +1,35 @@
-# Some helper functions and function extensions that are invoked by GPU 
-# kernels, mainly to ensure the functions themselves or other functions 
-# remain stable on the GPU.
+# Some helper functions and function extensions that are invoked by GPU kernels, mainly 
+# to ensure the functions themselves or other functions remain stable on the GPU.
 
-# See also `get_node_vars(u, equations, solver::DG, indices...)` in Trixi.jl
-# `DG` type is not stable on GPU
+# Similar to `get_node_vars(u, equations, solver::DG, indices...)` in Trixi.jl, but we 
+# avoid using `solver::DG` as it is not stable on GPU.
+# Note that it also serves a way to allocate array per thread in GPU kernels.
 @inline function get_node_vars(u, equations, indices...)
-    return SVector(ntuple(@inline(v->u[v, indices...]),
-                          Val(nvariables(equations))))
+    return SVector(ntuple(@inline(v->u[v, indices...]), Val(nvariables(equations))))
 end
 
-# See also `get_node_coords(x, equations, solver::DG, indices...)` in Trixi.jl
-# `DG` type is not stable on GPU
+# Similar to `get_node_coords(x, equations, solver::DG, indices...)` in Trixi.jl, but we
+# avoid using `solver::DG` as it is not stable on GPU.
+# Note that it also serves a way to allocate array per thread in GPU kernels.
 @inline function get_node_coords(x, equations, indices...)
-    return SVector(ntuple(@inline(idx->x[idx, indices...]),
-                          Val(ndims(equations))))
+    return SVector(ntuple(@inline(idx->x[idx, indices...]), Val(ndims(equations))))
 end
 
-# See also `get_surface_node_vars(u, equations, solver::DG, indices...)` in Trixi.jl
-# `DG` type is not stable on GPU
+# Similar to `get_surface_node_vars(u, equations, solver::DG, indices...)` in Trixi.jl,
+# but we avoid using `solver::DG` as it is not stable on GPU.
+# Note that it also serves a way to allocate array per thread in GPU kernels.
 @inline function get_surface_node_vars(u, equations, indices...)
-    u_ll = SVector(ntuple(@inline(v->u[1, v, indices...]),
-                          Val(nvariables(equations))))
-    u_rr = SVector(ntuple(@inline(v->u[2, v, indices...]),
-                          Val(nvariables(equations))))
+    u_ll = SVector(ntuple(@inline(v->u[1, v, indices...]), Val(nvariables(equations))))
+    u_rr = SVector(ntuple(@inline(v->u[2, v, indices...]), Val(nvariables(equations))))
 
     return u_ll, u_rr
+end
+
+# Call to get slice of GPU arrays outside of GPU kernels.
+@inline function get_node_vars_view(u, equations, solver::DG, indices...)
+    # This function is used to get a view of the node variables in the solution array `u`
+    # for the given indices. It returns a view of the variables at the specified indices.
+    return @view u[:, indices...]
 end
 
 # Helper function for checking `cache.mortars`

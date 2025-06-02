@@ -9,7 +9,7 @@ function integrate_via_indices(func::Func, u,
     # Use quadrature to numerically integrate over entire domain (origin calls `@batch`)
     # Note: This should be optimized when move to GPU.
     for element in eachelement(dg, cache)
-        volume_jacobian_ = volume_jacobian(element, mesh, cache)
+        volume_jacobian_ = volume_jacobian_temp(element, mesh, cache)
         for i in eachnode(dg)
             integral += volume_jacobian_ * weights[i] *
                         func(u, i, element, equations, dg, args...)
@@ -66,4 +66,14 @@ function calc_error_norms(func, u, t, analyzer,
     l2_error = @. sqrt(l2_error / total_volume_)
 
     return l2_error, linf_error
+end
+
+function integrate(func::Func, u,
+                   mesh::TreeMesh{1},
+                   equations, dg::DG, cache; normalize = true) where {Func}
+    integrate_via_indices(u, mesh, equations, dg, cache;
+                          normalize = normalize) do u, i, element, equations, dg
+        u_local = get_node_vars_view(u, equations, dg, i, element)
+        return func(u_local, equations)
+    end
 end

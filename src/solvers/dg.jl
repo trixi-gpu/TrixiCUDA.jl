@@ -33,6 +33,12 @@ end
 #     return u_ode
 # end
 
+function volume_jacobian_temp(element, mesh::TreeMesh, cache)
+    # Note: This should be replace by a GPU kernel to avoid data transfer overhead in the future.
+    inverse_jacobian = Array(cache.elements.inverse_jacobian)
+    return inv(inverse_jacobian[element])^ndims(mesh)
+end
+
 # Do we really need to compute the coefficients on the GPU, and do we need to
 # initialize `du` and `u` with a 1D shape, as Trixi.jl does?
 # Note that the above questions also relate to whether using `wrap_array` and `wrap_array_native`.

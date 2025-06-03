@@ -145,7 +145,7 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, 
     return u
 end
 
-# Call kernels to compute the coefficients for 2D problems
+# Call kernels to compute the coefficients for 3D problems
 function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DG, cache)
     node_coordinates = cache.elements.node_coordinates
 

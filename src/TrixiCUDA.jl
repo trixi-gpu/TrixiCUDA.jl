@@ -19,6 +19,7 @@ using Trixi: allocate_coefficients, compute_coefficients, create_cache,
              calc_dsplit, calc_dhat, calc_lhat,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
              polynomial_derivative_matrix,
+             get_tmp_cache,
              multiply_dimensionwise!,
              set_log_type!, set_sqrt_type!, set_loop_vectorization!,
              summary_header, summary_line, summary_footer, increment_indent # IO functions
@@ -28,7 +29,7 @@ using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidis
              AbstractSurfaceIntegral, AbstractBasisSBP,
              PerformanceCounter, True, False, TreeMesh, StructuredMesh,
              DG, FDSBP, SemidiscretizationHyperbolic,
-             LobattoLegendreBasis, LobattoLegendreMortarL2,
+             LobattoLegendreBasis, LobattoLegendreMortarL2, LobattoLegendreAnalyzer,
              ElementContainer1D, ElementContainer2D, ElementContainer3D,
              InterfaceContainer1D, InterfaceContainer2D, InterfaceContainer3D,
              BoundaryContainer1D, BoundaryContainer2D, BoundaryContainer3D,
@@ -36,7 +37,7 @@ using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidis
              SurfaceIntegralWeakForm, VolumeIntegralWeakForm,
              BoundaryConditionPeriodic, UnstructuredSortedBoundaryTypes,
              VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG,
-             LobattoLegendreAnalyzer
+             DiscreteCallback, AnalysisCallback # callbacks
 
 # Trixi.jl indicators (since it is temporarily used to make tests pass,
 # we separate it from the above)
@@ -50,6 +51,7 @@ import Trixi: get_nodes, get_node_vars, get_node_coords, get_surface_node_vars,
               wrap_array, wrap_array_native, calc_error_norms,
               create_cache, mesh_equations_solver_cache,
               integrate_via_indices,
+              initialize!,
               SolutionAnalyzer
 
 using SciMLBase: ODEProblem, FullSpecialize

@@ -1,14 +1,20 @@
 # Adapt a general polynomial degree function since `DGSEMGPU` gives a `DG` type
 @inline polydeg(dg::DG) = polydeg(dg.basis)
 
-# The `wrap_array_native` function in Trixi.jl is not compatible with GPU arrays,
-# so here we adapt `wrap_array_native` to work with GPU arrays.
+# Do we really need to compute the coefficients on the GPU, and do we need to
+# initialize `du` and `u` with a 1D shape, as Trixi.jl does?
+# Note that it also relates to whether using `wrap_array` and `wrap_array_native`.
+
 @inline function wrap_array_native(u_ode::CuArray, mesh::AbstractMesh, equations,
                                    dg::DG, cache)
-    # TODO: Assert array length before calling `reshape`
     u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
                     nelements(cache.elements))
+    return u_ode
+end
 
+@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+                            dg::DG, cache)
+    u_ode = wrap_array_native(u_ode, mesh, equations, dg, cache)
     return u_ode
 end
 
@@ -17,26 +23,12 @@ end
     @error("TrixiCUDA.jl does not support FDSBP yet.")
 end
 
-@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
-                            dg::DG, cache)
-    wrap_array_native(u_ode, mesh, equations, dg, cache)
-    return u_ode
+# FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+function volume_jacobian_tmp(element, mesh::TreeMesh, cache)
+    inverse_jacobian = Array(cache.elements.inverse_jacobian)
+    return inv(inverse_jacobian[element])^ndims(mesh)
 end
 
-# Deprecated since `DGSEMGPU` degrades to `DG` type
-# @inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
-#                             dg::DGSEM, cache)
-#     # TODO: Assert array length before calling `reshape`
-#     u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
-#                     nelements(cache.elements))
-
-#     return u_ode
-# end
-
-# Do we really need to compute the coefficients on the GPU, and do we need to
-# initialize `du` and `u` with a 1D shape, as Trixi.jl does?
-# Note that the above questions also relate to whether using `wrap_array` and `wrap_array_native`.
-############################################################################## 
 # Kernel for computing the coefficients for 1D problems
 function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
                                       equations::AbstractEquations{1})

@@ -9,7 +9,8 @@ function integrate_via_indices(func::Func, u,
     # Use quadrature to numerically integrate over entire domain (origin calls `@batch`)
     # Note: This should be optimized when move to GPU.
     for element in eachelement(dg, cache)
-        volume_jacobian_ = volume_jacobian(element, mesh, cache)
+        # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+        volume_jacobian_ = volume_jacobian_tmp(element, mesh, cache)
         for i in eachnode(dg)
             integral += volume_jacobian_ * weights[i] *
                         func(u, i, element, equations, dg, args...)
@@ -31,10 +32,7 @@ function calc_error_norms(func, u, t, analyzer,
     (; node_coordinates) = cache.elements
     (; u_local, x_local) = cache_analysis
 
-    # Move GPU arrays to CPU
-    # Note: This should be optimized to avoid data transfer overhead in the future. 
-    # For example, the following steps can be done on GPU.
-    # See https://github.com/trixi-gpu/TrixiCUDA.jl/pull/155 for more details.
+    # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
     node_coordinates = Array(node_coordinates)
 
     # Set up data structures
@@ -49,7 +47,8 @@ function calc_error_norms(func, u, t, analyzer,
                                 view(node_coordinates, :, :, element))
 
         # Calculate errors at each analysis node
-        volume_jacobian_ = volume_jacobian(element, mesh, cache)
+        # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+        volume_jacobian_ = volume_jacobian_tmp(element, mesh, cache)
 
         for i in eachnode(analyzer)
             u_exact = initial_condition(get_node_coords(x_local, equations, dg, i), t,

@@ -18,3 +18,11 @@ function compute_coefficients_gpu(u_ode, func, t, semi::AbstractSemidiscretizati
     u_computed = compute_coefficients_gpu(u, func, t, mesh_equations_solver_cache(semi)...)
     return u_computed
 end
+
+# function integrate(func::Func, u_ode::Array, semi::AbstractSemidiscretization;
+#                    normalize = true) where {Func}
+#     mesh, equations, solver, cache = mesh_equations_solver_cache(semi)
+
+#     # u = wrap_array(u_ode, mesh, equations, solver, cache)
+#     integrate(func, u_ode, mesh, equations, solver, cache, normalize = normalize)
+# end

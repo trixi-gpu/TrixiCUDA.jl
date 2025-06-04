@@ -25,10 +25,8 @@ end
     return u_ll, u_rr
 end
 
-# Call to get slice of GPU arrays outside of GPU kernels.
-@inline function get_node_vars_view(u, equations, solver::DG, indices...)
-    # This function is used to get a view of the node variables in the solution array `u`
-    # for the given indices. It returns a view of the variables at the specified indices.
+# To be used outside GPU kernels, accepts only GPU arrays
+@inline function get_node_vars_view(u::CuArray, equations, solver::DG, indices...)
     return @view u[:, indices...]
 end
 

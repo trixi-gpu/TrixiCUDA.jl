@@ -33,8 +33,9 @@ end
 #     return u_ode
 # end
 
+# FIXME: This function is only defined to avoid the scalar indexing issue so
+# this should be optimized to avoid data transfer from GPU to CPU.
 function volume_jacobian_temp(element, mesh::TreeMesh, cache)
-    # Note: This should be replace by a GPU kernel to avoid data transfer overhead in the future.
     inverse_jacobian = Array(cache.elements.inverse_jacobian)
     return inv(inverse_jacobian[element])^ndims(mesh)
 end

@@ -7,8 +7,9 @@ function integrate_via_indices(func::Func, u,
     integral = zero(func(u, 1, 1, equations, dg, args...))
 
     # Use quadrature to numerically integrate over entire domain (origin calls `@batch`)
-    # Note: This should be optimized when move to GPU.
     for element in eachelement(dg, cache)
+        # FIXME: `volume_jacobian` function is not optimized for GPU.
+        # We just simply move data from GPU to CPU to avoid scalar indexing issue.
         volume_jacobian_ = volume_jacobian_temp(element, mesh, cache)
         for i in eachnode(dg)
             integral += volume_jacobian_ * weights[i] *
@@ -21,7 +22,25 @@ function integrate_via_indices(func::Func, u,
         integral = integral / total_volume(mesh)
     end
 
+    # FIXME: We transfer `integral` back to CPU to avoid scalar indexing issue.
+    # This process should be optimized for less data transfer overhead.
+    if integral isa Number
+        integral = [integral]
+    else
+        integral = Array(integral)
+    end
+
     return integral
+end
+
+function integrate(func::Func, u,
+                   mesh::TreeMesh{1},
+                   equations, dg::DG, cache; normalize = true) where {Func}
+    integrate_via_indices(u, mesh, equations, dg, cache;
+                          normalize = normalize) do u, i, element, equations, dg
+        u_local = get_node_vars_view(u, equations, dg, i, element)  # call view to avoid scalar indexing
+        return func(u_local, equations)
+    end
 end
 
 function calc_error_norms(func, u, t, analyzer,
@@ -31,11 +50,11 @@ function calc_error_norms(func, u, t, analyzer,
     (; node_coordinates) = cache.elements
     (; u_local, x_local) = cache_analysis
 
-    # Move GPU arrays to CPU
-    # Note: This should be optimized to avoid data transfer overhead in the future. 
-    # For example, the following steps can be done on GPU.
-    # See https://github.com/trixi-gpu/TrixiCUDA.jl/pull/155 for more details.
+    # FIXME: This data trandsfer part is not optimized since we just simply move data 
+    # from GPU to CPU to avoid scalar indexing issue. The data transfer should be optimized 
+    # for less overhead.
     node_coordinates = Array(node_coordinates)
+    u = Array(u)
 
     # Set up data structures
     l2_error = zero(func(get_node_vars(u, equations, dg, 1, 1), equations))
@@ -49,7 +68,9 @@ function calc_error_norms(func, u, t, analyzer,
                                 view(node_coordinates, :, :, element))
 
         # Calculate errors at each analysis node
-        volume_jacobian_ = volume_jacobian(element, mesh, cache)
+        # FIXME: `volume_jacobian` function is not optimized for GPU.
+        # We just simply move data from GPU to CPU to avoid scalar indexing issue.
+        volume_jacobian_ = volume_jacobian_temp(element, mesh, cache)
 
         for i in eachnode(analyzer)
             u_exact = initial_condition(get_node_coords(x_local, equations, dg, i), t,
@@ -66,14 +87,4 @@ function calc_error_norms(func, u, t, analyzer,
     l2_error = @. sqrt(l2_error / total_volume_)
 
     return l2_error, linf_error
-end
-
-function integrate(func::Func, u,
-                   mesh::TreeMesh{1},
-                   equations, dg::DG, cache; normalize = true) where {Func}
-    integrate_via_indices(u, mesh, equations, dg, cache;
-                          normalize = normalize) do u, i, element, equations, dg
-        u_local = get_node_vars_view(u, equations, dg, i, element)
-        return func(u_local, equations)
-    end
 end

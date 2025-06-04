@@ -7,6 +7,8 @@ using CUDA
 using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, reshape, similar, launch_configuration
 
+using Printf: @printf
+
 # Trixi.jl methods
 using Trixi: allocate_coefficients, compute_coefficients, create_cache,
              flux, ntuple, nvariables, ndofs,
@@ -19,6 +21,7 @@ using Trixi: allocate_coefficients, compute_coefficients, create_cache,
              calc_dsplit, calc_dhat, calc_lhat,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
              polynomial_derivative_matrix,
+             analyze, cons2cons, max_abs_speeds, pretty_form_utf,
              multiply_dimensionwise!,
              set_log_type!, set_sqrt_type!, set_loop_vectorization!,
              summary_header, summary_line, summary_footer, increment_indent # IO functions
@@ -49,15 +52,18 @@ import Trixi: get_nodes, get_node_vars, get_node_coords, get_surface_node_vars,
               polydeg, eachnode, integrate,
               wrap_array, wrap_array_native, calc_error_norms,
               create_cache, mesh_equations_solver_cache,
-              integrate_via_indices,
-              SolutionAnalyzer
+              integrate_via_indices, analyze_integrals, max_dt,
+              SolutionAnalyzer # function
 
 using SciMLBase: ODEProblem, FullSpecialize
 
 using StaticArrays: SVector
 
 # Change to use the Base.log and Base.sqrt and disable loop vectorization
-# FIXME: Need to be fixed to avoid precompilation outputs
+# FIXME: This set preference part has to be fixed to avoid precompilation outputs 
+# ```[ Info: Please restart Julia and reload Trixi.jl for the `log` computation change to take effect
+#    [ Info: Please restart Julia and reload Trixi.jl for the `sqrt` computation change to take effect
+#    [ Info: Please restart Julia and reload Trixi.jl for the `loop_vectorization` change to take effect```
 set_log_type!("log_Base")
 set_sqrt_type!("sqrt_Base")
 set_loop_vectorization!(false)

@@ -1,5 +1,5 @@
 using Trixi, TrixiCUDA
-using OrdinaryDiffEq
+using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
 
 using CUDA
 CUDA.allowscalar(true)
@@ -36,7 +36,7 @@ semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solve
 # ODE solvers, callbacks etc.
 
 tspan = (0.0, 5.0)
-ode = semidiscretizeGPU(semi, tspan) # from TrixiCUDA.jl
+ode = semidiscretizeGPU(semi, tspan)
 
 summary_callback = SummaryCallback()
 
@@ -64,7 +64,6 @@ callbacks = CallbackSet(summary_callback, steady_state_callback,
 ###############################################################################
 # run the simulation
 
-sol = Trixi.solve(ode, Trixi.HypDiffN3Erk3Sstar52(),
-                  dt = 1.0, # solve needs some value here but it will be overwritten by the stepsize_callback
-                  save_everystep = false, callback = callbacks)
-summary_callback() # print the timer summary
+sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
+            dt = 1.0, # solve needs some value here but it will be overwritten by the stepsize_callback
+            ode_default_options()..., callback = callbacks);

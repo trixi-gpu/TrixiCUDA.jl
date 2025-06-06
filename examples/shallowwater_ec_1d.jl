@@ -1,13 +1,7 @@
 using Trixi, TrixiCUDA
-using OrdinaryDiffEq
-
-using CUDA
-CUDA.allowscalar(true)
+using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
 
 # The example is taken from the Trixi.jl
-
-using OrdinaryDiffEq
-using Trixi
 
 ###############################################################################
 # Semidiscretization of the shallow water equations with a discontinuous
@@ -68,7 +62,7 @@ semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solve
 # ODE solver
 
 tspan = (0.0, 2.0)
-ode = semidiscretizeGPU(semi, tspan) # from TrixiCUDA.jl
+ode = semidiscretizeGPU(semi, tspan)
 
 ###############################################################################
 # Callbacks
@@ -92,7 +86,6 @@ callbacks = CallbackSet(summary_callback, analysis_callback, alive_callback, sav
 ###############################################################################
 # run the simulation
 
-sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false),
+sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
             dt = 1.0, # solve needs some value here but it will be overwritten by the stepsize_callback
-            save_everystep = false, callback = callbacks);
-summary_callback() # print the timer summary
+            ode_default_options()..., callback = callbacks);

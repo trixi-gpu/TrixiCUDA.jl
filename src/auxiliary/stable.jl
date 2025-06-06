@@ -25,8 +25,8 @@ end
     return u_ll, u_rr
 end
 
-# To be used outside GPU kernels, accepts only GPU arrays
-@inline function get_node_vars_view(u::CuArray, equations, solver::DG, indices...)
+# To be used outside GPU kernels, accepts both GPU and CPU arrays
+@inline function get_node_vars_view(u::Union{CuArray, Array}, equations, solver::DG, indices...)
     return @view u[:, indices...]
 end
 

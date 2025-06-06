@@ -11,7 +11,7 @@ function analyze_integrals(analysis_integrals::NTuple{N, Any}, io,
     du = Array(du)
     u = Array(u)
 
-    res = analyze(quantity, du, u, t, semi)[1]
+    res = analyze(quantity, du, u, t, semi)[1] # convert vector to scalar
 
     # Note that we default to single process (i.e., no MPI) in GPU computing environment
     @printf(" %-12s:", pretty_form_utf(quantity))
@@ -20,7 +20,17 @@ function analyze_integrals(analysis_integrals::NTuple{N, Any}, io,
 
     println()
 
+    # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+    # Convert back to GPU arrays
+    du = CuArray(du)
+    u = CuArray(u)
+
     # Recursively call this method with the unprocessed integrals
     analyze_integrals(remaining_quantities, io, du, u, t, semi)
     return nothing
+end
+
+# Terminate the type-stable iteration over tuples
+function analyze_integrals(analysis_integrals::Tuple{}, io, du::CuArray, u::CuArray, t, semi)
+    nothing
 end

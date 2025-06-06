@@ -1,3 +1,7 @@
 include("analysis_dg_1d.jl")
 include("analysis_dg_2d.jl")
 include("analysis_dg_3d.jl")
+include("analysis.jl")
+include("stepsize_dg_1d.jl")
+include("stepsize_dg_2d.jl")
+include("stepsize_dg_3d.jl")

@@ -82,11 +82,11 @@ end
 function calc_error_norms(func, u_ode, t, analyzer, semi::SemidiscretizationHyperbolicGPU,
                           cache_analysis)
     # Unpack CPU cache or GPU cache?
-    (; mesh, equations, initial_condition, solver, cache_cpu) = semi
-    u = wrap_array(u_ode, mesh, equations, solver, cache_cpu)
+    (; mesh, equations, initial_condition, solver, cache_gpu) = semi
+    u = wrap_array(u_ode, mesh, equations, solver, cache_gpu)
 
     calc_error_norms(func, u, t, analyzer, mesh, equations, initial_condition, solver,
-                     cache_cpu, cache_analysis)
+                     cache_gpu, cache_analysis)
 end
 
 # Similar to `compute_coefficients` in Trixi.jl but calls GPU kernel

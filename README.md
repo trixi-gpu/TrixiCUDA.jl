@@ -12,14 +12,14 @@ General docs: https://trixi-gpu.github.io
 > [!WARNING]
 > The package may not always be updated with the latest updates in Trixi.jl. Forcing an update of Trixi.jl as a dependency for TrixiCUDA.jl beyond the version bounds specified in Project.toml may cause unexpected errors.
 
+*Update on Jun 6, 2025*:
+- The scalar indexing issue on GPU arrays has been fixed for most common examples, but for more complicated cases you can run them error‐free by doing `using CUDA; CUDA.allowscalar(true)`, and a permanent fix will be available soon.
+
 *Update on Mar 19, 2025*:
 - The issue between the latest version of CUDA.jl and Trixi.jl has been resolved. The package is now compatible with CUDA.jl v5.7.0 and Trixi.jl v0.10 (see [TrixiCUDA.jl PR #141](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/141)).
 
 *Update on Jan 28, 2025*:
 - It is recommended to update your Julia version to 1.10.8 (the latest LTS release) to avoid the issue of circular dependencies during package precompilation, which is present in Julia 1.10.7 (see [issue](https://discourse.julialang.org/t/circular-dependency-warning/123388)).
-
-*Update on Dec 31, 2024*:
-- The kernel optimization starts with the volume integral kernels (see [TrixiCUDA.jl PR #102](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/102)) and will extend to all existing kernels used in the semidiscretization.
 
 [Archived Update](https://trixi-gpu.github.io/update/)
 
@@ -77,11 +77,7 @@ Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the 
 ```julia
 # Take 1D linear advection equation as an example
 using Trixi, TrixiCUDA
-using OrdinaryDiffEq
-
-# See issue https://github.com/trixi-gpu/TrixiCUDA.jl/issues/156
-using CUDA
-CUDA.allowscalar(true)
+using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
 
 ###############################################################################
 # semidiscretization of the linear advection equation
@@ -121,10 +117,9 @@ callbacks = CallbackSet(summary_callback, analysis_callback, save_solution,
 ###############################################################################
 # run the simulation
 
-sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false),
-            dt = 1.0, save_everystep = false, callback = callbacks)
-
-summary_callback()
+sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
+            dt = 1.0,
+            ode_default_options()..., callback = callbacks);
 ```
 Please also try the examples in the tests directory, as they are always the most up-to-date.
 

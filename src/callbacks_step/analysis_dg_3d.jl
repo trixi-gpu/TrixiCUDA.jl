@@ -9,7 +9,8 @@ function integrate_via_indices(func::Func, u,
     # Use quadrature to numerically integrate over entire domain (origin calls `@batch`)
     # Note: This should be optimized when move to GPU.
     for element in eachelement(dg, cache)
-        volume_jacobian_ = volume_jacobian(element, mesh, cache)
+        # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+        volume_jacobian_ = volume_jacobian_tmp(element, mesh, cache)
         for k in eachnode(dg), j in eachnode(dg), i in eachnode(dg)
             integral += volume_jacobian_ * weights[i] * weights[j] * weights[k] *
                         func(u, i, j, k, element, equations, dg, args...)
@@ -21,7 +22,24 @@ function integrate_via_indices(func::Func, u,
         integral = integral / total_volume(mesh)
     end
 
+    # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+    if integral isa Number
+        integral = [integral]
+    else
+        integral = Array(integral)
+    end
+
     return integral
+end
+
+function integrate(func::Func, u,
+                   mesh::TreeMesh{3},
+                   equations, dg::DG, cache; normalize = true) where {Func}
+    integrate_via_indices(u, mesh, equations, dg, cache;
+                          normalize = normalize) do u, i, j, k, element, equations, dg
+        u_local = get_node_vars_view(u, equations, dg, i, j, k, element) # call view to avoid scalar indexing
+        return func(u_local, equations)
+    end
 end
 
 function calc_error_norms(func, u, t, analyzer,
@@ -31,11 +49,9 @@ function calc_error_norms(func, u, t, analyzer,
     (; node_coordinates) = cache.elements
     (; u_local, u_tmp1, u_tmp2, x_local, x_tmp1, x_tmp2) = cache_analysis
 
-    # Move GPU arrays to CPU
-    # Note: This should be optimized to avoid data transfer overhead in the future. 
-    # For example, the following steps can be done on GPU.
-    # See https://github.com/trixi-gpu/TrixiCUDA.jl/pull/155 for more details.
+    # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
     node_coordinates = Array(node_coordinates)
+    u = Array(u)
 
     # Set up data structures
     l2_error = zero(func(get_node_vars(u, equations, dg, 1, 1, 1, 1), equations))
@@ -51,7 +67,8 @@ function calc_error_norms(func, u, t, analyzer,
                                 x_tmp2)
 
         # Calculate errors at each analysis node
-        volume_jacobian_ = volume_jacobian(element, mesh, cache)
+        # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+        volume_jacobian_ = volume_jacobian_tmp(element, mesh, cache)
 
         for k in eachnode(analyzer), j in eachnode(analyzer), i in eachnode(analyzer)
             u_exact = initial_condition(get_node_coords(x_local, equations, dg, i, j,

@@ -1,8 +1,5 @@
 using Trixi, TrixiCUDA
-using OrdinaryDiffEq
-
-using CUDA
-CUDA.allowscalar(true)
+using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
 
 # The example is taken from the Trixi.jl
 
@@ -39,7 +36,7 @@ semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solve
 # ODE solvers, callbacks etc.
 
 tspan = (0.0, 1.0)
-ode = semidiscretizeGPU(semi, tspan) # from TrixiCUDA.jl
+ode = semidiscretizeGPU(semi, tspan)
 
 summary_callback = SummaryCallback()
 
@@ -60,4 +57,3 @@ callbacks = CallbackSet(summary_callback, analysis_callback, alive_callback, sav
 # use a Runge-Kutta method with automatic (error based) time step size control
 sol = solve(ode, RDPK3SpFSAL49(); abstol = 1.0e-8, reltol = 1.0e-8,
             ode_default_options()..., callback = callbacks);
-summary_callback() # print the timer summary

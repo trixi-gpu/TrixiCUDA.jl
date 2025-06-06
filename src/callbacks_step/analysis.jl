@@ -7,8 +7,7 @@ function analyze_integrals(analysis_integrals::NTuple{N, Any}, io,
     quantity = first(analysis_integrals)
     remaining_quantities = Base.tail(analysis_integrals)
 
-    # FIXME: This data transfer part is not optimized since we just simply move data
-    # from GPU to CPU to avoid scalar indexing issue.
+    # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
     du = Array(du)
     u = Array(u)
 

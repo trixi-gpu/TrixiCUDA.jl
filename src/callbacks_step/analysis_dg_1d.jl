@@ -8,9 +8,8 @@ function integrate_via_indices(func::Func, u,
 
     # Use quadrature to numerically integrate over entire domain (origin calls `@batch`)
     for element in eachelement(dg, cache)
-        # FIXME: `volume_jacobian` function is not optimized for GPU.
-        # We just simply move data from GPU to CPU to avoid scalar indexing issue.
-        volume_jacobian_ = volume_jacobian_temp(element, mesh, cache)
+        # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+        volume_jacobian_ = volume_jacobian_tmp(element, mesh, cache)
         for i in eachnode(dg)
             integral += volume_jacobian_ * weights[i] *
                         func(u, i, element, equations, dg, args...)
@@ -22,8 +21,7 @@ function integrate_via_indices(func::Func, u,
         integral = integral / total_volume(mesh)
     end
 
-    # FIXME: We transfer `integral` back to CPU to avoid scalar indexing issue.
-    # This process should be optimized for less data transfer overhead.
+    # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
     if integral isa Number
         integral = [integral]
     else
@@ -50,9 +48,7 @@ function calc_error_norms(func, u, t, analyzer,
     (; node_coordinates) = cache.elements
     (; u_local, x_local) = cache_analysis
 
-    # FIXME: This data trandsfer part is not optimized since we just simply move data 
-    # from GPU to CPU to avoid scalar indexing issue. The data transfer should be optimized 
-    # for less overhead.
+    # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
     node_coordinates = Array(node_coordinates)
     u = Array(u)
 
@@ -68,9 +64,8 @@ function calc_error_norms(func, u, t, analyzer,
                                 view(node_coordinates, :, :, element))
 
         # Calculate errors at each analysis node
-        # FIXME: `volume_jacobian` function is not optimized for GPU.
-        # We just simply move data from GPU to CPU to avoid scalar indexing issue.
-        volume_jacobian_ = volume_jacobian_temp(element, mesh, cache)
+        # FIXME: This is a temporary workaround to avoid the scalar indexing issue.
+        volume_jacobian_ = volume_jacobian_tmp(element, mesh, cache)
 
         for i in eachnode(analyzer)
             u_exact = initial_condition(get_node_coords(x_local, equations, dg, i), t,

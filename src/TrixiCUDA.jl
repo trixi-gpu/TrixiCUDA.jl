@@ -1,13 +1,13 @@
 module TrixiCUDA
 
 # Include other packages that are used in TrixiCUDA.jl
-# using Reexport: @reexport
-
 using CUDA
 using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, reshape, similar, launch_configuration
 
 using Printf: @printf
+using SciMLBase: ODEProblem, FullSpecialize
+using StaticArrays: SVector
 
 # Trixi.jl methods
 using Trixi: allocate_coefficients, compute_coefficients, create_cache,
@@ -54,10 +54,6 @@ import Trixi: get_nodes, get_node_vars, get_node_coords, get_surface_node_vars,
               create_cache, mesh_equations_solver_cache,
               integrate_via_indices, analyze_integrals, max_dt,
               SolutionAnalyzer # function
-
-using SciMLBase: ODEProblem, FullSpecialize
-
-using StaticArrays: SVector
 
 # Change to use the Base.log and Base.sqrt and disable loop vectorization
 # FIXME: This set preference part has to be fixed to avoid precompilation outputs 

@@ -62,10 +62,10 @@ macro timer(args...)
             end
             print(pretty_bytes(bytes))
             if gctime > 0
-                Printf.@printf(", %.2f%% gc time", 100 * gctime/cpu_time)
+                @printf(", %.2f%% gc time", 100 * gctime/cpu_time)
             end
             if memtime > 0
-                Printf.@printf(", %.2f%% memmgmt time", 100 * memtime/cpu_time)
+                @printf(", %.2f%% memmgmt time", 100 * memtime/cpu_time)
             end
             println()
         end

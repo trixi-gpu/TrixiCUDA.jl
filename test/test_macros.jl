@@ -8,14 +8,14 @@ macro test_approx(expr)
         error("Incorrect usage. Expected syntax: @test_approx(array1, array2)")
     end
 
-    local array1 = esc(expr.args[1])
-    local array2 = esc(expr.args[2])
-
     quote
+        local array1 = $(esc(expr.args[1]))
+        local array2 = $(esc(expr.args[2]))
+
         # Convert to arrays to avoid using CUDA.@allowscalar 
         # to access the elements of some arrays
-        local _array1 = Array($array1)
-        local _array2 = Array($array2)
+        local _array1 = Array(array1)
+        local _array2 = Array(array2)
 
         # Check if the arrays have NaN
         local has_nan_arr1 = any(isnan, _array1)
@@ -82,14 +82,14 @@ macro test_equal(expr)
         error("Incorrect usage. Expected syntax: @test_approx(array1, array2)")
     end
 
-    local array1 = esc(expr.args[1])
-    local array2 = esc(expr.args[2])
-
     quote
+        local array1 = $esc(expr.args[1])
+        local array2 = $esc(expr.args[2])
+
         # Convert to arrays to avoid using CUDA.@allowscalar 
         # to access the elements of some arrays
-        local _array1 = Array($array1)
-        local _array2 = Array($array2)
+        local _array1 = Array(array1)
+        local _array2 = Array(array2)
 
         @test _array1 == _array2
     end

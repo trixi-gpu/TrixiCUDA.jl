@@ -5,7 +5,7 @@ using CUDA
 using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, reshape, similar, launch_configuration
 
-using Printf: @printf
+using Printf: @printf, @sprintf
 using SciMLBase: ODEProblem, FullSpecialize
 using StaticArrays: SVector
 

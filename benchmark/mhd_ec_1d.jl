@@ -1,6 +1,7 @@
 using Trixi, TrixiCUDA
 using CUDA
-using BenchmarkTools
+include("../src/auxiliary/timer.jl")
+# using BenchmarkTools
 
 # Set the precision
 RealT = Float32
@@ -26,10 +27,8 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 n_cells_max = 10_000, RealT = RealT)
 
 # Cache initialization
-@info "Time for cache initialization on CPU"
-@time semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
-@info "Time for cache initialization on GPU"
-CUDA.@time semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
+@timer "CPU cache setup" semi=SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+@timer "GPU cache setup" semi_gpu=SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 
 tspan_gpu = (0.0f0, 0.4f0)
 t_gpu = 0.0f0
@@ -47,8 +46,7 @@ u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_
 du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
 # Reset du and volume integral
-@info "Time for reset_du! and volume_integral! on GPU"
-@benchmark CUDA.@sync TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
-                                                      Trixi.have_nonconservative_terms(equations_gpu),
-                                                      equations_gpu, solver_gpu.volume_integral, solver_gpu,
-                                                      cache_gpu, cache_cpu)
+@timer "volume integral" TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
+                                                         Trixi.have_nonconservative_terms(equations_gpu),
+                                                         equations_gpu, solver_gpu.volume_integral,
+                                                         solver_gpu, cache_gpu, cache_cpu)

@@ -1,7 +1,6 @@
 using Trixi, TrixiCUDA
 using CUDA
-include("../src/auxiliary/timer.jl")
-# using BenchmarkTools
+using BenchmarkTools
 
 # Set the precision
 RealT = Float32
@@ -37,10 +36,10 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 n_cells_max = 100_000, RealT = RealT)
 
 # Cache initialization
-@timer "CPU cache setup" semi=SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                                           source_terms = source_terms_convergence_test)
-@timer "GPU cache setup" semi_gpu=SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
-                                                                  source_terms = source_terms_convergence_test)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                    source_terms = source_terms_convergence_test)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
+                                           source_terms = source_terms_convergence_test)
 
 tspan = tspan_gpu = (0.0f0, 0.4f0)
 t = t_gpu = 0.0f0
@@ -67,8 +66,12 @@ du_gpu_ = similar(u_gpu_)
 u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
-# Reset du and volume integral
-@timer "volume integral" TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
-                                                         Trixi.have_nonconservative_terms(equations_gpu),
-                                                         equations_gpu, solver_gpu.volume_integral,
-                                                         solver_gpu, cache_gpu, cache_cpu)
+# Benchmark on CPU and GPU
+@info "Benchmarking rhs! on CPU"
+cpu_trial = @benchmark Trixi.rhs!(du, u, t, mesh, equations, boundary_conditions, source_terms,
+                                  solver, cache)
+
+@info "Benchmarking rhs! on GPU"
+gpu_trial = @benchmark CUDA.@sync TrixiCUDA.rhs_gpu!(du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu,
+                                                     boundary_conditions_gpu, source_terms_gpu,
+                                                     solver_gpu, cache_gpu, cache_cpu)

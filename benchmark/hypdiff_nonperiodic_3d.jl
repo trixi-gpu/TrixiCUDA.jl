@@ -6,29 +6,37 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-equations = CompressibleEulerEquations3D(1.4f0)
+nu = 1.0f0
+Lr = inv(2 * RealT(pi))
+equations = HyperbolicDiffusionEquations3D(nu = nu, Lr = Lr)
 
-initial_condition = initial_condition_weak_blast_wave
+initial_condition = initial_condition_poisson_nonperiodic
+boundary_conditions = (x_neg = boundary_condition_poisson_nonperiodic,
+                       x_pos = boundary_condition_poisson_nonperiodic,
+                       y_neg = boundary_condition_periodic,
+                       y_pos = boundary_condition_periodic,
+                       z_neg = boundary_condition_periodic,
+                       z_pos = boundary_condition_periodic)
 
-volume_flux = flux_ranocha
-solver = DGSEM(polydeg = 2, surface_flux = flux_ranocha,
-               volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
-               RealT = RealT)
-solver_gpu = DGSEMGPU(polydeg = 2, surface_flux = flux_ranocha,
-                      volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
-                      RealT = RealT)
+solver = DGSEM(polydeg = 4, surface_flux = flux_lax_friedrichs, RealT = RealT)
+solver_gpu = DGSEMGPU(polydeg = 4, surface_flux = flux_lax_friedrichs, RealT = RealT)
 
-coordinates_min = (-2.0f0, -2.0f0, -2.0f0)
-coordinates_max = (2.0f0, 2.0f0, 2.0f0)
+coordinates_min = (0.0f0, 0.0f0, 0.0f0)
+coordinates_max = (1.0f0, 1.0f0, 1.0f0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 3,
-                n_cells_max = 100_000, RealT = RealT)
+                initial_refinement_level = 2,
+                n_cells_max = 30_000,
+                periodicity = (false, true, true),
+                RealT = RealT)
 
-# Cache initialization
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                    source_terms = source_terms_poisson_nonperiodic,
+                                    boundary_conditions = boundary_conditions)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
+                                           source_terms = source_terms_poisson_nonperiodic,
+                                           boundary_conditions = boundary_conditions)
 
-tspan = tspan_gpu = (0.0f0, 0.4f0)
+tspan = tspan_gpu = (0.0f0, 5.0f0)
 t = t_gpu = 0.0f0
 
 # Semi on CPU

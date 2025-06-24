@@ -6,42 +6,26 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-equations = CompressibleEulerEquations3D(1.4f0)
+advection_velocity = (0.2f0, -0.7f0)
+equations = LinearScalarAdvectionEquation2D(advection_velocity)
 
-initial_condition = initial_condition_weak_blast_wave
+initial_condition = initial_condition_convergence_test
+solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
+solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
 
-surface_flux = flux_ranocha
-volume_flux = flux_ranocha
-
-polydeg = 3
-basis = LobattoLegendreBasis(RealT, polydeg)
-basis_gpu = LobattoLegendreBasisGPU(polydeg, RealT)
-
-indicator_sc = IndicatorHennemannGassner(equations, basis,
-                                         alpha_max = 0.5f0,
-                                         alpha_min = 0.001f0,
-                                         alpha_smooth = true,
-                                         variable = density_pressure)
-volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
-                                                 volume_flux_dg = volume_flux,
-                                                 volume_flux_fv = surface_flux)
-
-solver = DGSEM(basis, surface_flux, volume_integral)
-solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
-
-coordinates_min = (-2.0f0, -2.0f0, -2.0f0)
-coordinates_max = (2.0f0, 2.0f0, 2.0f0)
+coordinates_min = (-1.0f0, -1.0f0)
+coordinates_max = (1.0f0, 1.0f0)
+refinement_patches = ((type = "box", coordinates_min = (0.0f0, -1.0f0),
+                       coordinates_max = (1.0f0, 1.0f0)),)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 3,
-                n_cells_max = 100_000, RealT = RealT)
+                initial_refinement_level = 2,
+                refinement_patches = refinement_patches,
+                n_cells_max = 10_000, RealT = RealT)
 
-# Cache initialization
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                    source_terms = source_terms_convergence_test)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
-                                           source_terms = source_terms_convergence_test)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 
-tspan = tspan_gpu = (0.0f0, 0.4f0)
+tspan = tspan_gpu = (0.0f0, 1.0f0)
 t = t_gpu = 0.0f0
 
 # Semi on CPU

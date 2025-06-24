@@ -96,6 +96,11 @@ du_gpu_ = similar(u_gpu_)
 u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
+# Warm up
+Trixi.rhs!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
+TrixiCUDA.rhs_gpu!(du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu, boundary_conditions_gpu,
+                   source_terms_gpu, solver_gpu, cache_gpu, cache_cpu)
+
 # Benchmark on CPU and GPU
 @info "Benchmarking rhs! on CPU"
 cpu_trial = @benchmark Trixi.rhs!(du, u, t, mesh, equations, boundary_conditions, source_terms,

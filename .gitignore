@@ -2,6 +2,8 @@
 out*/
 docs/build
 
+*.png
+
 .DS_Store
 
 LocalPreferences.toml

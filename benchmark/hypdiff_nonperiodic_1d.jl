@@ -25,6 +25,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 periodicity = false,
                 RealT = RealT)
 
+# Cache initialization
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                     boundary_conditions = boundary_conditions,
                                     source_terms = source_terms_poisson_nonperiodic)

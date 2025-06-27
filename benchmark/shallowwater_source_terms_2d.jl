@@ -6,24 +6,33 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-advection_velocity = 1.0f0
-equations = LinearScalarAdvectionEquation1D(advection_velocity)
+equations = ShallowWaterEquations2D(gravity_constant = 9.81f0)
 
-solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
-solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
+initial_condition = initial_condition_convergence_test
 
-coordinates_min = -1.0f0
-coordinates_max = 1.0f0
+volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
+solver = DGSEM(polydeg = 3,
+               surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
+               volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
+               RealT = RealT)
+solver_gpu = DGSEMGPU(polydeg = 3,
+                      surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
+                      volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
+                      RealT = RealT)
 
+coordinates_min = (0.0f0, 0.0f0)
+coordinates_max = (sqrt(2.0f0), sqrt(2.0f0))
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 4,
-                n_cells_max = 30_000, RealT = RealT)
+                initial_refinement_level = 3,
+                n_cells_max = 10_000,
+                periodicity = true,
+                RealT = RealT)
 
 # Cache initialization
-semi = SemidiscretizationHyperbolic(mesh, equations,
-                                    initial_condition_convergence_test, solver)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations,
-                                           initial_condition_convergence_test, solver_gpu)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                    source_terms = source_terms_convergence_test)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
+                                           source_terms = source_terms_convergence_test)
 
 tspan = tspan_gpu = (0.0f0, 1.0f0)
 t = t_gpu = 0.0f0

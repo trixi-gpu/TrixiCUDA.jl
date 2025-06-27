@@ -22,6 +22,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 refinement_patches = refinement_patches,
                 n_cells_max = 10_000, RealT = RealT)
 
+# Cache initialization
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
 semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 

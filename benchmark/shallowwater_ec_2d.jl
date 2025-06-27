@@ -6,26 +6,32 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-advection_velocity = 1.0f0
-equations = LinearScalarAdvectionEquation1D(advection_velocity)
+equations = ShallowWaterEquations2D(gravity_constant = 9.81f0)
 
-solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
-solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
+initial_condition = initial_condition_weak_blast_wave
 
-coordinates_min = -1.0f0
-coordinates_max = 1.0f0
+volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
+solver = DGSEM(polydeg = 4,
+               surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal),
+               volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
+               RealT = RealT)
+solver_gpu = DGSEMGPU(polydeg = 4,
+                      surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal),
+                      volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
+                      RealT = RealT)
 
+coordinates_min = (-1.0f0, -1.0f0)
+coordinates_max = (1.0f0, 1.0f0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 4,
-                n_cells_max = 30_000, RealT = RealT)
+                initial_refinement_level = 2,
+                n_cells_max = 10_000,
+                RealT = RealT)
 
 # Cache initialization
-semi = SemidiscretizationHyperbolic(mesh, equations,
-                                    initial_condition_convergence_test, solver)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations,
-                                           initial_condition_convergence_test, solver_gpu)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 
-tspan = tspan_gpu = (0.0f0, 1.0f0)
+tspan = tspan_gpu = (0.0f0, 2.0f0)
 t = t_gpu = 0.0f0
 
 # Semi on CPU

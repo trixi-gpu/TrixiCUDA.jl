@@ -8,7 +8,7 @@ RealT = Float32
 # Set up the problem
 nu = 1.0f0
 Lr = inv(2 * RealT(pi))
-equations = HyperbolicDiffusionEquations2D()
+equations = HyperbolicDiffusionEquations2D(nu = nu, Lr = Lr)
 
 initial_condition = initial_condition_poisson_nonperiodic
 
@@ -28,6 +28,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 periodicity = (false, true),
                 RealT = RealT)
 
+# Cache initialization
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                     boundary_conditions = boundary_conditions,
                                     source_terms = source_terms_poisson_nonperiodic)

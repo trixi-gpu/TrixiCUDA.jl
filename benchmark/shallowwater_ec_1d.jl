@@ -6,26 +6,53 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-advection_velocity = 1.0f0
-equations = LinearScalarAdvectionEquation1D(advection_velocity)
+equations = ShallowWaterEquations1D(gravity_constant = 9.81f0)
 
-solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
-solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs, RealT = RealT)
+function initial_condition_ec_discontinuous_bottom(x, t, equations::ShallowWaterEquations1D)
+    # Set the background values
+    RealT = eltype(x)
+    H = 4.25f0
+    v = zero(RealT)
+    b = sin(x[1]) # arbitrary continuous function
+
+    # Setup the discontinuous water height and velocity
+    if x[1] >= 0.125f0 && x[1] <= 0.25f0
+        H = 5.0f0
+        v = convert(RealT, 0.1882)
+    end
+
+    # Setup a discontinuous bottom topography
+    if x[1] >= -0.25f0 && x[1] <= -0.125f0
+        b = 2 + 0.5f0 * sinpi(2 * x[1])
+    end
+
+    return prim2cons(SVector(H, v, b), equations)
+end
+
+initial_condition = initial_condition_ec_discontinuous_bottom
+
+volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
+solver = DGSEM(polydeg = 4,
+               surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal),
+               volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
+               RealT = RealT)
+solver_gpu = DGSEMGPU(polydeg = 4,
+                      surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal),
+                      volume_integral = VolumeIntegralFluxDifferencing(volume_flux),
+                      RealT = RealT)
 
 coordinates_min = -1.0f0
 coordinates_max = 1.0f0
-
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 4,
-                n_cells_max = 30_000, RealT = RealT)
+                n_cells_max = 10_000,
+                RealT = RealT)
 
 # Cache initialization
-semi = SemidiscretizationHyperbolic(mesh, equations,
-                                    initial_condition_convergence_test, solver)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations,
-                                           initial_condition_convergence_test, solver_gpu)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 
-tspan = tspan_gpu = (0.0f0, 1.0f0)
+tspan = tspan_gpu = (0.0f0, 2.0f0)
 t = t_gpu = 0.0f0
 
 # Semi on CPU

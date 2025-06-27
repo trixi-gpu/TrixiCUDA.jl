@@ -9,17 +9,6 @@
 #     volume_integral::VolumeIntegral
 # end
 
-"""
-    DGSEMGPU(basis::LobattoLegendreBasisGPU;
-           surface_flux = flux_central,
-           volume_integral = VolumeIntegralWeakForm(),
-           mortar = MortarL2GPU(basis)
-          ) 
-Construct a GPU‐enabled Discontinuous Galerkin Spectral Element Method (DGSEM) operator by wrapping a
-`LobattoLegendreBasisGPU` in the generic `DG` type. Behaves similarly to `DGSEM` in Trixi.jl but specialized
-for GPU execution.
-"""
-# Similar to `DGSEM` in Trixi.jl 
 function DGSEMGPU(basis::LobattoLegendreBasisGPU,
                   surface_flux = flux_central,
                   volume_integral = VolumeIntegralWeakForm(),
@@ -43,6 +32,16 @@ function DGSEMGPU(basis::LobattoLegendreBasisGPU,
               typeof(volume_integral)}(basis, mortar, surface_integral, volume_integral)
 end
 
+"""
+    DGSEMGPU(basis::LobattoLegendreBasisGPU;
+           surface_flux = flux_central,
+           volume_integral = VolumeIntegralWeakForm(),
+           mortar = MortarL2GPU(basis)
+          ) 
+Construct a GPU‐enabled Discontinuous Galerkin Spectral Element Method (DGSEM) operator by wrapping a
+`LobattoLegendreBasisGPU` in the generic `DG` type. Behaves similarly to `DGSEM` in Trixi.jl but specialized
+for GPU execution.
+"""
 function DGSEMGPU(; RealT = Float64,
                   polydeg::Integer,
                   surface_flux = flux_central,

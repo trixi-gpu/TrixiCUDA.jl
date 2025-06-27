@@ -8,8 +8,10 @@ include("../test_macros.jl")
 @testset "Burgers Rarefaction 1D" begin
     equations = InviscidBurgersEquation1D()
 
-    basis = LobattoLegendreBasis(3)
-    basis_gpu = LobattoLegendreBasisGPU(3)
+    polydeg = 3
+    basis = LobattoLegendreBasis(polydeg)
+    basis_gpu = LobattoLegendreBasisGPU(polydeg)
+
     # Use shock capturing techniques to suppress oscillations at discontinuities
     indicator_sc = IndicatorHennemannGassner(equations, basis,
                                              alpha_max = 1.0,
@@ -24,8 +26,8 @@ include("../test_macros.jl")
                                                      volume_flux_dg = volume_flux,
                                                      volume_flux_fv = surface_flux)
 
-    solver = DGSEM(basis, surface_flux, volume_integral)
-    solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
+    solver = DGSEM(polydeg = polydeg, surface_flux = surface_flux, volume_integral = volume_integral)
+    solver_gpu = DGSEMGPU(polydeg = polydeg, surface_flux = surface_flux, volume_integral = volume_integral)
 
     coordinate_min = 0.0
     coordinate_max = 1.0

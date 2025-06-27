@@ -26,8 +26,8 @@ include("../test_macros.jl")
                                                      volume_flux_dg = volume_flux,
                                                      volume_flux_fv = surface_flux)
 
-    solver = DGSEM(basis, surface_flux, volume_integral)
-    solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
+    solver = DGSEM(polydeg = polydeg, surface_flux = surface_flux, volume_integral = volume_integral)
+    solver_gpu = DGSEMGPU(polydeg = polydeg, surface_flux = surface_flux, volume_integral = volume_integral)
 
     coordinates_min = (-2.0, -2.0, -2.0)
     coordinates_max = (2.0, 2.0, 2.0)

@@ -26,7 +26,8 @@ indicator_sc = IndicatorHennemannGassner(equations, basis,
 volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                  volume_flux_dg = volume_flux,
                                                  volume_flux_fv = surface_flux)
-solver = DGSEMGPU(basis, surface_flux, volume_integral)
+solver = DGSEMGPU(polydeg = polydeg, surface_flux = surface_flux,
+                  volume_integral = volume_integral)
 
 coordinates_min = (-2.0, -2.0, -2.0)
 coordinates_max = (2.0, 2.0, 2.0)

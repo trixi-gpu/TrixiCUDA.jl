@@ -30,7 +30,16 @@ function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
     return nothing
 end
 
-# See also `semidiscretize` function in Trixi.jl
+"""
+    semidiscretizeGPU(semi::SemidiscretizationHyperbolicGPU, tspan)
+
+Wrap the GPU-accelerated semidiscretization `semi` as an ODE problem over the time interval `tspan`,
+which can be solved using the [SciML ecosystem](https://diffeq.sciml.ai/latest/).
+
+!!! warning "Experimental implementation"
+    This is an experimental feature and may change or be removed in future releases due to 
+    ongoing performance optimizations.
+"""
 function semidiscretizeGPU(semi::SemidiscretizationHyperbolicGPU, tspan)
     # Computing coefficients on GPUs may not be as fast as on CPUs due to the overhead. 
     # Therefore, we currently use the GPU version. Note that the actual speedup on GPUs

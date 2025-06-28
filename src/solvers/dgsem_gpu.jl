@@ -1,15 +1,8 @@
-# Rewrite `DGSEM` in Trixi.jl to add the specialized parts of the arrays 
-# required to copy the arrays from CPU to GPU.
+# Rewrite `DGSEM` in Trixi.jl to add the specialized parts of the arrays required to copy the arrays 
+# from CPU to GPU.
 
-# Will it be better if create a new struct `DGSEMGPU`?
-# struct DGSEMGPU{LobattoLegendreBasisGPU, Mortar, SurfaceIntegral, VolumeIntegral}
-#     basis::LobattoLegendreBasisGPU
-#     mortar::Mortar
-#     surface_integral::SurfaceIntegral
-#     volume_integral::VolumeIntegral
-# end
+# Maybe the return type of `DGSEMGPU` should be change?
 
-# Similar to `DGSEM` in Trixi.jl 
 function DGSEMGPU(basis::LobattoLegendreBasisGPU,
                   surface_flux = flux_central,
                   volume_integral = VolumeIntegralWeakForm(),
@@ -33,12 +26,26 @@ function DGSEMGPU(basis::LobattoLegendreBasisGPU,
               typeof(volume_integral)}(basis, mortar, surface_integral, volume_integral)
 end
 
+"""
+    DGSEMGPU(; RealT = Float64,
+               polydeg::Integer,
+               surface_flux = flux_central,
+               surface_integral = SurfaceIntegralWeakForm(surface_flux),
+               volume_integral = VolumeIntegralWeakForm()) 
+
+Create a discontinuous Galerkin spectral element method (DGSEM) optimized for GPU computations, 
+using a Lobatto-Legendre basis that is partially implemented on the GPU (`LobattoLegendreBasisGPU`).
+
+!!! warning "Experimental implementation"
+    This is an experimental implementation and may change or be removed in future releases due to 
+    ongoing performance optimizations.
+"""
 function DGSEMGPU(; RealT = Float64,
                   polydeg::Integer,
                   surface_flux = flux_central,
                   surface_integral = SurfaceIntegralWeakForm(surface_flux),
                   volume_integral = VolumeIntegralWeakForm())
-    basis = LobattoLegendreBasisGPU(polydeg, RealT)
+    basis = LobattoLegendreBasisGPU(RealT, polydeg)
 
     # Since we use `LobattoLegendreBasisGPU`, the type degrades to `DG` if 
     # we create a new `DGSEMGPU` struct.

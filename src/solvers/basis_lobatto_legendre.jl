@@ -21,7 +21,7 @@
 #     # negative adjoint wrt the SBP dot product
 # end
 
-# Similar to `LobattoLegendreBasis` in Trixi.jl but GPU compatible
+# Similar to `LobattoLegendreBasis` in Trixi.jl 
 struct LobattoLegendreBasisGPU{RealT <: Real, NNODES,
                                VectorT <: CuArray{RealT, 1},
                                InverseVandermondeLegendre <: AbstractMatrix{RealT},
@@ -46,8 +46,18 @@ struct LobattoLegendreBasisGPU{RealT <: Real, NNODES,
     derivative_dhat::DerivativeMatrix
 end
 
-# Similar to function `LobattoLegendreBasis` in Trixi.jl 
-function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64)
+"""
+    LobattoLegendreBasisGPU([RealT = Float64,] polydeg::Integer)
+
+Create a nodal Lobatto-Legendre basis for polynomials of degree `polydeg`, partially storing 
+and operating on GPU arrays (`CuArray`). This basis is designed for GPU-accelerated discontinuous 
+Galerkin spectral element method (DGSEM).
+
+!!! warning "Experimental implementation"
+    This is an experimental feature and may change or be removed in future releases due to 
+    ongoing performance optimizations.
+"""
+function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
     nnodes_ = polydeg + 1
 
     # TODO: Use GPU kernels to complete the computation (compare with CPU)
@@ -89,6 +99,8 @@ function LobattoLegendreBasisGPU(polydeg::Integer, RealT = Float64)
                                                               derivative_dhat)
 end
 
+LobattoLegendreBasisGPU(polydeg::Integer) = LobattoLegendreBasisGPU(Float64, polydeg) # Float32 ?
+
 @inline Base.real(basis::LobattoLegendreBasisGPU{RealT}) where {RealT} = RealT
 
 @inline function nnodes(basis::LobattoLegendreBasisGPU{RealT, NNODES}) where {RealT, NNODES}
@@ -122,8 +134,7 @@ end
 # CPU version of LobattoLegendreMortarL2 from Trixi.jl (for reference)
 # struct LobattoLegendreMortarL2{RealT <: Real, NNODES,
 #                                ForwardMatrix <: AbstractMatrix{RealT},
-#                                ReverseMatrix <: AbstractMatrix{RealT}} <:
-#        AbstractMortarL2{RealT}
+#                                ReverseMatrix <: AbstractMatrix{RealT}} <: AbstractMortarL2{RealT}
 #     forward_upper::ForwardMatrix
 #     forward_lower::ForwardMatrix
 #     reverse_upper::ReverseMatrix

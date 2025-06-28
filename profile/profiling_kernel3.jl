@@ -12,7 +12,7 @@ surface_flux = flux_ranocha
 volume_flux = flux_ranocha
 
 polydeg = 3
-basis_gpu = LobattoLegendreBasisGPU(polydeg, RealT)
+basis_gpu = LobattoLegendreBasisGPU(RealT, polydeg)
 
 indicator_sc = IndicatorHennemannGassner(equations, basis_gpu,
                                          alpha_max = 0.5f0,
@@ -23,7 +23,7 @@ volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
                                                  volume_flux_dg = volume_flux,
                                                  volume_flux_fv = surface_flux)
 
-solver_gpu = DGSEMGPU(basis_gpu, surface_flux, volume_integral)
+solver_gpu = DGSEMGPU(polydeg = polydeg, surface_flux = surface_flux, volume_integral = volume_integral)
 
 coordinates_min = (-2.0f0, -2.0f0, -2.0f0)
 coordinates_max = (2.0f0, 2.0f0, 2.0f0)

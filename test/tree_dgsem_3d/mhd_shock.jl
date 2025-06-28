@@ -14,8 +14,8 @@ include("../test_macros.jl")
     volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
 
     polydeg = 4
-    basis = LobattoLegendreBasis(4)
-    basis_gpu = LobattoLegendreBasisGPU(4)
+    basis = LobattoLegendreBasis(polydeg)
+    basis_gpu = LobattoLegendreBasisGPU(polydeg)
 
     indicator_sc = IndicatorHennemannGassner(equations, basis,
                                              alpha_max = 0.5,

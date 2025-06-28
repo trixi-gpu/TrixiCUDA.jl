@@ -12,7 +12,7 @@ surface_flux = flux_ranocha
 volume_flux = flux_ranocha
 
 polydeg = 3
-basis_gpu = LobattoLegendreBasisGPU(polydeg, RealT)
+basis_gpu = LobattoLegendreBasisGPU(RealT, polydeg)
 
 indicator_sc = IndicatorHennemannGassner(equations, basis_gpu,
                                          alpha_max = 0.5f0,

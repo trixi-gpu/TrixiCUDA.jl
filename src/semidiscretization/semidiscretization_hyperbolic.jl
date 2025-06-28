@@ -41,7 +41,22 @@ mutable struct SemidiscretizationHyperbolicGPU{Mesh, Equations, InitialCondition
     end
 end
 
-# Outer constructor for GPU type
+"""
+    SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver;
+                                    source_terms=nothing,
+                                    boundary_conditions=boundary_condition_periodic,
+                                    RealT=real(solver),
+                                    uEltype=RealT,
+                                    initial_cache_gpu=NamedTuple(),
+                                    initial_cache_cpu=NamedTuple())
+
+Construct a semidiscretization of a hyperbolic PDE for GPU-accelerated computations. This version 
+stores and manages computational caches on both GPU and CPU to achieve efficient data transfer.
+
+!!! warning "Experimental implementation"
+    This is an experimental implementation and may change or be removed in future releases due to 
+    ongoing performance optimizations.
+"""
 function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver;
                                          source_terms = nothing,
                                          boundary_conditions = boundary_condition_periodic,

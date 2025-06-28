@@ -1,9 +1,8 @@
 **/Manifest.toml
+LocalPreferences.toml
+
 out*/
 docs/build
+.outdated/
 
 *.png
-
-.DS_Store
-
-LocalPreferences.toml

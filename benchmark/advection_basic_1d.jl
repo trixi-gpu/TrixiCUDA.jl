@@ -16,7 +16,7 @@ coordinates_min = -1.0f0
 coordinates_max = 1.0f0
 
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 4,
+                initial_refinement_level = 3,
                 n_cells_max = 30_000, RealT = RealT)
 
 # Cache initialization

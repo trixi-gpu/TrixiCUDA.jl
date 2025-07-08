@@ -12,9 +12,9 @@ equations = IdealGlmMhdEquations1D(gamma)
 initial_condition = initial_condition_convergence_test
 
 volume_flux = flux_hindenlang_gassner
-solver = DGSEM(polydeg = 4, surface_flux = flux_lax_friedrichs,
+solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs,
                volume_integral = VolumeIntegralFluxDifferencing(volume_flux), RealT = RealT)
-solver_gpu = DGSEMGPU(polydeg = 4, surface_flux = flux_lax_friedrichs,
+solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs,
                       volume_integral = VolumeIntegralFluxDifferencing(volume_flux), RealT = RealT)
 
 coordinates_min = 0.0f0

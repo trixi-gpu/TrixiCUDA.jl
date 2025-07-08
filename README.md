@@ -124,7 +124,7 @@ sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
 Please also try the examples in the tests directory, as they are always the most up-to-date.
 
 # Benchmarks
-Please check out [`benchmark.ipynb`](https://github.com/trixi-gpu/TrixiCUDA.jl/blob/main/benchmark/plot.ipynb) in the `benchmark` directory to run the existing benchmark examples or your own. At present, our focus is on optimizing and benchmarking the semidiscretization process, so the benchmarks mainly measure the performance of `rhs!` functions on CPU and GPU.
+Please check out [benchmark.ipynb](https://github.com/trixi-gpu/TrixiCUDA.jl/blob/main/benchmark/plot.ipynb) in the [benchmark](https://github.com/trixi-gpu/TrixiCUDA.jl/tree/main/benchmark) directory to run the existing benchmark examples or your own. At present, our focus is on optimizing and benchmarking the semidiscretization process, so the benchmarks mainly measure the performance of `rhs!` functions on CPU and GPU.
 
 See the most recent benchmark results for the semidiscretization process [here](https://trixi-gpu.github.io/benchmark/).
 

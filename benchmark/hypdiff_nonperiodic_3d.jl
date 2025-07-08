@@ -25,7 +25,7 @@ solver_gpu = DGSEMGPU(polydeg = 4, surface_flux = flux_lax_friedrichs, RealT = R
 coordinates_min = (0.0f0, 0.0f0, 0.0f0)
 coordinates_max = (1.0f0, 1.0f0, 1.0f0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 2,
+                initial_refinement_level = 3,
                 n_cells_max = 30_000,
                 periodicity = (false, true, true),
                 RealT = RealT)

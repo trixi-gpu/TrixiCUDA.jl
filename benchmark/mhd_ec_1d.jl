@@ -22,7 +22,7 @@ solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_hindenlang_gassner,
 coordinates_min = 0.0f0
 coordinates_max = 1.0f0
 mesh = TreeMesh(coordinates_min, coordinates_max,
-                initial_refinement_level = 4,
+                initial_refinement_level = 2,
                 n_cells_max = 10_000, RealT = RealT)
 
 # Cache initialization

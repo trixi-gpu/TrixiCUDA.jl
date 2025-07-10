@@ -128,6 +128,8 @@ Please check out [benchmark.ipynb](https://github.com/trixi-gpu/TrixiCUDA.jl/blo
 
 See the most recent benchmark results for the semidiscretization process [here](https://trixi-gpu.github.io/benchmark/).
 
+The benchmark results presented at JuliaCon 2025 can be reproduced [here](https://github.com/trixi-gpu/juliacon-2025-semidiscretization-benchmark).
+
 
 # Join Our Slack Group
 

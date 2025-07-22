@@ -1,6 +1,6 @@
 # Public APIs
 
-All APIs currently default to double precision (`Float64`). Support for single precision (`Float32`) is considered experimental, as it has not yet undergone comprehensive testing and validation.
+All APIs currently default to double precision (`Float64`). Single precision (`Float32`) is supported but still experimental, as it still needs testing to avoid type promotion. 
 
 ```@docs
 TrixiCUDA.LobattoLegendreBasisGPU
@@ -9,7 +9,10 @@ TrixiCUDA.SemidiscretizationHyperbolicGPU
 TrixiCUDA.semidiscretizeGPU
 ```
 
-# GPU Kernels in Semidiscretizations
+# Semidiscretization
+
+
+# GPU Kernels in Semidiscretization
 
 All GPU kernels are encapsulated within the semidiscretization (i.e., `rhs_gpu!` function).
 

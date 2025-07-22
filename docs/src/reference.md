@@ -8,3 +8,11 @@ TrixiCUDA.DGSEMGPU
 TrixiCUDA.SemidiscretizationHyperbolicGPU
 TrixiCUDA.semidiscretizeGPU
 ```
+
+# GPU Kernels in Semidiscretizations
+
+All GPU kernels are encapsulated within the semidiscretization (i.e., `rhs_gpu!` function).
+
+```@docs
+TrixiCUDA.cuda_volume_integral!
+```

@@ -13,7 +13,7 @@ end
 
 @inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
                             dg::DG, cache)
-    wrap_array_native(u_ode, mesh, equations, dg, cache)
+    u_ode = wrap_array_native(u_ode, mesh, equations, dg, cache)
     return u_ode
 end
 

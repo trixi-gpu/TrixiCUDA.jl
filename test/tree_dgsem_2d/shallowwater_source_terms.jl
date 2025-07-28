@@ -1,6 +1,6 @@
 module TestShallowWaterSourceTerms2D
 
-using Trixi, TrixiCUDA
+using TrixiShallowWater, TrixiCUDA
 using Test
 
 include("../test_macros.jl")

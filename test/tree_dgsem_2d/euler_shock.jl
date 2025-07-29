@@ -76,7 +76,7 @@ include("../test_macros.jl")
     @test_approx (du_gpu, du)
 
     TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
-    Trixi.prolong2interfaces!(cache, u, mesh, equations, solver.surface_integral, solver)
+    Trixi.prolong2interfaces!(cache, u, mesh, equations, solver)
     @test_approx (cache_gpu.interfaces.u, cache.interfaces.u)
 
     TrixiCUDA.cuda_interface_flux!(mesh_gpu,

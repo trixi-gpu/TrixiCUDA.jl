@@ -14,6 +14,15 @@ include("dg_1d_kernel.jl")
 # enhance the checking mechanism in the future.
 
 # Pack kernels for calculating volume integrals
+"""
+    cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
+                          equations, volume_integral::VolumeIntegralWeakForm,
+                          dg::DG, cache_gpu, cache_cpu)
+
+Compute the volume integral of the PDE system using a GPU kernel for 1D problems with a weak-form DG discretization.
+
+This function dispatches a CUDA kernel to compute the volume term
+"""
 function cuda_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms,
                                equations, volume_integral::VolumeIntegralWeakForm, dg::DG,
                                cache_gpu, cache_cpu)

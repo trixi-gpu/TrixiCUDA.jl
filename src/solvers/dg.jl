@@ -1,31 +1,41 @@
+# Do we really need to compute the coefficients on the GPU, and do we need to
+# initialize `du` and `u` with a 1D shape, as Trixi.jl does?
+
 # Adapt a general polynomial degree function since `DGSEMGPU` gives a `DG` type
 @inline polydeg(dg::DG) = polydeg(dg.basis)
 
 #########################################################################################
-# Do we really need to compute the coefficients on the GPU, and do we need to
-# initialize `du` and `u` with a 1D shape, as Trixi.jl does?
+# Based on benchmarks, using `reshape` is faster than `unsafe_wrap` for GPU arrays (why?),
+# but currently we are not sure about if reshape can be used for later `resize!` operations.
+# But now we don't take AMR into account, so we can use `reshape` for now.
 
-## TODO: 1. Consider using `unsafe_wrap` from to get pointer management
-## 2. Combine `wrap_array_native` and `wrap_array` into one function
-## 3. Compare the pointer way performance with current version
-@inline function wrap_array_native(u_ode::CuArray, mesh::AbstractMesh, equations,
-                                   dg::DG, cache)
-    u_ode = reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
-                    nelements(cache.elements))
+# Can we make `unsafe_wrap` faster on GPU arrays?
 
-    return u_ode
-end
-
-@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
+# Should we use `CuArray` or `AbstractGPUArray`?
+@inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
                             dg::DG, cache)
-    u_ode = wrap_array_native(u_ode, mesh, equations, dg, cache)
-    return u_ode
+    # We skip bounds checking here for better performance. 
+    # @assert length(u_ode) == nvariables(euqations) * nnodes(mesh) * nelements(dg, cache)
+
+    reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
+            nelements(dg, cache))
 end
 
-@inline function wrap_array(u_ode::CuArray, mesh::AbstractMesh, equations,
-                            dg::FDSBP, cache)
-    @error("TrixiCUDA.jl does not support FDSBP yet.")
+# Should we use `CuArray` or `AbstractGPUArray`?
+@inline function wrap_array_native(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
+                                   dg::DG, cache)
+    # We skip bounds checking here for better performance. 
+    # @assert length(u_ode) == nvariables(euqations) * nnodes(mesh) * nelements(dg, cache)
+
+    unsafe_wrap(CuArray{eltype(u_ode), ndims(mesh) + 2}, pointer(u_ode),
+                (nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
+                 nelements(dg, cache)))
 end
+
+# @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
+#                             dg::FDSBP, cache)
+#     @error("TrixiCUDA.jl does not support FDSBP yet.")
+# end
 #########################################################################################
 
 # FIXME: This is a temporary workaround to avoid scalar indexing issue.

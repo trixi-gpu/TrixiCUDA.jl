@@ -2,7 +2,7 @@ module TrixiCUDA
 
 # Include other packages that are used in TrixiCUDA.jl
 using CUDA
-using CUDA: @cuda, CuArray, HostKernel,
+using CUDA: @cuda, CuArray, AbstractGPUArray, HostKernel,
             threadIdx, blockIdx, blockDim, reshape, similar, launch_configuration
 
 using Printf: @printf, @sprintf

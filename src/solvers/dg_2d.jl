@@ -13,7 +13,14 @@ include("dg_2d_kernel.jl")
 # method. But note that there are other factors such as max register number per block and we will
 # enhance the checking mechanism in the future.
 
-# Pack kernels for calculating volume integrals
+"""
+    cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, equations,
+                          volume_integral::VolumeIntegralWeakForm, dg::DG,
+                          cache_gpu, cache_cpu)
+
+Compute the DG volume term on the GPU for 2D problems using the classical weak form 
+volume operator ([`VolumeIntegralWeakForm`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.VolumeIntegralWeakForm)).
+"""
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, equations,
                                volume_integral::VolumeIntegralWeakForm, dg::DG,
                                cache_gpu, cache_cpu)
@@ -50,7 +57,15 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms, 
     return nothing
 end
 
-# Pack kernels for calculating volume integrals
+"""
+    cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::False, equations,
+                          volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
+                          cache_gpu, cache_cpu)
+
+Compute the DG volume term on the GPU for 2D problems using the flux differencing volume operator 
+([`VolumeIntegralFluxDifferencing`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.VolumeIntegralFluxDifferencing))
+with non-conservative terms disabled.
+"""
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
                                cache_gpu, cache_cpu)
@@ -92,7 +107,15 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     return nothing
 end
 
-# Pack kernels for calculating volume integrals
+"""
+    cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True, equations,
+                          volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
+                          cache_gpu, cache_cpu)
+
+Compute the DG volume term on the GPU for 2D problems using the flux differencing volume operator 
+([`VolumeIntegralFluxDifferencing`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.VolumeIntegralFluxDifferencing))
+with non-conservative terms enabled.
+"""
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
                                cache_gpu, cache_cpu)
@@ -151,7 +174,15 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     return nothing
 end
 
-# Pack kernels for calculating volume integrals
+"""
+    cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::False, equations,
+                          volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
+                          cache_gpu, cache_cpu)
+
+Compute the DG volume term on the GPU for 2D problems using the hybrid DG–FV shock capturing operator
+([`VolumeIntegralShockCapturingHG`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.VolumeIntegralShockCapturingHG))
+with non-conservative terms disabled.
+"""
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
                                cache_gpu, cache_cpu)
@@ -224,7 +255,15 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     return nothing
 end
 
-# Pack kernels for calculating volume integrals
+"""
+    cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True, equations,
+                          volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
+                          cache_gpu, cache_cpu)
+
+Compute the DG volume term on the GPU for 2D problems using the hybrid DG–FV shock capturing operator
+([`VolumeIntegralShockCapturingHG`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.VolumeIntegralShockCapturingHG))
+with non-conservative terms enabled.
+"""
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
                                cache_gpu, cache_cpu)
@@ -312,7 +351,11 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     return nothing
 end
 
-# Pack kernels for prolonging solution to interfaces
+"""
+    cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, equations, cache)
+
+Prolong the solution from element interiors to inter-element interfaces on the GPU for 2D problems.
+"""
 function cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, equations, cache)
     neighbor_ids = cache.interfaces.neighbor_ids
     orientations = cache.interfaces.orientations
@@ -330,7 +373,12 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{2}, equations, cache)
     return nothing
 end
 
-# Pack kernels for calculating interface fluxes
+"""
+    cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False, equations, dg::DG,
+                         cache)
+
+Compute interface fluxes on the GPU for 2D problems with non-conservative terms disabled.
+"""
 function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False, equations, dg::DG,
                               cache)
     RealT = eltype(cache.elements)
@@ -364,7 +412,12 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::False, e
     return nothing
 end
 
-# Pack kernels for calculating interface fluxes
+"""
+    cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::True, equations, dg::DG,
+                         cache)
+
+Compute interface fluxes on the GPU for 2D problems with non-conservative terms enabled.
+"""
 function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::True, equations, dg::DG,
                               cache)
     RealT = eltype(cache.elements)
@@ -410,13 +463,23 @@ function cuda_interface_flux!(mesh::TreeMesh{2}, nonconservative_terms::True, eq
     return nothing
 end
 
-# Dummy function for asserting boundaries
+"""
+    cuda_prolong2boundaries!(u, mesh::TreeMesh{2},
+                             boundary_condition::BoundaryConditionPeriodic, equations, cache)
+
+Dummy function; no operation is required for periodic boundary conditions.
+"""
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{2},
                                   boundary_condition::BoundaryConditionPeriodic, equations, cache)
     @assert iszero(length(cache.boundaries.orientations))
 end
 
-# Pack kernels for prolonging solution to boundaries
+"""
+    cuda_prolong2boundaries!(u, mesh::TreeMesh{2}, boundary_conditions::NamedTuple, equations,
+                             cache)
+
+Prolong the solution from element interiors to boundaries on the GPU for 2D problems.
+"""
 function cuda_prolong2boundaries!(u, mesh::TreeMesh{2}, boundary_conditions::NamedTuple, equations,
                                   cache)
     neighbor_ids = cache.boundaries.neighbor_ids
@@ -438,13 +501,23 @@ function cuda_prolong2boundaries!(u, mesh::TreeMesh{2}, boundary_conditions::Nam
     return nothing
 end
 
-# Dummy function for asserting boundary fluxes
+"""
+    cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_condition::BoundaryConditionPeriodic,
+                        nonconservative_terms, equations, dg::DG, cache)
+
+Dummy function; no operation is required for periodic boundary conditions.
+"""
 function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_condition::BoundaryConditionPeriodic,
                              nonconservative_terms, equations, dg::DG, cache)
     @assert iszero(length(cache.boundaries.orientations))
 end
 
-# Pack kernels for calculating boundary fluxes
+"""
+    cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
+                        nonconservative_terms::False, equations, dg::DG, cache)
+
+Compute boundary fluxes on the GPU for 2D problems with non-conservative terms disabled.
+"""
 function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
                              nonconservative_terms::False, equations, dg::DG, cache)
     surface_flux = dg.surface_integral.surface_flux
@@ -488,7 +561,12 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     return nothing
 end
 
-# Pack kernels for calculating boundary fluxes
+"""
+    cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
+                        nonconservative_terms::True, equations, dg::DG, cache)
+
+Compute boundary fluxes on the GPU for 2D problems with non-conservative terms enabled.
+"""
 function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTuple,
                              nonconservative_terms::True, equations, dg::DG, cache)
     # Contain both conservative and nonconservative fluxes
@@ -535,12 +613,20 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
     return nothing
 end
 
-# Dummy function for asserting mortars
+"""
+    cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::False, dg::DG, cache)
+
+No operation. This specialization is used when the semidiscretization does not allocate mortar data.
+"""
 function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::False, dg::DG, cache)
     @assert iszero(length(cache.mortars.orientations))
 end
 
-# Pack kernels for prolonging solution to mortars
+"""
+    cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DG, cache)
+
+Prolong the solution from element faces to mortar interfaces on the GPU for 2D problems。
+"""
 function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DG, cache)
     neighbor_ids = cache.mortars.neighbor_ids
     large_sides = cache.mortars.large_sides
@@ -580,13 +666,23 @@ function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DG
     return nothing
 end
 
-# Dummy function for asserting mortar fluxes
+"""
+    cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::False, nonconservative_terms,
+                      equations, dg::DG, cache)
+
+No operation. This specialization is used when mortar data are not present.
+"""
 function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::False, nonconservative_terms,
                            equations, dg::DG, cache)
     @assert iszero(length(cache.mortars.orientations))
 end
 
-# Pack kernels for calculating mortar fluxes
+"""
+    cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservative_terms::False,
+                      equations, dg::DG, cache)
+
+Compute mortar fluxes on the GPU for 2D problems with non-conservative terms disabled.
+"""
 function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservative_terms::False,
                            equations, dg::DG, cache)
     surface_flux = dg.surface_integral.surface_flux
@@ -643,7 +739,12 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
     return nothing
 end
 
-# Pack kernels for calculating mortar fluxes
+"""
+    cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservative_terms::True,
+                      equations, dg::DG, cache)
+
+Compute mortar fluxes on the GPU for 2D problems with non-conservative terms enabled.
+"""
 function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservative_terms::True,
                            equations, dg::DG, cache)
     surface_flux, nonconservative_flux = dg.surface_integral.surface_flux
@@ -702,7 +803,11 @@ function cuda_mortar_flux!(mesh::TreeMesh{2}, cache_mortars::True, nonconservati
     return nothing
 end
 
-# Pack kernels for calculating surface integrals
+"""
+    cuda_surface_integral!(du, mesh::TreeMesh{2}, equations, dg::DG, cache)
+
+Accumulate surface contributions into the DG scheme on the GPU for 2D problems.
+"""
 function cuda_surface_integral!(du, mesh::TreeMesh{2}, equations, dg::DG, cache)
     factor_arr = CuArray([
                              dg.basis.boundary_interpolation[1, 1],
@@ -720,7 +825,11 @@ function cuda_surface_integral!(du, mesh::TreeMesh{2}, equations, dg::DG, cache)
     return nothing
 end
 
-# Pack kernels for applying Jacobian to reference element
+"""
+    cuda_jacobian!(du, mesh::TreeMesh{2}, equations, cache)
+
+Apply the inverse Jacobian transformation on the GPU for 2D problems.
+"""
 function cuda_jacobian!(du, mesh::TreeMesh{2}, equations, cache)
     inverse_jacobian = cache.elements.inverse_jacobian
 
@@ -732,12 +841,20 @@ function cuda_jacobian!(du, mesh::TreeMesh{2}, equations, cache)
     return nothing
 end
 
-# Dummy function returning nothing              
+"""
+    cuda_sources!(du, u, t, source_terms::Nothing, equations::AbstractEquations{2}, cache)
+
+Dummy function; no operation is required when no source terms are present.
+"""
 function cuda_sources!(du, u, t, source_terms::Nothing, equations::AbstractEquations{2}, cache)
     return nothing
 end
 
-# Pack kernels for calculating source terms 
+"""
+    cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{2}, cache)
+
+Evaluate and add source terms on the GPU for 2D problems at the current time and node coordinates.
+"""
 function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{2}, cache)
     node_coordinates = cache.elements.node_coordinates
 
@@ -750,8 +867,15 @@ function cuda_sources!(du, u, t, source_terms, equations::AbstractEquations{2}, 
 end
 
 # Put everything together into a single function.
-
 # See also `rhs!` function in Trixi.jl
+"""
+    rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations, boundary_conditions,
+             source_terms::Source, dg::DG, cache_gpu, cache_cpu) where {Source}
+
+Assemble the semidiscrete right-hand side on the GPU for 2D problems by invoking, in order,
+the DG volume term, interface, boundary and mortar fluxes, surface accumulation, Jacobian 
+transformation, and source terms.
+"""
 function rhs_gpu!(du, u, t, mesh::TreeMesh{2}, equations, boundary_conditions,
                   source_terms::Source, dg::DG, cache_gpu, cache_cpu) where {Source}
     # reset_du!(du) 

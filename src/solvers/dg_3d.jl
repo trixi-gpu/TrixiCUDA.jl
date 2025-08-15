@@ -15,9 +15,9 @@ include("dg_3d_kernel.jl")
 
 # Compute the DG volume term on the GPU for 3D problems using the classical 
 # weak form volume operator.
-function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, equations,
-                               volume_integral::VolumeIntegralWeakForm, dg::DG,
-                               cache_gpu, cache_cpu)
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms,
+                               equations, volume_integral::VolumeIntegralWeakForm,
+                               dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     derivative_dhat = dg.basis.derivative_dhat
@@ -54,9 +54,9 @@ end
 
 # Compute the DG volume term on the GPU for 3D problems using the flux differencing 
 # volume operator with non-conservative terms disabled.
-function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
-                               cache_gpu, cache_cpu)
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False,
+                               equations, volume_integral::VolumeIntegralFluxDifferencing,
+                               dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
@@ -103,9 +103,9 @@ end
 
 # Compute the DG volume term on the GPU for 3D problems using the flux differencing 
 # volume operator with non-conservative terms enabled.
-function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
-                               cache_gpu, cache_cpu)
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True,
+                               equations, volume_integral::VolumeIntegralFluxDifferencing,
+                               dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
@@ -172,9 +172,9 @@ end
 
 # Compute the DG volume term on the GPU for 3D problems using the hybrid DG 
 # finite volume shock capturing operator with non-conservative terms disabled.
-function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
-                               cache_gpu, cache_cpu)
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False,
+                               equations, volume_integral::VolumeIntegralShockCapturingHG,
+                               dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux_dg, volume_flux_fv = dg.volume_integral.volume_flux_dg,
@@ -256,9 +256,9 @@ end
 
 # Compute the DG volume term on the GPU for 3D problems using the hybrid DG finite volume 
 # shock capturing operator with non-conservative terms enabled.
-function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
-                               cache_gpu, cache_cpu)
+function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True,
+                               equations, volume_integral::VolumeIntegralShockCapturingHG,
+                               dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux_dg, noncons_flux_dg = dg.volume_integral.volume_flux_dg

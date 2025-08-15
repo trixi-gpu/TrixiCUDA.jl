@@ -5,6 +5,7 @@ version = "1.0.0-DEV"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

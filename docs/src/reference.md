@@ -23,6 +23,8 @@ TrixiCUDA.cuda_prolong2interfaces!
 TrixiCUDA.cuda_interface_flux!
 TrixiCUDA.cuda_prolong2boundaries!
 TrixiCUDA.cuda_boundary_flux!
+TrixiCUDA.cuda_prolong2mortars!
+TrixiCUDA.cuda_mortar_flux!
 TrixiCUDA.cuda_surface_integral!
 TrixiCUDA.cuda_jacobian!
 TrixiCUDA.cuda_sources!

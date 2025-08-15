@@ -159,8 +159,8 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, 
     return u
 end
 
-# Generic GPU kerenls definitions and docs. 
-# More specific functoin definitions and comments are in dg_1d.jl, dg_2d.jl, dg_3d.jl files.
+# Generic GPU kernels definitions and docs. 
+# More specific function definitions and comments are in dg_1d.jl, dg_2d.jl, dg_3d.jl files.
 """
     cuda_volume_integral!(du, u, mesh, nonconservative_terms, equations, volume_integral, dg,
                           cache_gpu, cache_cpu)

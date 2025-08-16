@@ -1,5 +1,5 @@
 # TrixiCUDA.jl is not accessible through Julia's LOAD_PATH currently
-push!(LOAD_PATH, "../src/")
+push!(LOAD_PATH, joinpath(@__DIR__, ".."))
 
 using Documenter
 using TrixiCUDA

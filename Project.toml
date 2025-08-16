@@ -14,6 +14,7 @@ Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 [compat]
 Aqua = "0.8"
 CUDA = "5"
+LiveServer = "1"
 SciMLBase = "2"
 StaticArrays = "1"
 Test = "1.10"

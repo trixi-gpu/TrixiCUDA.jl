@@ -789,6 +789,7 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
     return nothing
 end
 
+# Needs optimization
 # Kernel for calculating boundary fluxes
 function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinates, t, boundary_arr,
                                indices_arr, neighbor_ids, neighbor_sides, orientations,

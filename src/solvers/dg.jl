@@ -14,7 +14,7 @@
 @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
                             dg::DG, cache)
     # We skip bounds checking here for better performance. 
-    # @assert length(u_ode) == nvariables(euqations) * nnodes(mesh) * nelements(dg, cache)
+    # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
 
     reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
             nelements(dg, cache))
@@ -24,7 +24,7 @@ end
 @inline function wrap_array_native(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
                                    dg::DG, cache)
     # We skip bounds checking here for better performance. 
-    # @assert length(u_ode) == nvariables(euqations) * nnodes(mesh) * nelements(dg, cache)
+    # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
 
     unsafe_wrap(CuArray{eltype(u_ode), ndims(mesh) + 2}, pointer(u_ode),
                 (nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,

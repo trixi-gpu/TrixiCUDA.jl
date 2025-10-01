@@ -647,7 +647,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
         @inbounds begin
             # Initialize `du` with zeros
             shmem_value[tx, ty1, ty2, ty3] = zero(eltype(du))
-            # Initialize `fstar` side columes with zeros 
+            # Initialize `fstar` side columns with zeros 
             shmem_fstar1[tx, 1, ty2, ty3] = zero(eltype(du))
             shmem_fstar1[tx, tile_width + 1, ty2, ty3] = zero(eltype(du))
             shmem_fstar2[tx, ty1, 1, ty3] = zero(eltype(du))
@@ -1005,7 +1005,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
             # TODO: Remove shared memory for `fstar` and use local memory
 
-            # Initialize `fstar` side columes with zeros (1: left)
+            # Initialize `fstar` side columns with zeros (1: left)
             shmem_fstar1[tx, 1, ty2, ty3, 1] = zero(eltype(du))
             shmem_fstar1[tx, tile_width + 1, ty2, ty3, 1] = zero(eltype(du))
             shmem_fstar2[tx, ty1, 1, ty3, 1] = zero(eltype(du))
@@ -1013,7 +1013,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
             shmem_fstar3[tx, ty1, ty2, 1, 1] = zero(eltype(du))
             shmem_fstar3[tx, ty1, ty2, tile_width + 1, 1] = zero(eltype(du))
 
-            # Initialize `fstar` side columes with zeros (2: right)
+            # Initialize `fstar` side columns with zeros (2: right)
             shmem_fstar1[tx, 1, ty2, ty3, 2] = zero(eltype(du))
             shmem_fstar1[tx, tile_width + 1, ty2, ty3, 2] = zero(eltype(du))
             shmem_fstar2[tx, ty1, 1, ty3, 2] = zero(eltype(du))

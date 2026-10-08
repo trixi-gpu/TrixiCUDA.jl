@@ -12,8 +12,7 @@ steps:
                 println("+++ :julia: Running tests")
                 Pkg.test("TrixiCUDA")'
     agents:
-      queue: "juliagpu"
-      cuda: "*"
+      queue: "cuda"
     if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 60
 
@@ -34,7 +33,6 @@ steps:
         println("+++ :julia: Building documentation")
         include("docs/make.jl")'
     agents:
-      queue: "juliagpu"
-      cuda: "*"
+      queue: "cuda"
     if: build.message !~ /\[skip docs\]/
     timeout_in_minutes: 10

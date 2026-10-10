@@ -1,7 +1,7 @@
 name = "TrixiCUDA"
 uuid = "5056661c-942a-472c-b3bc-01507f717a60"
-authors = ["Huiyu Xie"]
 version = "1.0.0-DEV"
+authors = ["Huiyu Xie"]
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
@@ -13,7 +13,7 @@ Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 [compat]
 Aqua = "0.8"
 CUDA = "5"
-SciMLBase = "2"
+SciMLBase = "2, 3"
 StaticArrays = "1"
 Test = "1.10"
 Trixi = "0.11 - 0.13.5"

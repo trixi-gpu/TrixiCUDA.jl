@@ -13,11 +13,9 @@ mutable struct ElementContainerGPU2D{RealT <: Real, uEltype <: Real} <: Abstract
     function ElementContainerGPU2D{RealT, uEltype}(dims_inverse_jacobian::NTuple{1, Int},
                                                    dims_node_coordinates::NTuple{4, Int},
                                                    dims_surface_flux_values::NTuple{4, Int},
-                                                   dims_cell_ids::NTuple{1, Int}) where {
-                                                                                         RealT,
+                                                   dims_cell_ids::NTuple{1, Int}) where {RealT,
                                                                                          uEltype <:
-                                                                                         Real
-                                                                                         }
+                                                                                         Real}
         inverse_jacobian = CuArray{RealT}(undef, dims_inverse_jacobian...)
         node_coordinates = CuArray{RealT}(undef, dims_node_coordinates...)
         surface_flux_values = CuArray{uEltype}(undef, dims_surface_flux_values...)
@@ -62,10 +60,8 @@ mutable struct InterfaceContainerGPU2D{uEltype <: Real} <: AbstractContainer
     # Inner constructor
     function InterfaceContainerGPU2D{uEltype}(dims_u::NTuple{4, Int},
                                               dims_neighbor_ids::NTuple{2, Int},
-                                              dims_orientations::NTuple{1, Int}) where {
-                                                                                        uEltype <:
-                                                                                        Real
-                                                                                        }
+                                              dims_orientations::NTuple{1, Int}) where {uEltype <:
+                                                                                        Real}
         u = CuArray{uEltype}(undef, dims_u...)
         neighbor_ids = CuArray{Int}(undef, dims_neighbor_ids...)
         orientations = CuArray{Int}(undef, dims_orientations...)
@@ -110,11 +106,9 @@ mutable struct BoundaryContainerGPU2D{RealT <: Real, uEltype <: Real} <: Abstrac
                                                     dims_orientations::NTuple{1, Int},
                                                     dims_neighbor_sides::NTuple{1, Int},
                                                     dims_node_coordinates::NTuple{3, Int},
-                                                    dims_n_boundaries_per_direction::NTuple{1, Int}) where {
-                                                                                                            RealT,
+                                                    dims_n_boundaries_per_direction::NTuple{1, Int}) where {RealT,
                                                                                                             uEltype <:
-                                                                                                            Real
-                                                                                                            }
+                                                                                                            Real}
         u = CuArray{uEltype}(undef, dims_u...)
         neighbor_ids = CuArray{Int}(undef, dims_neighbor_ids...)
         orientations = CuArray{Int}(undef, dims_orientations...)
@@ -167,10 +161,8 @@ mutable struct L2MortarContainerGPU2D{uEltype <: Real} <: AbstractContainer
                                              dims_u_lower::NTuple{4, Int},
                                              dims_neighbor_ids::NTuple{2, Int},
                                              dims_large_sides::NTuple{1, Int},
-                                             dims_orientations::NTuple{1, Int}) where {
-                                                                                       uEltype <:
-                                                                                       Real
-                                                                                       }
+                                             dims_orientations::NTuple{1, Int}) where {uEltype <:
+                                                                                       Real}
         u_upper = CUDA.zeros(dims_u_upper...) # initialize with zeros
         u_lower = CUDA.zeros(dims_u_lower...) # initialize with zeros
         neighbor_ids = CuArray{Int}(undef, dims_neighbor_ids...)

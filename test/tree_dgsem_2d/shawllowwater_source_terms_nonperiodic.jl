@@ -24,7 +24,6 @@ include("../test_macros.jl")
     coordinates_max = (sqrt(2.0), sqrt(2.0))
     mesh = TreeMesh(coordinates_min, coordinates_max,
                     initial_refinement_level = 3,
-
                     periodicity = false)
 
     semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,

@@ -35,7 +35,6 @@ include("../test_macros.jl")
     # Make sure to turn periodicity explicitly off as special boundary conditions are specified
     mesh = TreeMesh(coordinate_min, coordinate_max,
                     initial_refinement_level = 6,
-
                     periodicity = false)
 
     # Discontinuous initial condition (Riemann Problem) leading to a shock to test e.g. correct shock speed.

@@ -17,13 +17,13 @@ coordinates_max = (1.0f0, 1.0f0)
 
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 3,
-                 RealT = RealT,
+                RealT = RealT,
                 periodicity = true)
 
 # Cache initialization
 semi = SemidiscretizationHyperbolic(mesh, equations,
                                     initial_condition_convergence_test, solver,
-                                        boundary_conditions = boundary_condition_periodic)
+                                    boundary_conditions = boundary_condition_periodic)
 semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations,
                                            initial_condition_convergence_test, solver_gpu)
 
@@ -63,7 +63,7 @@ dofs = Trixi.ndofsglobal(semi)
 # Benchmark on CPU and GPU
 @info "Benchmarking rhs! on CPU"
 cpu_trial = @benchmark Trixi.rhs_hyperbolic!(nothing, du, u, t, mesh, equations, boundary_conditions, source_terms,
-                                  solver, cache)
+                                             solver, cache)
 
 @info "Benchmarking rhs! on GPU"
 gpu_trial = @benchmark CUDA.@sync TrixiCUDA.rhs_gpu!(du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu,

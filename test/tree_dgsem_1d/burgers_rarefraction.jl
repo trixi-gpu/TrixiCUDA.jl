@@ -34,7 +34,6 @@ include("../test_macros.jl")
 
     mesh = TreeMesh(coordinate_min, coordinate_max,
                     initial_refinement_level = 6,
-
                     periodicity = false)
 
     # Discontinuous initial condition (Riemann Problem) leading to a rarefaction fan.

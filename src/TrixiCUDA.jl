@@ -67,9 +67,8 @@ set_sqrt_type!("sqrt_Base")
 set_loop_vectorization!(false)
 
 # The existing GPU kernels implement the classic first-order HG blend.
-const SupportedShockCapturingHG = VolumeIntegralShockCapturingHGType{
-    <:Any, <:VolumeIntegralFluxDifferencing, <:VolumeIntegralFluxDifferencing,
-    <:VolumeIntegralPureLGLFiniteVolume}
+const SupportedShockCapturingHG = VolumeIntegralShockCapturingHGType{<:Any, <:VolumeIntegralFluxDifferencing, <:VolumeIntegralFluxDifferencing,
+                                                                     <:VolumeIntegralPureLGLFiniteVolume}
 
 # Include other source files
 include("auxiliary/auxiliary.jl")

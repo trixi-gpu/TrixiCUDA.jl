@@ -25,7 +25,6 @@ coordinates_min = (0.0, 0.0, 0.0)
 coordinates_max = (1.0, 1.0, 1.0)
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 2,
-
                 periodicity = (false, true, true))
 
 semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,

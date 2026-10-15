@@ -21,10 +21,11 @@ using CUDA, Trixi, TrixiCUDA
     @test_throws ArgumentError TrixiCUDA.check_gpu_volume_integral(different_fluxes)
 
     # Exercise the host reference interfaces used by the GPU comparison tests.
-    for nd in 1:3
-        equations = getproperty(Trixi, Symbol("LinearScalarAdvectionEquation$(nd)D"))(nd == 1 ? 1.0 : ntuple(_ -> 1.0, nd))
-        coordinates_min = nd == 1 ? -1.0 : ntuple(_ -> -1.0, nd)
-        coordinates_max = nd == 1 ? 1.0 : ntuple(_ -> 1.0, nd)
+    for spatial_dimension in 1:3
+        equations = getproperty(Trixi, Symbol("LinearScalarAdvectionEquation$(spatial_dimension)D"))(spatial_dimension == 1 ? 1.0 :
+                                                                                                     ntuple(_ -> 1.0, spatial_dimension))
+        coordinates_min = spatial_dimension == 1 ? -1.0 : ntuple(_ -> -1.0, spatial_dimension)
+        coordinates_max = spatial_dimension == 1 ? 1.0 : ntuple(_ -> 1.0, spatial_dimension)
         mesh = TreeMesh(coordinates_min, coordinates_max;
                         initial_refinement_level = 1, periodicity = false)
         solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
@@ -39,7 +40,7 @@ using CUDA, Trixi, TrixiCUDA
         Trixi.calc_volume_integral!(nothing, du, u, mesh,
                                     Trixi.have_nonconservative_terms(equations), equations,
                                     solver.volume_integral, solver, cache)
-        if nd == 1
+        if spatial_dimension == 1
             Trixi.prolong2interfaces!(cache, u, mesh, equations, solver)
             Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
                                        Trixi.have_nonconservative_terms(equations), equations,

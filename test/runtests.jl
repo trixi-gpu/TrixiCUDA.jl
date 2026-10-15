@@ -15,6 +15,8 @@ using CUDA
     println("- Max threads per block: ", TrixiCUDA.MAX_THREADS_PER_BLOCK)
     println("- Max shared memory per block: ", TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK)
 
+    include("dependency_compatibility.jl")
+
     @info "Starting TrixiCUDA test suite..."
     for (dim, path) in [("1D", "./tree_dgsem_1d/tree_dgsem_1d.jl"),
         ("2D", "./tree_dgsem_2d/tree_dgsem_2d.jl"),

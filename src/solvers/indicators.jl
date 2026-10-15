@@ -4,7 +4,7 @@
 
 # Same as `IndicatorHennemannGassner` in Trixi.jl but with `DG` signature
 # How to implement this in a better way?
-function (indicator_hg::IndicatorHennemannGassner)(u, mesh, equations, dg::DG, cache;
+function (indicator_hg::IndicatorHennemannGassner)(u, mesh, equations, dg::DG{<:LobattoLegendreBasisGPU}, cache;
                                                    kwargs...)
     (; alpha_smooth) = indicator_hg
     (; alpha, alpha_tmp) = indicator_hg.cache

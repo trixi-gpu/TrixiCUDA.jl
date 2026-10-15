@@ -22,7 +22,7 @@ include("../test_macros.jl")
     coordinates_max = (1.0, 1.0)
     mesh = TreeMesh(coordinates_min, coordinates_max,
                     initial_refinement_level = 3,
-                    n_cells_max = 30_000,
+
                     periodicity = (false, true))
 
     semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
@@ -59,24 +59,24 @@ include("../test_macros.jl")
 
     # Tests for semidiscretization process
     @test_approx (u_gpu, u) # du is initlaizaed as undefined, cannot test now
-    Trixi.reset_du!(du, solver, cache)
+    Trixi.set_zero!(du, solver, cache)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                     Trixi.have_nonconservative_terms(equations_gpu),
                                     equations_gpu, solver_gpu.volume_integral, solver_gpu,
                                     cache_gpu, cache_cpu)
-    Trixi.calc_volume_integral!(du, u, mesh, Trixi.have_nonconservative_terms(equations),
+    Trixi.calc_volume_integral!(nothing, du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                 equations, solver.volume_integral, solver, cache)
     @test_approx (du_gpu, du)
 
     TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
-    Trixi.prolong2interfaces!(cache, u, mesh, equations, solver)
+    Trixi.prolong2interfaces!(nothing, cache, u, mesh, equations, solver)
     @test_approx (cache_gpu.interfaces.u, cache.interfaces.u)
 
     TrixiCUDA.cuda_interface_flux!(mesh_gpu,
                                    Trixi.have_nonconservative_terms(equations_gpu),
                                    equations_gpu, solver_gpu, cache_gpu)
-    Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
+    Trixi.calc_interface_flux!(nothing, cache.elements.surface_flux_values, mesh,
                                Trixi.have_nonconservative_terms(equations), equations,
                                solver.surface_integral, solver, cache)
     @test_approx (cache_gpu.elements.surface_flux_values,
@@ -84,13 +84,13 @@ include("../test_macros.jl")
 
     TrixiCUDA.cuda_prolong2boundaries!(u_gpu, mesh_gpu, boundary_conditions_gpu,
                                        equations_gpu, cache_gpu)
-    Trixi.prolong2boundaries!(cache, u, mesh, equations, solver.surface_integral, solver)
+    Trixi.prolong2boundaries!(nothing, cache, u, mesh, equations, solver)
     @test_approx (cache_gpu.boundaries.u, cache.boundaries.u)
 
     TrixiCUDA.cuda_boundary_flux!(t_gpu, mesh_gpu, boundary_conditions_gpu,
                                   Trixi.have_nonconservative_terms(equations_gpu),
                                   equations_gpu, solver_gpu, cache_gpu)
-    Trixi.calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
+    Trixi.calc_boundary_flux!(nothing, cache, t, boundary_conditions, mesh, equations,
                               solver.surface_integral, solver)
     @test_approx (cache_gpu.elements.surface_flux_values,
                   cache.elements.surface_flux_values)
@@ -112,17 +112,17 @@ include("../test_macros.jl")
                   cache.elements.surface_flux_values)
 
     TrixiCUDA.cuda_surface_integral!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
-    Trixi.calc_surface_integral!(du, u, mesh, equations, solver.surface_integral,
+    Trixi.calc_surface_integral!(nothing, du, u, mesh, equations, solver.surface_integral,
                                  solver, cache)
     @test_approx (du_gpu, du)
 
     TrixiCUDA.cuda_jacobian!(du_gpu, mesh_gpu, equations_gpu, cache_gpu)
-    Trixi.apply_jacobian!(du, mesh, equations, solver, cache)
+    Trixi.apply_jacobian!(nothing, du, mesh, equations, solver, cache)
     @test_approx (du_gpu, du)
 
     TrixiCUDA.cuda_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu,
                             equations_gpu, cache_gpu)
-    Trixi.calc_sources!(du, u, t, source_terms, equations, solver, cache)
+    Trixi.calc_sources!(nothing, du, u, t, source_terms, equations, solver, cache)
     @test_approx (du_gpu, du)
 end
 

@@ -22,10 +22,12 @@ refinement_patches = ((type = "box", coordinates_min = (0.0f0, -1.0f0, -1.0f0),
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 2,
                 refinement_patches = refinement_patches,
-                n_cells_max = 10_000, RealT = RealT)
+                 RealT = RealT,
+                periodicity = true)
 
 # Cache initialization
-semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver)
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
+                                        boundary_conditions = boundary_condition_periodic)
 semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
 
 tspan = tspan_gpu = (0.0f0, 5.0f0)
@@ -54,7 +56,7 @@ u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_
 du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
 # Warm up
-Trixi.rhs!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
+Trixi.rhs_hyperbolic!(nothing, du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
 TrixiCUDA.rhs_gpu!(du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu, boundary_conditions_gpu,
                    source_terms_gpu, solver_gpu, cache_gpu, cache_cpu)
 
@@ -63,7 +65,7 @@ dofs = Trixi.ndofsglobal(semi)
 
 # Benchmark on CPU and GPU
 @info "Benchmarking rhs! on CPU"
-cpu_trial = @benchmark Trixi.rhs!(du, u, t, mesh, equations, boundary_conditions, source_terms,
+cpu_trial = @benchmark Trixi.rhs_hyperbolic!(nothing, du, u, t, mesh, equations, boundary_conditions, source_terms,
                                   solver, cache)
 
 @info "Benchmarking rhs! on GPU"

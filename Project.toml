@@ -5,18 +5,21 @@ version = "1.0.0-DEV"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 
 [compat]
-Aqua = "0.8"
-CUDA = "5"
-SciMLBase = "2"
-StaticArrays = "1"
+Aqua = "0.8.18"
+CUDA = "6.4.2"
+GPUArraysCore = "0.2.1"
+Printf = "1"
+SciMLBase = "3.58"
+StaticArrays = "1.9.23"
 Test = "1.10"
-Trixi = "0.11 - 0.13.5"
+Trixi = "0.17.15"
 julia = "1.10"
 
 [extras]

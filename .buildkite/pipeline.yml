@@ -8,6 +8,27 @@ steps:
 
                 println("--- :julia: Instantiating environment")
                 Pkg.develop(path=".")
+                Pkg.update()
+                Pkg.status()
+
+                println("+++ :julia: Running tests")
+                Pkg.test("TrixiCUDA")'
+    agents:
+      queue: "cuda"
+    if: build.message !~ /\[skip tests\]/
+    timeout_in_minutes: 60
+
+  - label: "CUDA Test - latest stable Julia"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1"
+    command: |
+      julia -e 'using Pkg
+
+                println("--- :julia: Instantiating environment")
+                Pkg.develop(path=".")
+                Pkg.update()
+                Pkg.status()
 
                 println("+++ :julia: Running tests")
                 Pkg.test("TrixiCUDA")'

@@ -1,0 +1,29 @@
+name: Dependency Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  dependencies:
+    name: Resolve and load dependencies - Julia ${{ matrix.julia-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        julia-version: ['1.10', '1']
+    env:
+      JULIA_PKG_PRECOMPILE_AUTO: '0'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+      - uses: julia-actions/cache@v2
+      - name: Resolve latest compatible runtime dependencies
+        run: julia --project=. -e 'using Pkg; Pkg.update(); Pkg.status(; outdated=true); include("test/dependency_compatibility.jl")'
+      - name: Resolve latest compatible documentation dependencies
+        run: julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.update(); Pkg.status(; outdated=true); using Documenter, TrixiCUDA'

@@ -31,7 +31,7 @@ Base.eltype(elements::ElementContainerGPU2D) = eltype(elements.surface_flux_valu
 @inline nelements(elements::ElementContainerGPU2D) = length(elements.cell_ids)
 
 # Copy arrays from DG elements to GPU
-function copy_elements(elements::ElementContainer2D)
+function copy_elements(elements::TreeElementContainer2D)
     dims_inverse_jacobian = size(elements.inverse_jacobian)
     dims_node_coordinates = size(elements.node_coordinates)
     dims_surface_flux_values = size(elements.surface_flux_values)
@@ -77,7 +77,7 @@ end
 @inline ninterfaces(interfaces::InterfaceContainerGPU2D) = length(interfaces.orientations)
 
 # Copy arrays from DG interfaces to GPU
-function copy_interfaces(interfaces::InterfaceContainer2D)
+function copy_interfaces(interfaces::TreeInterfaceContainer2D)
     dims_u = size(interfaces.u)
     dims_neighbor_ids = size(interfaces.neighbor_ids)
     dims_orientations = size(interfaces.orientations)
@@ -128,7 +128,7 @@ mutable struct BoundaryContainerGPU2D{RealT <: Real, uEltype <: Real} <: Abstrac
 end
 
 # Copy arrays from DG boundaries to GPU
-function copy_boundaries(boundaries::BoundaryContainer2D)
+function copy_boundaries(boundaries::TreeBoundaryContainer2D)
     dims_u = size(boundaries.u)
     dims_neighbor_ids = size(boundaries.neighbor_ids)
     dims_orientations = size(boundaries.orientations)
@@ -184,7 +184,7 @@ end
 @inline nmortars(l2mortars::L2MortarContainerGPU2D) = length(l2mortars.orientations)
 
 # Copy arrays from DG mortars to GPU
-function copy_mortars(mortars::L2MortarContainer2D)
+function copy_mortars(mortars::TreeL2MortarContainer2D)
     dims_u_upper = size(mortars.u_upper)
     dims_u_lower = size(mortars.u_lower)
     dims_neighbor_ids = size(mortars.neighbor_ids)

@@ -17,7 +17,7 @@ include("dg.jl")
 # See also `rhs!` function in Trixi.jl
 function rhs_gpu!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
     (; mesh, equations, boundary_conditions, source_terms, solver,
-    cache_gpu, cache_cpu) = semi
+     cache_gpu, cache_cpu) = semi
 
     # In Trixi.jl, function `wrap_array` is called to adapt adaptive mesh refinement (AMR).
     # For more details, see https://trixi-framework.github.io/Trixi.jl/stable/conventions/#Array-types-and-wrapping

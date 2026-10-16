@@ -2,8 +2,10 @@ module TrixiCUDA
 
 # Include other packages that are used in TrixiCUDA.jl
 using CUDA
-using CUDA: @cuda, CuArray, AbstractGPUArray, HostKernel,
+using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, reshape, similar, launch_configuration
+
+using GPUArraysCore: AbstractGPUArray, AbstractGPUVector
 
 using Printf: @printf, @sprintf
 using SciMLBase: ODEProblem, FullSpecialize
@@ -11,14 +13,13 @@ using StaticArrays: SVector
 
 # Trixi.jl methods
 using Trixi: allocate_coefficients, compute_coefficients, create_cache,
-             flux, ntuple, nvariables, ndofs,
+             flux, flux_central, ntuple, nvariables, ndofs,
              local_leaf_cells,
              init_elements, init_interfaces, init_boundaries, init_mortars,
              have_nonconservative_terms, boundary_condition_periodic,
              digest_boundary_conditions, check_periodicity_mesh_boundary_conditions,
              gauss_lobatto_nodes_weights, vandermonde_legendre,
              polynomial_interpolation_matrix, volume_jacobian, total_volume,
-             calc_dsplit, calc_dhat, calc_lhat,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
              polynomial_derivative_matrix,
              analyze, cons2cons, max_abs_speeds, pretty_form_utf,
@@ -30,15 +31,16 @@ using Trixi: allocate_coefficients, compute_coefficients, create_cache,
 using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidiscretization,
              AbstractSurfaceIntegral, AbstractBasisSBP,
              PerformanceCounter, True, False, TreeMesh, StructuredMesh,
-             DG, FDSBP, SemidiscretizationHyperbolic,
+             DG, DGSEM, FDSBP, SemidiscretizationHyperbolic,
              LobattoLegendreBasis, LobattoLegendreMortarL2,
-             ElementContainer1D, ElementContainer2D, ElementContainer3D,
-             InterfaceContainer1D, InterfaceContainer2D, InterfaceContainer3D,
-             BoundaryContainer1D, BoundaryContainer2D, BoundaryContainer3D,
-             L2MortarContainer2D, L2MortarContainer3D,
+             TreeElementContainer1D, TreeElementContainer2D, TreeElementContainer3D,
+             TreeInterfaceContainer1D, TreeInterfaceContainer2D, TreeInterfaceContainer3D,
+             TreeBoundaryContainer1D, TreeBoundaryContainer2D, TreeBoundaryContainer3D,
+             TreeL2MortarContainer2D, TreeL2MortarContainer3D,
              SurfaceIntegralWeakForm, VolumeIntegralWeakForm,
              BoundaryConditionPeriodic, UnstructuredSortedBoundaryTypes,
-             VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHG,
+             VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHGType,
+             VolumeIntegralPureLGLFiniteVolume,
              LobattoLegendreAnalyzer
 
 # Trixi.jl indicators (since it is temporarily used to make tests pass,
@@ -63,6 +65,10 @@ import Trixi: get_nodes, get_node_vars, get_node_coords, get_surface_node_vars,
 set_log_type!("log_Base")
 set_sqrt_type!("sqrt_Base")
 set_loop_vectorization!(false)
+
+# The existing GPU kernels implement the classic first-order HG blend.
+const SupportedShockCapturingHG = VolumeIntegralShockCapturingHGType{<:Any, <:VolumeIntegralFluxDifferencing, <:VolumeIntegralFluxDifferencing,
+                                                                     <:VolumeIntegralPureLGLFiniteVolume}
 
 # Include other source files
 include("auxiliary/auxiliary.jl")

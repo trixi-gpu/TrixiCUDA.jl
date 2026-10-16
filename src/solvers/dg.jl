@@ -1,7 +1,7 @@
 # Do we really need to compute the coefficients on the GPU, and do we need to
 # initialize `du` and `u` with a 1D shape, as Trixi.jl does?
 
-# Adapt a general polynomial degree function since `DGSEMGPU` gives a `DG` type
+# Get the polynomial degree from the solver basis.
 @inline polydeg(dg::DG) = polydeg(dg.basis)
 
 # Based on benchmarks, using `reshape` is faster than `unsafe_wrap` for GPU arrays (why?),
@@ -10,9 +10,19 @@
 
 # Can we make `unsafe_wrap` faster on GPU arrays?
 
-# Should we use `CuArray` or `AbstractGPUArray`?
+# Accept both flat ODE vectors and the shaped state returned by semidiscretizeGPU.
+# The vector specialization resolves the overlap with Trixi's AbstractVector method.
 @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
-                            dg::DG, cache)
+                            dg::DGSEM, cache)
+    wrap_array_gpu(u_ode, mesh, equations, dg, cache)
+end
+
+@inline function wrap_array(u_ode::AbstractGPUVector, mesh::AbstractMesh, equations,
+                            dg::DGSEM, cache)
+    wrap_array_gpu(u_ode, mesh, equations, dg, cache)
+end
+
+@inline function wrap_array_gpu(u_ode, mesh, equations, dg, cache)
     # We skip bounds checking here for better performance. 
     # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
 
@@ -20,9 +30,17 @@
             nelements(dg, cache))
 end
 
-# Should we use `CuArray` or `AbstractGPUArray`?
 @inline function wrap_array_native(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
-                                   dg::DG, cache)
+                                   dg::DGSEM, cache)
+    wrap_array_native_gpu(u_ode, mesh, equations, dg, cache)
+end
+
+@inline function wrap_array_native(u_ode::AbstractGPUVector, mesh::AbstractMesh, equations,
+                                   dg::DGSEM, cache)
+    wrap_array_native_gpu(u_ode, mesh, equations, dg, cache)
+end
+
+@inline function wrap_array_native_gpu(u_ode, mesh, equations, dg, cache)
     # We skip bounds checking here for better performance. 
     # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
 

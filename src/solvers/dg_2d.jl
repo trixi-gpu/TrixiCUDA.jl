@@ -20,7 +20,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms,
                                dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
-    derivative_dhat = dg.basis.derivative_dhat
+    derivative_hat = dg.basis.derivative_hat
 
     thread_per_block = size(du, 1) * size(du, 2)^2
     shmem_per_block = (size(du, 2)^2 + size(du, 1) * 2 * size(du, 2)^2) * sizeof(RealT)
@@ -29,7 +29,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms,
         threads = (size(du, 1), size(du, 2)^2, 1)
         blocks = (1, 1, size(du, 4))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block flux_weak_form_kernel!(du, u,
-                                                                                         derivative_dhat,
+                                                                                         derivative_hat,
                                                                                          equations,
                                                                                          flux)
     else
@@ -41,9 +41,9 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms,
         flux_kernel(flux_arr1, flux_arr2, u, equations, flux;
                     kernel_configurator_2d(flux_kernel, size(u, 2)^2, size(u, 4))...)
 
-        weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_dhat, flux_arr1,
+        weak_form_kernel = @cuda launch=false weak_form_kernel!(du, derivative_hat, flux_arr1,
                                                                 flux_arr2)
-        weak_form_kernel(du, derivative_dhat, flux_arr1, flux_arr2;
+        weak_form_kernel(du, derivative_hat, flux_arr1, flux_arr2;
                          kernel_configurator_3d(weak_form_kernel, size(du, 1), size(du, 2)^2,
                                                 size(du, 4))...)
     end
@@ -157,12 +157,12 @@ end
 # Compute the DG volume term on the GPU for 2D problems using the hybrid DG finite volume 
 # shock capturing operator with non-conservative terms disabled.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::False,
-                               equations, volume_integral::VolumeIntegralShockCapturingHG,
+                               equations, volume_integral::SupportedShockCapturingHG,
                                dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
-    volume_flux_dg, volume_flux_fv = dg.volume_integral.volume_flux_dg,
-                                     dg.volume_integral.volume_flux_fv
+    volume_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
+    volume_flux_fv = volume_integral.volume_integral_blend_low_order.volume_flux_fv
     indicator = dg.volume_integral.indicator
     derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights
@@ -231,12 +231,12 @@ end
 # Compute the DG volume term on the GPU for 2D problems using the hybrid DG finite volume 
 # shock capturing operator with non-conservative terms enabled.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True,
-                               equations, volume_integral::VolumeIntegralShockCapturingHG,
+                               equations, volume_integral::SupportedShockCapturingHG,
                                dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
-    volume_flux_dg, noncons_flux_dg = dg.volume_integral.volume_flux_dg
-    volume_flux_fv, noncons_flux_fv = dg.volume_integral.volume_flux_fv
+    volume_flux_dg, noncons_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
+    volume_flux_fv, noncons_flux_fv = volume_integral.volume_integral_blend_low_order.volume_flux_fv
     indicator = dg.volume_integral.indicator
     derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights

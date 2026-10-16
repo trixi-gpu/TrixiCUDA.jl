@@ -13,11 +13,9 @@ mutable struct ElementContainerGPU1D{RealT <: Real, uEltype <: Real} <: Abstract
     function ElementContainerGPU1D{RealT, uEltype}(dims_inverse_jacobian::NTuple{1, Int},
                                                    dims_node_coordinates::NTuple{3, Int},
                                                    dims_surface_flux_values::NTuple{3, Int},
-                                                   dims_cell_ids::NTuple{1, Int}) where {
-                                                                                         RealT,
+                                                   dims_cell_ids::NTuple{1, Int}) where {RealT,
                                                                                          uEltype <:
-                                                                                         Real
-                                                                                         }
+                                                                                         Real}
         inverse_jacobian = CuArray{RealT}(undef, dims_inverse_jacobian...)
         node_coordinates = CuArray{RealT}(undef, dims_node_coordinates...)
         surface_flux_values = CuArray{uEltype}(undef, dims_surface_flux_values...)
@@ -31,7 +29,7 @@ Base.eltype(elements::ElementContainerGPU1D) = eltype(elements.surface_flux_valu
 @inline nelements(elements::ElementContainerGPU1D) = length(elements.cell_ids)
 
 # Copy arrays from DG elements to GPU
-function copy_elements(elements::ElementContainer1D)
+function copy_elements(elements::TreeElementContainer1D)
     dims_inverse_jacobian = size(elements.inverse_jacobian)
     dims_node_coordinates = size(elements.node_coordinates)
     dims_surface_flux_values = size(elements.surface_flux_values)
@@ -75,7 +73,7 @@ end
 @inline ninterfaces(interfaces::InterfaceContainerGPU1D) = length(interfaces.orientations)
 
 # Copy arrays from DG interfaces to GPU
-function copy_interfaces(interfaces::InterfaceContainer1D)
+function copy_interfaces(interfaces::TreeInterfaceContainer1D)
     dims_u = size(interfaces.u)
     dims_neighbor_ids = size(interfaces.neighbor_ids)
     dims_orientations = size(interfaces.orientations)
@@ -107,11 +105,9 @@ mutable struct BoundaryContainerGPU1D{RealT <: Real, uEltype <: Real} <: Abstrac
                                                     dims_orientations::NTuple{1, Int},
                                                     dims_neighbor_sides::NTuple{1, Int},
                                                     dims_node_coordinates::NTuple{2, Int},
-                                                    dims_n_boundaries_per_direction::NTuple{1, Int}) where {
-                                                                                                            RealT,
+                                                    dims_n_boundaries_per_direction::NTuple{1, Int}) where {RealT,
                                                                                                             uEltype <:
-                                                                                                            Real
-                                                                                                            }
+                                                                                                            Real}
         u = CuArray{uEltype}(undef, dims_u...)
         neighbor_ids = CuArray{Int}(undef, dims_neighbor_ids...)
         orientations = CuArray{Int}(undef, dims_orientations...)
@@ -125,7 +121,7 @@ mutable struct BoundaryContainerGPU1D{RealT <: Real, uEltype <: Real} <: Abstrac
 end
 
 # Copy arrays from DG boundaries to GPU
-function copy_boundaries(boundaries::BoundaryContainer1D)
+function copy_boundaries(boundaries::TreeBoundaryContainer1D)
     dims_u = size(boundaries.u)
     dims_neighbor_ids = size(boundaries.neighbor_ids)
     dims_orientations = size(boundaries.orientations)

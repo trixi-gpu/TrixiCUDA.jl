@@ -1,8 +1,10 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+TrixiCUDA = "5056661c-942a-472c-b3bc-01507f717a60"
+
+[sources]
+TrixiCUDA = {path = ".."}
 
 [compat]
-Documenter = "1"
-
-[extras]
-Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
+Documenter = "1.19"
+TrixiCUDA = "1"

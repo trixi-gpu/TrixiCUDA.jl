@@ -12,7 +12,7 @@ refinement_patches = ((type = "box", coordinates_min = (0.5, 0.5, 0.5),
 mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 2,
                 refinement_patches = refinement_patches,
-                n_cells_max = 10_000)
+                periodicity = true)
 
 semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
                                            source_terms = source_terms_convergence_test)

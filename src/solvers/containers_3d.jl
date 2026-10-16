@@ -13,11 +13,9 @@ mutable struct ElementContainerGPU3D{RealT <: Real, uEltype <: Real} <: Abstract
     function ElementContainerGPU3D{RealT, uEltype}(dims_inverse_jacobian::NTuple{1, Int},
                                                    dims_node_coordinates::NTuple{5, Int},
                                                    dims_surface_flux_values::NTuple{5, Int},
-                                                   dims_cell_ids::NTuple{1, Int}) where {
-                                                                                         RealT,
+                                                   dims_cell_ids::NTuple{1, Int}) where {RealT,
                                                                                          uEltype <:
-                                                                                         Real
-                                                                                         }
+                                                                                         Real}
         inverse_jacobian = CuArray{RealT}(undef, dims_inverse_jacobian...)
         node_coordinates = CuArray{RealT}(undef, dims_node_coordinates...)
         surface_flux_values = CuArray{uEltype}(undef, dims_surface_flux_values...)
@@ -31,7 +29,7 @@ Base.eltype(elements::ElementContainerGPU3D) = eltype(elements.surface_flux_valu
 @inline nelements(elements::ElementContainerGPU3D) = length(elements.cell_ids)
 
 # Copy arrays from DG elements to GPU
-function copy_elements(elements::ElementContainer3D)
+function copy_elements(elements::TreeElementContainer3D)
     dims_inverse_jacobian = size(elements.inverse_jacobian)
     dims_node_coordinates = size(elements.node_coordinates)
     dims_surface_flux_values = size(elements.surface_flux_values)
@@ -62,10 +60,8 @@ mutable struct InterfaceContainerGPU3D{uEltype <: Real} <: AbstractContainer
     # Inner constructor
     function InterfaceContainerGPU3D{uEltype}(dims_u::NTuple{5, Int},
                                               dims_neighbor_ids::NTuple{2, Int},
-                                              dims_orientations::NTuple{1, Int}) where {
-                                                                                        uEltype <:
-                                                                                        Real
-                                                                                        }
+                                              dims_orientations::NTuple{1, Int}) where {uEltype <:
+                                                                                        Real}
         u = CuArray{uEltype}(undef, dims_u...)
         neighbor_ids = CuArray{Int}(undef, dims_neighbor_ids...)
         orientations = CuArray{Int}(undef, dims_orientations...)
@@ -77,7 +73,7 @@ end
 @inline ninterfaces(interfaces::InterfaceContainerGPU3D) = length(interfaces.orientations)
 
 # Copy arrays from DG interfaces to GPU
-function copy_interfaces(interfaces::InterfaceContainer3D)
+function copy_interfaces(interfaces::TreeInterfaceContainer3D)
     dims_u = size(interfaces.u)
     dims_neighbor_ids = size(interfaces.neighbor_ids)
     dims_orientations = size(interfaces.orientations)
@@ -110,11 +106,9 @@ mutable struct BoundaryContainerGPU3D{RealT <: Real, uEltype <: Real} <: Abstrac
                                                     dims_orientations::NTuple{1, Int},
                                                     dims_neighbor_sides::NTuple{1, Int},
                                                     dims_node_coordinates::NTuple{4, Int},
-                                                    dims_n_boundaries_per_direction::NTuple{1, Int}) where {
-                                                                                                            RealT,
+                                                    dims_n_boundaries_per_direction::NTuple{1, Int}) where {RealT,
                                                                                                             uEltype <:
-                                                                                                            Real
-                                                                                                            }
+                                                                                                            Real}
         u = CuArray{uEltype}(undef, dims_u...)
         neighbor_ids = CuArray{Int}(undef, dims_neighbor_ids...)
         orientations = CuArray{Int}(undef, dims_orientations...)
@@ -128,7 +122,7 @@ mutable struct BoundaryContainerGPU3D{RealT <: Real, uEltype <: Real} <: Abstrac
 end
 
 # Copy arrays from DG boundaries to GPU
-function copy_boundaries(boundaries::BoundaryContainer3D)
+function copy_boundaries(boundaries::TreeBoundaryContainer3D)
     dims_u = size(boundaries.u)
     dims_neighbor_ids = size(boundaries.neighbor_ids)
     dims_orientations = size(boundaries.orientations)
@@ -173,10 +167,8 @@ mutable struct L2MortarContainerGPU3D{uEltype <: Real} <: AbstractContainer
                                              dims_u_lower_right::NTuple{5, Int},
                                              dims_neighbor_ids::NTuple{2, Int},
                                              dims_large_sides::NTuple{1, Int},
-                                             dims_orientations::NTuple{1, Int}) where {
-                                                                                       uEltype <:
-                                                                                       Real
-                                                                                       }
+                                             dims_orientations::NTuple{1, Int}) where {uEltype <:
+                                                                                       Real}
         u_upper_left = CUDA.zeros(dims_u_upper_left...) # initialize with zeros
         u_upper_right = CUDA.zeros(dims_u_upper_right...) # initialize with zeros
         u_lower_left = CUDA.zeros(dims_u_lower_left...) # initialize with zeros
@@ -193,7 +185,7 @@ end
 @inline nmortars(l2mortars::L2MortarContainerGPU3D) = length(l2mortars.orientations)
 
 # Copy arrays from DG mortars to GPU
-function copy_mortars(mortars::L2MortarContainer3D)
+function copy_mortars(mortars::TreeL2MortarContainer3D)
     dims_u_upper_left = size(mortars.u_upper_left)
     dims_u_upper_right = size(mortars.u_upper_right)
     dims_u_lower_left = size(mortars.u_lower_left)

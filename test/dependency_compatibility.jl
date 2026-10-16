@@ -20,6 +20,11 @@ using CUDA, Trixi, TrixiCUDA
                                                           volume_integral_blend_low_order = VolumeIntegralPureLGLFiniteVolume(flux_lax_friedrichs))
     @test_throws ArgumentError TrixiCUDA.check_gpu_volume_integral(different_fluxes)
 
+    # These public CUDA constants must resolve even on hosts without a GPU.
+    @test isdefined(CUDA, :DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)
+    @test isdefined(CUDA, :DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK)
+    @test isdefined(CUDA, :DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK)
+
     # Exercise the host reference interfaces used by the GPU comparison tests.
     for spatial_dimension in 1:3
         equations = getproperty(Trixi, Symbol("LinearScalarAdvectionEquation$(spatial_dimension)D"))(spatial_dimension == 1 ? 1.0 :
@@ -62,9 +67,34 @@ using CUDA, Trixi, TrixiCUDA
         ode.f(reference, ode.u0, ode.p, 0.0)
         @test vec(du) ≈ reference
         @test all(isfinite, du)
+
+        # Check GPU-vector dispatch without allocating device memory. This also
+        # runs in the CPU-only dependency CI jobs.
+        for RealT in (Float32, Float64)
+            argument_types = Tuple{CuArray{RealT, 1, CUDA.DeviceMemory}, typeof(mesh),
+                                   typeof(equations), typeof(solver), typeof(cache)}
+            @test which(Trixi.wrap_array, argument_types).module === TrixiCUDA
+            @test which(Trixi.wrap_array_native, argument_types).module === TrixiCUDA
+        end
+
+        if CUDA.functional()
+            solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs)
+            u_gpu_flat = CuArray(ode.u0)
+            GC.@preserve u_gpu_flat begin
+                for wrap in (Trixi.wrap_array, Trixi.wrap_array_native)
+                    u_gpu = wrap(u_gpu_flat, mesh, equations, solver_gpu, cache)
+                    @test size(u_gpu) == size(u)
+                    @test Array(u_gpu) ≈ Array(u)
+                    @test pointer(u_gpu) == pointer(u_gpu_flat)
+                end
+            end
+        end
     end
 
     if CUDA.functional()
+        @test TrixiCUDA.MULTIPROCESSOR_COUNT > 0
+        @test TrixiCUDA.MAX_THREADS_PER_BLOCK > 0
+        @test TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK > 0
         for RealT in (Float32, Float64), degree in (1, 3, 5)
             basis_cpu = LobattoLegendreBasis(RealT, degree)
             basis_gpu = LobattoLegendreBasisGPU(RealT, degree)

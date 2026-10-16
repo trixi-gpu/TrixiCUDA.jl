@@ -162,7 +162,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     RealT = eltype(du)
 
     volume_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
-    volume_flux_fv = volume_integral.volume_integral_blend_low_order.volume_flux
+    volume_flux_fv = volume_integral.volume_integral_blend_low_order.volume_flux_fv
     indicator = dg.volume_integral.indicator
     derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights
@@ -236,7 +236,7 @@ function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     RealT = eltype(du)
 
     volume_flux_dg, noncons_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
-    volume_flux_fv, noncons_flux_fv = volume_integral.volume_integral_blend_low_order.volume_flux
+    volume_flux_fv, noncons_flux_fv = volume_integral.volume_integral_blend_low_order.volume_flux_fv
     indicator = dg.volume_integral.indicator
     derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights

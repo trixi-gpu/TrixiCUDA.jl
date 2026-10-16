@@ -68,10 +68,10 @@ using CUDA, Trixi, TrixiCUDA
         @test vec(du) ≈ reference
         @test all(isfinite, du)
 
-        # Check GPU-vector dispatch without allocating device memory. This also
-        # runs in the CPU-only dependency CI jobs.
-        for RealT in (Float32, Float64)
-            argument_types = Tuple{CuArray{RealT, 1, CUDA.DeviceMemory}, typeof(mesh),
+        # Check both flat and already-shaped GPU inputs without allocating device
+        # memory, so CPU-only CI also covers the semidiscretizeGPU return shape.
+        for RealT in (Float32, Float64), array_dimension in (1, spatial_dimension + 2)
+            argument_types = Tuple{CuArray{RealT, array_dimension, CUDA.DeviceMemory}, typeof(mesh),
                                    typeof(equations), typeof(solver), typeof(cache)}
             @test which(Trixi.wrap_array, argument_types).module === TrixiCUDA
             @test which(Trixi.wrap_array_native, argument_types).module === TrixiCUDA
@@ -81,13 +81,28 @@ using CUDA, Trixi, TrixiCUDA
             solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs)
             u_gpu_flat = CuArray(ode.u0)
             GC.@preserve u_gpu_flat begin
-                for wrap in (Trixi.wrap_array, Trixi.wrap_array_native)
-                    u_gpu = wrap(u_gpu_flat, mesh, equations, solver_gpu, cache)
+                for wrap in (Trixi.wrap_array, Trixi.wrap_array_native),
+                    input in (u_gpu_flat, reshape(u_gpu_flat, size(u)))
+                    u_gpu = wrap(input, mesh, equations, solver_gpu, cache)
                     @test size(u_gpu) == size(u)
                     @test Array(u_gpu) ≈ Array(u)
                     @test pointer(u_gpu) == pointer(u_gpu_flat)
                 end
             end
+
+            # Exercise the actual initialization and RHS path, where the ODE
+            # state is already a multidimensional CuArray.
+            semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations,
+                                                       initial_condition_convergence_test,
+                                                       solver_gpu;
+                                                       boundary_conditions = BoundaryConditionDirichlet(initial_condition_convergence_test))
+            ode_gpu = semidiscretizeGPU(semi_gpu, (0.0, 0.1))
+            u_gpu = Trixi.wrap_array(ode_gpu.u0, semi_gpu)
+            @test size(u_gpu) == size(u)
+            @test Array(u_gpu) ≈ Array(u)
+            du_gpu = similar(ode_gpu.u0)
+            ode_gpu.f(du_gpu, ode_gpu.u0, ode_gpu.p, 0.0)
+            @test vec(Array(du_gpu)) ≈ reference
         end
     end
 

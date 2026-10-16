@@ -5,7 +5,7 @@ using CUDA
 using CUDA: @cuda, CuArray, HostKernel,
             threadIdx, blockIdx, blockDim, reshape, similar, launch_configuration
 
-using GPUArraysCore: AbstractGPUVector
+using GPUArraysCore: AbstractGPUArray, AbstractGPUVector
 
 using Printf: @printf, @sprintf
 using SciMLBase: ODEProblem, FullSpecialize

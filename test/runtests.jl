@@ -1,11 +1,6 @@
 using TrixiCUDA
 using Test
 
-if "--quality-only" in ARGS
-    include("quality_test.jl")
-    exit()
-end
-
 using CUDA
 # Currently we need to allow scalar indexing on GPU arrays for the tests to pass,
 # once the issues are resolved, this line can be removed.
@@ -20,6 +15,9 @@ using CUDA
     println("- Max threads per block: ", TrixiCUDA.MAX_THREADS_PER_BLOCK)
     println("- Max shared memory per block: ", TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK)
 
+    @info "Starting TrixiCUDA quality test..."
+    include("quality_test.jl")
+
     include("dependency_compatibility.jl")
 
     @info "Starting TrixiCUDA test suite..."
@@ -30,9 +28,6 @@ using CUDA
         @time include(path)
         @info "Completed tests of $dim Galerkin spectral element method with tree mesh on GPU..."
     end
-
-    @info "Starting TrixiCUDA quality test..."
-    include("quality_test.jl")
 
     # For debugging 
     # include("../test.jl")

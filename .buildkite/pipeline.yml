@@ -1,37 +1,20 @@
 steps:
-  - label: "CUDA Test - Julia 1.10"
+  - label: "Tests and Aqua - Julia {{matrix.julia}}"
+    matrix:
+      setup:
+        julia: ["1.10", "1"]
     plugins:
       - JuliaCI/julia#v1:
-          version: "1.10"
+          version: "{{matrix.julia}}"
     command: |
-      julia -e 'using Pkg
+      julia --project=. -e 'using Pkg
 
                 println("--- :julia: Instantiating environment")
-                Pkg.develop(path=".")
                 Pkg.update()
                 Pkg.status()
 
                 println("+++ :julia: Running tests")
-                Pkg.test("TrixiCUDA")'
-    agents:
-      queue: "cuda"
-    if: build.message !~ /\[skip tests\]/
-    timeout_in_minutes: 60
-
-  - label: "CUDA Test - latest stable Julia"
-    plugins:
-      - JuliaCI/julia#v1:
-          version: "1"
-    command: |
-      julia -e 'using Pkg
-
-                println("--- :julia: Instantiating environment")
-                Pkg.develop(path=".")
-                Pkg.update()
-                Pkg.status()
-
-                println("+++ :julia: Running tests")
-                Pkg.test("TrixiCUDA")'
+                Pkg.test()'
     agents:
       queue: "cuda"
     if: build.message !~ /\[skip tests\]/
@@ -42,19 +25,16 @@ steps:
       - JuliaCI/julia#v1:
           version: "1.10"
     command: |
-      julia --project -e '
+      julia --project=docs -e '
         println("--- :julia: Instantiating project")
         using Pkg
-        Pkg.instantiate()
-        Pkg.build()
-        Pkg.activate("docs")
         Pkg.develop(path=pwd())
         Pkg.instantiate()
-        push!(LOAD_PATH, @__DIR__)
 
         println("+++ :julia: Building documentation")
         include("docs/make.jl")'
+    artifact_paths: "docs/build/**/*"
     agents:
       queue: "cuda"
-    if: build.message !~ /\[skip docs\]/
-    timeout_in_minutes: 10
+    if: build.pull_request.id != null && build.message !~ /\[skip docs\]/
+    timeout_in_minutes: 15

@@ -26,8 +26,8 @@ using CUDA
         @info "Completed tests of $dim Galerkin spectral element method with tree mesh on GPU..."
     end
 
-    # @info "Starting TrixiCUDA quality test..."
-    # include("./quality_test.jl")
+    @info "Starting TrixiCUDA quality test..."
+    include("quality_test.jl")
 
     # For debugging 
     # include("../test.jl")

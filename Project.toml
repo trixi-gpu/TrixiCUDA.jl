@@ -15,11 +15,11 @@ Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 Aqua = "0.8.18"
 CUDA = "6.4.2"
 GPUArraysCore = "0.2.1"
-Printf = "1"
+Printf = "1.10"
 SciMLBase = "3.58"
 StaticArrays = "1.9.23"
 Test = "1.10"
-Trixi = "0.17.15"
+Trixi = "0.17.16"
 julia = "1.10"
 
 [extras]

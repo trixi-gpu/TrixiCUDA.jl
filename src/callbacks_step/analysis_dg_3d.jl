@@ -1,5 +1,5 @@
-function integrate_via_indices(func::Func, u,
-                               mesh::TreeMesh{3}, equations, dg::DG, cache,
+function integrate_via_indices(func::Func, u::CuArray,
+                               mesh::TreeMeshSerial{3}, equations, dg::DGSEM, cache,
                                args...; normalize = true) where {Func}
     (; weights) = dg.basis
 
@@ -32,9 +32,9 @@ function integrate_via_indices(func::Func, u,
     return integral
 end
 
-function integrate(func::Func, u,
-                   mesh::TreeMesh{3},
-                   equations, dg::DG, cache; normalize = true) where {Func}
+function integrate(func::Func, u::CuArray,
+                   mesh::TreeMeshSerial{3},
+                   equations, dg::DGSEM, cache; normalize = true) where {Func}
     integrate_via_indices(u, mesh, equations, dg, cache;
                           normalize = normalize) do u, i, j, k, element, equations, dg
         u_local = get_node_vars_view(u, equations, dg, i, j, k, element) # call view to avoid scalar indexing

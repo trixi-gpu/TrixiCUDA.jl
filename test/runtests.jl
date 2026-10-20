@@ -1,6 +1,11 @@
 using TrixiCUDA
 using Test
 
+if "--quality-only" in ARGS
+    include("quality_test.jl")
+    exit()
+end
+
 using CUDA
 # Currently we need to allow scalar indexing on GPU arrays for the tests to pass,
 # once the issues are resolved, this line can be removed.

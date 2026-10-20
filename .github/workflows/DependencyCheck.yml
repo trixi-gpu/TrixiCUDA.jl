@@ -25,5 +25,7 @@ jobs:
       - uses: julia-actions/cache@v2
       - name: Resolve latest compatible runtime dependencies
         run: julia --project=. -e 'using Pkg; Pkg.update(); Pkg.status(; outdated=true); include("test/dependency_compatibility.jl")'
+      - name: Run Aqua quality tests
+        run: julia --project=. -e 'using Pkg; Pkg.test(test_args=["--quality-only"])'
       - name: Resolve latest compatible documentation dependencies
         run: julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.update(); Pkg.status(; outdated=true); using Documenter, TrixiCUDA'

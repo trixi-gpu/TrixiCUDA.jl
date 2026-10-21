@@ -62,7 +62,7 @@ include("../test_macros.jl")
                            coordinates_max = (40.0, 5.0)),
                           (type = "box", coordinates_min = (-40.0, -5.0),
                            coordinates_max = (40.0, 5.0)))
-    mesh = TreeMesh(coordinates_min, coordinates_max;
+    mesh = TreeMesh(coordinates_min, coordinates_max,
                     initial_refinement_level = 4,
                     refinement_patches = refinement_patches,
                     periodicity = true)

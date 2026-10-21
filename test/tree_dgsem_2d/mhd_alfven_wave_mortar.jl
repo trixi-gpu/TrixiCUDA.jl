@@ -25,7 +25,7 @@ include("../test_macros.jl")
     coordinates_max = (sqrt(2.0), sqrt(2.0))
     refinement_patches = ((type = "box", coordinates_min = 0.25 .* coordinates_max,
                            coordinates_max = 0.75 .* coordinates_max),)
-    mesh = TreeMesh(coordinates_min, coordinates_max;
+    mesh = TreeMesh(coordinates_min, coordinates_max,
                     initial_refinement_level = 4,
                     refinement_patches = refinement_patches,
                     periodicity = true)

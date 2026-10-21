@@ -15,6 +15,7 @@ Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 Aqua = "0.8.18"
 CUDA = "6.4.2"
 GPUArraysCore = "0.2.1"
+Pkg = "1.10"
 Printf = "1.10"
 SciMLBase = "3.58"
 StaticArrays = "1.9.23"
@@ -24,7 +25,8 @@ julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "Test"]
+test = ["Aqua", "Pkg", "Test"]

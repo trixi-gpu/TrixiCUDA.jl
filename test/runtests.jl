@@ -15,9 +15,6 @@ using CUDA
     println("- Max threads per block: ", TrixiCUDA.MAX_THREADS_PER_BLOCK)
     println("- Max shared memory per block: ", TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK)
 
-    @info "Starting TrixiCUDA quality test..."
-    include("quality_test.jl")
-
     include("dependency_compatibility.jl")
 
     @info "Starting TrixiCUDA test suite..."

@@ -30,7 +30,7 @@ using Trixi: allocate_coefficients, compute_coefficients, create_cache,
 # Trixi.jl structs
 using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidiscretization,
              AbstractSurfaceIntegral, AbstractBasisSBP,
-             PerformanceCounter, True, False, TreeMesh, TreeMeshSerial, StructuredMesh,
+             PerformanceCounter, True, False, TreeMesh, StructuredMesh,
              DG, DGSEM, FDSBP, SemidiscretizationHyperbolic,
              LobattoLegendreBasis, LobattoLegendreMortarL2,
              TreeElementContainer1D, TreeElementContainer2D, TreeElementContainer3D,

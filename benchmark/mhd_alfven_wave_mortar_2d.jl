@@ -27,11 +27,11 @@ coordinates_min = (0.0f0, 0.0f0)
 coordinates_max = (sqrt(2.0f0), sqrt(2.0f0))
 refinement_patches = ((type = "box", coordinates_min = 0.25f0 .* coordinates_max,
                        coordinates_max = 0.75f0 .* coordinates_max),)
-mesh = TreeMesh(coordinates_min, coordinates_max,
+mesh = TreeMesh(coordinates_min, coordinates_max;
                 initial_refinement_level = 2,
                 refinement_patches = refinement_patches,
-                RealT = RealT,
-                periodicity = true)
+                periodicity = true,
+                RealT = RealT)
 
 # Cache initialization
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,

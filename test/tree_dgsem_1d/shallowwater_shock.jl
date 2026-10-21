@@ -58,7 +58,7 @@ include("../test_macros.jl")
 
     coordinates_min = -3.0
     coordinates_max = 3.0
-    mesh = TreeMesh(coordinates_min, coordinates_max,
+    mesh = TreeMesh(coordinates_min, coordinates_max;
                     initial_refinement_level = 3,
                     periodicity = false)
 

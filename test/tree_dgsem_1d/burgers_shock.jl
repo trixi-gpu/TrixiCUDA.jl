@@ -33,7 +33,7 @@ include("../test_macros.jl")
     coordinate_max = 1.0
 
     # Make sure to turn periodicity explicitly off as special boundary conditions are specified
-    mesh = TreeMesh(coordinate_min, coordinate_max,
+    mesh = TreeMesh(coordinate_min, coordinate_max;
                     initial_refinement_level = 6,
                     periodicity = false)
 

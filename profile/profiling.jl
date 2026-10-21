@@ -9,7 +9,7 @@ coordinates_min = (0.0, 0.0, 0.0)
 coordinates_max = (2.0, 2.0, 2.0)
 refinement_patches = ((type = "box", coordinates_min = (0.5, 0.5, 0.5),
                        coordinates_max = (1.5, 1.5, 1.5)),)
-mesh = TreeMesh(coordinates_min, coordinates_max,
+mesh = TreeMesh(coordinates_min, coordinates_max;
                 initial_refinement_level = 2,
                 refinement_patches = refinement_patches,
                 periodicity = true)

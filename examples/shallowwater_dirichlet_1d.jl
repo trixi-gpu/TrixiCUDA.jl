@@ -25,7 +25,7 @@ solver = DGSEMGPU(polydeg = 3, surface_flux = surface_flux,
 
 coordinates_min = 0.0
 coordinates_max = sqrt(2.0)
-mesh = TreeMesh(coordinates_min, coordinates_max,
+mesh = TreeMesh(coordinates_min, coordinates_max;
                 initial_refinement_level = 3,
                 periodicity = false)
 

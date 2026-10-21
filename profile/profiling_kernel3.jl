@@ -27,10 +27,10 @@ solver_gpu = DGSEMGPU(polydeg = polydeg, surface_flux = surface_flux, volume_int
 
 coordinates_min = (-2.0f0, -2.0f0, -2.0f0)
 coordinates_max = (2.0f0, 2.0f0, 2.0f0)
-mesh = TreeMesh(coordinates_min, coordinates_max,
+mesh = TreeMesh(coordinates_min, coordinates_max;
                 initial_refinement_level = 3,
-                RealT = RealT,
-                periodicity = true)
+                periodicity = true,
+                RealT = RealT)
 
 semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
                                            source_terms = source_terms_convergence_test)

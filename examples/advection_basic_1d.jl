@@ -16,7 +16,7 @@ coordinates_min = -1.0 # minimum coordinate
 coordinates_max = 1.0 # maximum coordinate
 
 # Create a uniformly refined mesh with periodic boundaries
-mesh = TreeMesh(coordinates_min, coordinates_max,
+mesh = TreeMesh(coordinates_min, coordinates_max;
                 initial_refinement_level = 4,
                 periodicity = true) # set maximum capacity of tree data structure
 

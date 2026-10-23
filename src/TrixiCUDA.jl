@@ -5,7 +5,7 @@ import CUDA
 using CUDA: CuArray, CuDynamicSharedArray,
             @cuda, HostKernel, launch_configuration,
             threadIdx, blockIdx, blockDim, sync_threads
-using GPUArraysCore: AbstractGPUArray, AbstractGPUVector
+using GPUArraysCore: AbstractGPUArray
 
 # Formatting, ODE problems, and static arrays
 using Printf: @printf, @sprintf

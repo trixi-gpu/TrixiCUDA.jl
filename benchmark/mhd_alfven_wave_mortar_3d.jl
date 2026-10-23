@@ -7,7 +7,7 @@ RealT = Float32
 
 # Set up the problem
 gamma = 5.0f0 / 3
-equations = IdealGlmMhdEquations3D(gamma; initial_c_h = 1.0)
+equations = IdealGlmMhdEquations3D(gamma; initial_c_h = 1.0f0) # set GLM speed explicitly without `GlmSpeedCallback` to avoid NaN
 
 initial_condition = initial_condition_convergence_test
 

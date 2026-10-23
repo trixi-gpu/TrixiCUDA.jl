@@ -6,7 +6,7 @@ using BenchmarkTools
 RealT = Float32
 
 # Set up the problem
-equations = IdealGlmMhdEquations2D(1.4f0; initial_c_h = 1.0f0)
+equations = IdealGlmMhdEquations2D(1.4f0; initial_c_h = 1.0f0) # set GLM speed explicitly without `GlmSpeedCallback` to avoid NaN
 
 initial_condition = initial_condition_weak_blast_wave
 

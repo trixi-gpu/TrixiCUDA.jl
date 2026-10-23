@@ -43,8 +43,9 @@ function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
     inverse_weights_ = basis_cpu.inverse_weights
     inverse_vandermonde_legendre_ = basis_cpu.inverse_vandermonde_legendre
 
-    # Lobatto nodes coincide with the endpoints. The GPU surface kernels retain
-    # the weighted endpoint-interpolation matrix used by this package.
+    # Lobatto nodes include the endpoints. Retain the weighted boundary matrix
+    # for the current GPU surface kernels.
+    # TODO: Follow upstream by using `inverse_weights` directly and removing this matrix.
     boundary_interpolation_ = zeros(RealT, nnodes_, 2)
     boundary_interpolation_[1, 1] = first(inverse_weights_)
     boundary_interpolation_[end, 2] = last(inverse_weights_)

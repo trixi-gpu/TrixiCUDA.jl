@@ -45,7 +45,7 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations,
 end
 
 function create_cache_gpu(mesh::TreeMesh{1}, equations,
-                          volume_integral::SupportedShockCapturingHG, dg::DG,
+                          volume_integral::VolumeIntegralShockCapturingHGType, dg::DG,
                           uEltype, cache)
     fstar1_L = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
     fstar1_R = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
@@ -96,7 +96,7 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
 end
 
 function create_cache_gpu(mesh::TreeMesh{2}, equations,
-                          volume_integral::SupportedShockCapturingHG, dg::DG,
+                          volume_integral::VolumeIntegralShockCapturingHGType, dg::DG,
                           uEltype, cache)
     fstar1_L = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nnodes(dg),
                           nelements(cache.elements))
@@ -167,7 +167,7 @@ function create_cache_gpu(mesh::TreeMesh{3}, equations,
 end
 
 function create_cache_gpu(mesh::TreeMesh{3}, equations,
-                          volume_integral::SupportedShockCapturingHG, dg::DG,
+                          volume_integral::VolumeIntegralShockCapturingHGType, dg::DG,
                           uEltype, cache)
     fstar1_L = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nnodes(dg),
                           nnodes(dg), nelements(cache.elements))

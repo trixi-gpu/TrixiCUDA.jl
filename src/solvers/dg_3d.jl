@@ -173,7 +173,7 @@ end
 # Compute the DG volume term on the GPU for 3D problems using the hybrid DG 
 # finite volume shock capturing operator with non-conservative terms disabled.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False,
-                               equations, volume_integral::SupportedShockCapturingHG,
+                               equations, volume_integral::VolumeIntegralShockCapturingHGType,
                                dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
@@ -257,7 +257,7 @@ end
 # Compute the DG volume term on the GPU for 3D problems using the hybrid DG finite volume 
 # shock capturing operator with non-conservative terms enabled.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True,
-                               equations, volume_integral::SupportedShockCapturingHG,
+                               equations, volume_integral::VolumeIntegralShockCapturingHGType,
                                dg::DG, cache_gpu, cache_cpu)
     RealT = eltype(du)
 

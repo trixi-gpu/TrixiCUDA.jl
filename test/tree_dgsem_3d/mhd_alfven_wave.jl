@@ -6,7 +6,7 @@ using Test
 include("../test_macros.jl")
 
 @testset "MHD Alfven Wave 3D" begin
-    equations = IdealGlmMhdEquations3D(5 / 3; initial_c_h = 1.0)
+    equations = IdealGlmMhdEquations3D(5 / 3; initial_c_h = 1.0) # set GLM speed explicitly without `GlmSpeedCallback` to avoid NaN
 
     initial_condition = initial_condition_convergence_test
 

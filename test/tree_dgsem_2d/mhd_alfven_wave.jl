@@ -7,7 +7,7 @@ include("../test_macros.jl")
 
 @testset "MHD Alfven Wave 2D" begin
     gamma = 5 / 3
-    equations = IdealGlmMhdEquations2D(gamma; initial_c_h = 1.0)
+    equations = IdealGlmMhdEquations2D(gamma; initial_c_h = 1.0) # set GLM speed explicitly without `GlmSpeedCallback` to avoid NaN
 
     initial_condition = initial_condition_convergence_test
 

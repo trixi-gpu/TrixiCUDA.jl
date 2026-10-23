@@ -18,7 +18,7 @@ using Trixi: allocate_coefficients, compute_coefficients, create_cache,
              init_elements, init_interfaces, init_boundaries, init_mortars,
              have_nonconservative_terms, boundary_condition_periodic,
              digest_boundary_conditions, check_periodicity_mesh_boundary_conditions,
-             gauss_lobatto_nodes_weights, vandermonde_legendre,
+             gauss_lobatto_nodes_weights,
              polynomial_interpolation_matrix, volume_jacobian, total_volume,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
              polynomial_derivative_matrix,
@@ -65,10 +65,6 @@ import Trixi: get_nodes, get_node_vars, get_node_coords, get_surface_node_vars,
 set_log_type!("log_Base")
 set_sqrt_type!("sqrt_Base")
 set_loop_vectorization!(false)
-
-# The existing GPU kernels implement the classic first-order HG blend.
-const SupportedShockCapturingHG = VolumeIntegralShockCapturingHGType{<:Any, <:VolumeIntegralFluxDifferencing, <:VolumeIntegralFluxDifferencing,
-                                                                     <:VolumeIntegralPureLGLFiniteVolume}
 
 # Include other source files
 include("auxiliary/auxiliary.jl")

@@ -2,8 +2,6 @@
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 TrixiCUDA = "5056661c-942a-472c-b3bc-01507f717a60"
 
-[sources]
-TrixiCUDA = {path = ".."}
 
 [compat]
 Documenter = "1.19"

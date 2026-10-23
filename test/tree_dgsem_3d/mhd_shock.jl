@@ -6,7 +6,7 @@ using Test
 include("../test_macros.jl")
 
 @testset "MHD Shock 3D" begin
-    equations = IdealGlmMhdEquations3D(1.4; initial_c_h = 1.0)
+    equations = IdealGlmMhdEquations3D(1.4; initial_c_h = 1.0) # set GLM speed explicitly without `GlmSpeedCallback` to avoid NaN
 
     initial_condition = initial_condition_weak_blast_wave
 

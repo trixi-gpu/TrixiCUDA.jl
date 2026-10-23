@@ -68,13 +68,14 @@ function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, sol
 
     cache_gpu = (; create_cache_gpu(mesh, equations, solver, RealT, uEltype)...,
                  initial_cache_gpu...)
+    # TODO: Compare with adding CPU initialization methods for `LobattoLegendreBasisGPU` 
     cache_cpu = (;
                  create_cache(mesh, equations,
                               DGSEM(RealT = real(solver), polydeg = polydeg(solver),
                                     surface_integral = solver.surface_integral,
                                     volume_integral = solver.volume_integral),
                               RealT, uEltype)...,
-                 initial_cache_cpu...)
+initial_cache_cpu...)
 
     _boundary_conditions = digest_boundary_conditions(boundary_conditions, mesh, solver,
                                                       cache_cpu)

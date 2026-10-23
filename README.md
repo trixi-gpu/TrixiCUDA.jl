@@ -1,6 +1,6 @@
 # TrixiCUDA.jl
 
-[![Build status (Github Actions)](https://github.com/trixi-gpu/TrixiCUDA.jl/workflows/CI/badge.svg)](https://github.com/trixi-gpu/TrixiCUDA.jl/actions)
+[![Style](https://github.com/trixi-gpu/TrixiCUDA.jl/actions/workflows/Style.yml/badge.svg?branch=main)](https://github.com/trixi-gpu/TrixiCUDA.jl/actions/workflows/Style.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![dev docs](https://img.shields.io/badge/docs-dev-orange.svg)](https://trixi-gpu.github.io/TrixiCUDA.jl/dev)
 

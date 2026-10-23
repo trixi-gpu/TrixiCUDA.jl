@@ -1,8 +1,10 @@
 # TrixiCUDA.jl
 
-[![Build status (Github Actions)](https://github.com/trixi-gpu/TrixiCUDA.jl/workflows/CI/badge.svg)](https://github.com/trixi-gpu/TrixiCUDA.jl/actions)
+[![Style](https://github.com/trixi-gpu/TrixiCUDA.jl/actions/workflows/Style.yml/badge.svg?branch=main)](https://github.com/trixi-gpu/TrixiCUDA.jl/actions/workflows/Style.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![dev docs](https://img.shields.io/badge/docs-dev-orange.svg)](https://trixi-gpu.github.io/TrixiCUDA.jl/dev)
+[![Julia 1.10+](https://img.shields.io/badge/julia-1.10%2B-9558B2?logo=julia&logoColor=white)](https://github.com/trixi-gpu/TrixiCUDA.jl/blob/main/Project.toml)
+[![CUDA accelerated](https://img.shields.io/badge/CUDA-accelerated-76B900?logo=nvidia&logoColor=white)](https://github.com/JuliaGPU/CUDA.jl)
 
 TrixiCUDA.jl offers CUDA acceleration for solving hyperbolic PDEs.
 

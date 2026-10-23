@@ -1,5 +1,5 @@
 function integrate_via_indices(func::Func, u::AbstractArray,
-                               mesh::TreeMesh{1}, equations, dg::DGSEM{<:LobattoLegendreBasisGPU}, cache,
+                               mesh::TreeMeshSerial{1}, equations, dg::DGSEM{<:LobattoLegendreBasisGPU}, cache,
                                args...; normalize = true) where {Func}
     (; weights) = dg.basis
 
@@ -32,7 +32,7 @@ function integrate_via_indices(func::Func, u::AbstractArray,
 end
 
 function integrate(func::Func, u,
-                   mesh::TreeMesh{1},
+                   mesh::TreeMeshSerial{1},
                    equations, dg::DGSEM{<:LobattoLegendreBasisGPU}, cache; normalize = true) where {Func}
     integrate_via_indices(u, mesh, equations, dg, cache;
                           normalize = normalize) do u, i, element, equations, dg
@@ -42,7 +42,7 @@ function integrate(func::Func, u,
 end
 
 function calc_error_norms(func, u, t, analyzer,
-                          mesh::TreeMesh{1}, equations, initial_condition,
+                          mesh::TreeMeshSerial{1}, equations, initial_condition,
                           dg::DGSEM{<:LobattoLegendreBasisGPU}, cache, cache_analysis)
     (; vandermonde, weights) = analyzer
     (; node_coordinates) = cache.elements

@@ -53,7 +53,7 @@ end
 end
 
 # To be used outside GPU kernels, accepts both GPU and CPU arrays
-@inline function get_node_vars_view(u::Union{CuArray, Array}, equations, solver::DG, indices...)
+@inline function get_node_vars_view(u::Union{CuArray, Array}, equations, solver::DGSEM, indices...)
     return @view u[:, indices...]
 end
 

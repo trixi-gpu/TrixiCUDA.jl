@@ -2,7 +2,7 @@
 # initialize `du` and `u` with a 1D shape, as Trixi.jl does?
 
 # Get the polynomial degree from the solver basis.
-@inline polydeg(dg::DG) = polydeg(dg.basis)
+@inline polydeg(dg::DGSEM{<:LobattoLegendreBasisGPU}) = polydeg(dg.basis)
 
 # Based on benchmarks, using `reshape` is faster than `unsafe_wrap` for GPU arrays (why?),
 # but currently we are not sure about if reshape can be used for later `resize!` operations.
@@ -112,7 +112,7 @@ function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
 end
 
 # Call kernels to compute the coefficients for 1D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, dg::DG, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
@@ -127,7 +127,7 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, 
 end
 
 # Call kernels to compute the coefficients for 2D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, dg::DG, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
@@ -142,7 +142,7 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, 
 end
 
 # Call kernels to compute the coefficients for 3D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DG, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,

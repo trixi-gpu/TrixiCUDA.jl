@@ -285,7 +285,7 @@ function cuda_prolong2interfaces!(u, mesh::TreeMesh{1}, equations, cache)
 end
 
 # Compute interface fluxes on the GPU for 1D problems with non-conservative terms disabled.
-function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, equations, dg::DG,
+function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, equations, dg::DGSEM,
                               cache)
     RealT = eltype(cache.elements)
 
@@ -313,7 +313,7 @@ function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::False, e
 end
 
 # Compute interface fluxes on the GPU for 1D problems with non-conservative terms enabled.
-function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, equations, dg::DG,
+function cuda_interface_flux!(mesh::TreeMesh{1}, nonconservative_terms::True, equations, dg::DGSEM,
                               cache)
     RealT = eltype(cache.elements)
 
@@ -379,13 +379,13 @@ end
 
 # No operation for periodic boundary conditions.
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_condition::BoundaryConditionPeriodic,
-                             nonconservative_terms, equations, dg::DG, cache)
+                             nonconservative_terms, equations, dg::DGSEM, cache)
     @assert iszero(length(cache.boundaries.orientations))
 end
 
 # Compute boundary fluxes on the GPU for 1D problems with non-conservative terms disabled.
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTuple,
-                             nonconservative_terms::False, equations, dg::DG, cache)
+                             nonconservative_terms::False, equations, dg::DGSEM, cache)
     surface_flux = dg.surface_integral.surface_flux
 
     n_boundaries_per_direction = cache.boundaries.n_boundaries_per_direction
@@ -428,7 +428,7 @@ end
 
 # Compute boundary fluxes on the GPU for 1D problems with non-conservative terms enabled.
 function cuda_boundary_flux!(t, mesh::TreeMesh{1}, boundary_conditions::NamedTuple,
-                             nonconservative_terms::True, equations, dg::DG, cache)
+                             nonconservative_terms::True, equations, dg::DGSEM, cache)
     # Contain both conservative and nonconservative fluxes
     surface_flux = dg.surface_integral.surface_flux
 
@@ -521,7 +521,7 @@ end
 # DG volume term, interface and boundary fluxes, surface accumulation, Jacobian transformation, 
 # and source terms.
 function rhs_gpu!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions,
-                  source_terms::Source, dg::DG, cache_gpu, cache_cpu) where {Source}
+                  source_terms::Source, dg::DGSEM, cache_gpu, cache_cpu) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 
     # removing the need for a separate function call.

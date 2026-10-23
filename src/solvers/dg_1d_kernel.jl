@@ -872,7 +872,7 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
 end
 
 # Kernel for calculating surface integrals
-function surface_integral_kernel!(du, factor_arr, surface_flux_values,
+function surface_integral_kernel!(du, inverse_weights, surface_flux_values,
                                   equations::AbstractEquations{1})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -880,8 +880,8 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values,
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
         @inbounds begin
-            du[i, j, k] -= surface_flux_values[i, 1, k] * isequal(j, 1) * factor_arr[1]
-            du[i, j, k] += surface_flux_values[i, 2, k] * isequal(j, size(du, 2)) * factor_arr[2]
+            du[i, j, k] -= surface_flux_values[i, 1, k] * isequal(j, 1) * inverse_weights[1]
+            du[i, j, k] += surface_flux_values[i, 2, k] * isequal(j, size(du, 2)) * inverse_weights[end]
         end
     end
 

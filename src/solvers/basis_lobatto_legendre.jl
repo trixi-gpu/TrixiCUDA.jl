@@ -4,7 +4,6 @@
 struct LobattoLegendreBasisGPU{RealT <: Real, NNODES,
                                VectorT <: CuArray{RealT, 1},
                                InverseVandermondeLegendre <: AbstractMatrix{RealT},
-                               BoundaryMatrix <: AbstractMatrix{RealT},
                                DerivativeMatrix <: CuArray{RealT, 2}} <: AbstractBasisSBP{RealT}
     # CPU array, no need to convert to GPU array
     # Will it be better if adapt a CPU type?
@@ -16,7 +15,6 @@ struct LobattoLegendreBasisGPU{RealT <: Real, NNODES,
 
     # CPU array, can adapt to a GPU type if needed
     inverse_vandermonde_legendre::InverseVandermondeLegendre
-    boundary_interpolation::BoundaryMatrix
 
     # Set as GPU array type
     derivative_matrix::DerivativeMatrix
@@ -43,13 +41,6 @@ function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
     inverse_weights_ = basis_cpu.inverse_weights
     inverse_vandermonde_legendre_ = basis_cpu.inverse_vandermonde_legendre
 
-    # Lobatto nodes include the endpoints. Retain the weighted boundary matrix
-    # for the current GPU surface kernels.
-    # TODO: Follow upstream by using `inverse_weights` directly and removing this matrix.
-    boundary_interpolation_ = zeros(RealT, nnodes_, 2)
-    boundary_interpolation_[1, 1] = first(inverse_weights_)
-    boundary_interpolation_[end, 2] = last(inverse_weights_)
-
     derivative_matrix_ = basis_cpu.derivative_matrix
     derivative_split_ = basis_cpu.derivative_split
     derivative_hat_ = basis_cpu.derivative_hat
@@ -64,15 +55,12 @@ function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
 
     # Avoid scalar indexing
     # inverse_vandermonde_legendre = CuArray{RealT}(inverse_vandermonde_legendre_)
-    # boundary_interpolation = CuArray(boundary_interpolation_)
 
     return LobattoLegendreBasisGPU{RealT, nnodes_, typeof(inverse_weights),
                                    typeof(inverse_vandermonde_legendre_),
-                                   typeof(boundary_interpolation_),
                                    typeof(derivative_matrix)}(nodes_, weights_,
                                                               inverse_weights,
                                                               inverse_vandermonde_legendre_,
-                                                              boundary_interpolation_,
                                                               derivative_matrix,
                                                               derivative_split,
                                                               derivative_split_transpose,

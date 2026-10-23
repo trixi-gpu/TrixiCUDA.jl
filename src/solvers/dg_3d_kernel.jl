@@ -1770,7 +1770,7 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
 end
 
 # Kernel for calculating surface integrals
-function surface_integral_kernel!(du, factor_arr, surface_flux_values,
+function surface_integral_kernel!(du, inverse_weights, surface_flux_values,
                                   equations::AbstractEquations{3})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -1787,11 +1787,11 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values,
             du[i, j1, j2, j3, k] -= (surface_flux_values[i, j2, j3, 1, k] * isequal(j1, 1) +
                                      surface_flux_values[i, j1, j3, 3, k] * isequal(j2, 1) +
                                      surface_flux_values[i, j1, j2, 5, k] * isequal(j3, 1)) *
-                                    factor_arr[1]
+                                    inverse_weights[1]
             du[i, j1, j2, j3, k] += (surface_flux_values[i, j2, j3, 2, k] * isequal(j1, u2) +
                                      surface_flux_values[i, j1, j3, 4, k] * isequal(j2, u2) +
                                      surface_flux_values[i, j1, j2, 6, k] * isequal(j3, u2)) *
-                                    factor_arr[2]
+                                    inverse_weights[end]
         end
     end
 

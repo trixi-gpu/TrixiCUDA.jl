@@ -474,16 +474,13 @@ end
 
 # Accumulate surface contributions into the DG scheme on the GPU for 1D problems.
 function cuda_surface_integral!(du, mesh::TreeMesh{1}, equations, dg::DGSEM, cache)
-    factor_arr = CuArray([
-                             dg.basis.boundary_interpolation[1, 1],
-                             dg.basis.boundary_interpolation[size(du, 2), 2]
-                         ])
+    inverse_weights = dg.basis.inverse_weights
     surface_flux_values = cache.elements.surface_flux_values
 
-    surface_integral_kernel = @cuda launch=false surface_integral_kernel!(du, factor_arr,
+    surface_integral_kernel = @cuda launch=false surface_integral_kernel!(du, inverse_weights,
                                                                           surface_flux_values,
                                                                           equations)
-    surface_integral_kernel(du, factor_arr, surface_flux_values, equations;
+    surface_integral_kernel(du, inverse_weights, surface_flux_values, equations;
                             kernel_configurator_3d(surface_integral_kernel, size(du)...)...)
 
     return nothing

@@ -75,7 +75,7 @@ function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, sol
                                     surface_integral = solver.surface_integral,
                                     volume_integral = solver.volume_integral),
                               RealT, uEltype)...,
-initial_cache_cpu...)
+                 initial_cache_cpu...)
 
     _boundary_conditions = digest_boundary_conditions(boundary_conditions, mesh, solver,
                                                       cache_cpu)

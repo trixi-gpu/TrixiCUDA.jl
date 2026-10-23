@@ -23,7 +23,7 @@ function DGSEMGPU(basis::LobattoLegendreBasisGPU,
                   mortar = MortarL2GPU(basis))
     # Preserve the GPU basis and mortar types in the DG solver.
     return DGSEM{typeof(basis), typeof(mortar), typeof(surface_integral),
-              typeof(volume_integral)}(basis, mortar, surface_integral, volume_integral)
+                 typeof(volume_integral)}(basis, mortar, surface_integral, volume_integral)
 end
 
 """

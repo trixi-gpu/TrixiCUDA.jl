@@ -1,31 +1,9 @@
 # Everything related to Lobatto-Legendre basis adapted for initialization on the GPU.
 
-# CPU version of LobattoLegendreBasis from Trixi.jl (for reference)
-# struct LobattoLegendreBasis{RealT <: Real, NNODES,
-#                             VectorT <: AbstractVector{RealT},
-#                             InverseVandermondeLegendre <: AbstractMatrix{RealT},
-#                             BoundaryMatrix <: AbstractMatrix{RealT},
-#                             DerivativeMatrix <: AbstractMatrix{RealT}} <:
-#        AbstractBasisSBP{RealT}
-#     nodes::VectorT
-#     weights::VectorT
-#     inverse_weights::VectorT
-
-#     inverse_vandermonde_legendre::InverseVandermondeLegendre
-#     boundary_interpolation::BoundaryMatrix # lhat
-
-#     derivative_matrix::DerivativeMatrix # strong form derivative matrix
-#     derivative_split::DerivativeMatrix # strong form derivative matrix minus boundary terms
-#     derivative_split_transpose::DerivativeMatrix # transpose of `derivative_split`
-#     derivative_dhat::DerivativeMatrix # weak form matrix "dhat",
-#     # negative adjoint wrt the SBP dot product
-# end
-
 # Similar to `LobattoLegendreBasis` in Trixi.jl 
 struct LobattoLegendreBasisGPU{RealT <: Real, NNODES,
                                VectorT <: CuArray{RealT, 1},
                                InverseVandermondeLegendre <: AbstractMatrix{RealT},
-                               BoundaryMatrix <: AbstractMatrix{RealT},
                                DerivativeMatrix <: CuArray{RealT, 2}} <: AbstractBasisSBP{RealT}
     # CPU array, no need to convert to GPU array
     # Will it be better if adapt a CPU type?
@@ -37,13 +15,12 @@ struct LobattoLegendreBasisGPU{RealT <: Real, NNODES,
 
     # CPU array, can adapt to a GPU type if needed
     inverse_vandermonde_legendre::InverseVandermondeLegendre
-    boundary_interpolation::BoundaryMatrix
 
     # Set as GPU array type
     derivative_matrix::DerivativeMatrix
     derivative_split::DerivativeMatrix
     derivative_split_transpose::DerivativeMatrix
-    derivative_dhat::DerivativeMatrix
+    derivative_hat::DerivativeMatrix
 end
 
 """
@@ -58,21 +35,15 @@ Galerkin spectral element method (DGSEM).
     ongoing performance optimizations.
 """
 function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
-    nnodes_ = polydeg + 1
+    basis_cpu = LobattoLegendreBasis(RealT, polydeg)
+    nnodes_ = nnodes(basis_cpu)
+    nodes_, weights_ = get_nodes(basis_cpu), basis_cpu.weights
+    inverse_weights_ = basis_cpu.inverse_weights
+    inverse_vandermonde_legendre_ = basis_cpu.inverse_vandermonde_legendre
 
-    # TODO: Use GPU kernels to complete the computation (compare with CPU)
-    nodes_, weights_ = gauss_lobatto_nodes_weights(nnodes_, RealT)
-    inverse_weights_ = inv.(weights_)
-
-    _, inverse_vandermonde_legendre_ = vandermonde_legendre(nodes_, RealT)
-
-    boundary_interpolation_ = zeros(RealT, nnodes_, 2)
-    boundary_interpolation_[:, 1] = calc_lhat(-one(RealT), nodes_, weights_)
-    boundary_interpolation_[:, 2] = calc_lhat(one(RealT), nodes_, weights_)
-
-    derivative_matrix_ = polynomial_derivative_matrix(nodes_)
-    derivative_split_ = calc_dsplit(nodes_, weights_)
-    derivative_dhat_ = calc_dhat(nodes_, weights_)
+    derivative_matrix_ = basis_cpu.derivative_matrix
+    derivative_split_ = basis_cpu.derivative_split
+    derivative_hat_ = basis_cpu.derivative_hat
 
     # Convert to GPU arrays
     inverse_weights = CuArray{RealT}(inverse_weights_)
@@ -80,23 +51,20 @@ function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
     derivative_matrix = CuArray{RealT}(derivative_matrix_)
     derivative_split = CuArray{RealT}(derivative_split_)
     derivative_split_transpose = CuArray{RealT}(derivative_split_')
-    derivative_dhat = CuArray{RealT}(derivative_dhat_)
+    derivative_hat = CuArray{RealT}(derivative_hat_)
 
     # Avoid scalar indexing
     # inverse_vandermonde_legendre = CuArray{RealT}(inverse_vandermonde_legendre_)
-    # boundary_interpolation = CuArray(boundary_interpolation_)
 
     return LobattoLegendreBasisGPU{RealT, nnodes_, typeof(inverse_weights),
                                    typeof(inverse_vandermonde_legendre_),
-                                   typeof(boundary_interpolation_),
                                    typeof(derivative_matrix)}(nodes_, weights_,
                                                               inverse_weights,
                                                               inverse_vandermonde_legendre_,
-                                                              boundary_interpolation_,
                                                               derivative_matrix,
                                                               derivative_split,
                                                               derivative_split_transpose,
-                                                              derivative_dhat)
+                                                              derivative_hat)
 end
 
 LobattoLegendreBasisGPU(polydeg::Integer) = LobattoLegendreBasisGPU(Float64, polydeg) # Float32 ?

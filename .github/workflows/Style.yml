@@ -1,0 +1,26 @@
+name: Style
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  style:
+    name: Formatting and spelling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check spelling
+        uses: crate-ci/typos@v1.39.0
+        with:
+          config: .typos.toml
+      - name: Check formatting
+        uses: julia-actions/julia-format@v4
+        with:
+          version: '2.14.0'

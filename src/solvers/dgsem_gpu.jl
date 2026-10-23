@@ -1,29 +1,29 @@
+# TODO: Support Trixi's generalized HG volume integrals.
+# Current GPU kernels require identical default and blended high-order
+# flux-differencing operators, combined with first-order subcell FV.
+# Upstream: https://github.com/trixi-framework/Trixi.jl/pull/2802
+
 # Rewrite `DGSEM` in Trixi.jl to add the specialized parts of the arrays required to copy the arrays 
 # from CPU to GPU.
 
-# Maybe the return type of `DGSEMGPU` should be change?
-
+# Construct a DG solver using this package's GPU basis and kernels.
 function DGSEMGPU(basis::LobattoLegendreBasisGPU,
                   surface_flux = flux_central,
                   volume_integral = VolumeIntegralWeakForm(),
                   mortar = MortarL2GPU(basis))
     surface_integral = SurfaceIntegralWeakForm(surface_flux)
 
-    # Since we use `LobattoLegendreBasisGPU`, the type degrades to `DG` if 
-    # we create a new `DGSEMGPU` struct.
-    return DG{typeof(basis), typeof(mortar), typeof(surface_integral),
-              typeof(volume_integral)}(basis, mortar, surface_integral, volume_integral)
+    # Preserve the GPU basis and mortar types in the DG solver.
+    return DGSEM{typeof(basis), typeof(mortar), typeof(surface_integral),
+                 typeof(volume_integral)}(basis, mortar, surface_integral, volume_integral)
 end
-
 function DGSEMGPU(basis::LobattoLegendreBasisGPU,
                   surface_integral::AbstractSurfaceIntegral,
                   volume_integral = VolumeIntegralWeakForm(),
                   mortar = MortarL2GPU(basis))
-
-    # Since we use `LobattoLegendreBasisGPU`, the type degrades to `DG` if 
-    # we create a new `DGSEMGPU` struct.
-    return DG{typeof(basis), typeof(mortar), typeof(surface_integral),
-              typeof(volume_integral)}(basis, mortar, surface_integral, volume_integral)
+    # Preserve the GPU basis and mortar types in the DG solver.
+    return DGSEM{typeof(basis), typeof(mortar), typeof(surface_integral),
+                 typeof(volume_integral)}(basis, mortar, surface_integral, volume_integral)
 end
 
 """
@@ -46,9 +46,7 @@ function DGSEMGPU(; RealT = Float64,
                   surface_integral = SurfaceIntegralWeakForm(surface_flux),
                   volume_integral = VolumeIntegralWeakForm())
     basis = LobattoLegendreBasisGPU(RealT, polydeg)
-
-    # Since we use `LobattoLegendreBasisGPU`, the type degrades to `DG` if 
-    # we create a new `DGSEMGPU` struct.
+    # Preserve the GPU basis and mortar types in the DG solver.
     return DGSEMGPU(basis, surface_integral, volume_integral)
 end
 

@@ -30,7 +30,7 @@ function flux_kernel!(flux_arr1, flux_arr2, u, equations::AbstractEquations{2}, 
 end
 
 # Kernel for calculating weak form
-function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
+function weak_form_kernel!(du, derivative_hat, flux_arr1, flux_arr2)
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
@@ -42,8 +42,8 @@ function weak_form_kernel!(du, derivative_dhat, flux_arr1, flux_arr2)
         @inbounds du[i, j1, j2, k] = zero(eltype(du)) # initialize `du` with zeros
 
         for ii in axes(du, 2)
-            @inbounds du[i, j1, j2, k] += derivative_dhat[j1, ii] * flux_arr1[i, ii, j2, k] +
-                                          derivative_dhat[j2, ii] * flux_arr2[i, j1, ii, k]
+            @inbounds du[i, j1, j2, k] += derivative_hat[j1, ii] * flux_arr1[i, ii, j2, k] +
+                                          derivative_hat[j2, ii] * flux_arr2[i, j1, ii, k]
         end
     end
 
@@ -52,7 +52,7 @@ end
 
 ############################################################################## New optimization
 # Kernel for calculating volume integrals with weak form
-function flux_weak_form_kernel!(du, u, derivative_dhat,
+function flux_weak_form_kernel!(du, u, derivative_hat,
                                 equations::AbstractEquations{2}, flux::Any)
     # Set tile width
     tile_width = size(du, 2)
@@ -72,9 +72,9 @@ function flux_weak_form_kernel!(du, u, derivative_dhat,
     # Tile the computation (restrict to one tile here)
     value = zero(eltype(du))
 
-    # Load global `derivative_dhat` into shared memory
+    # Load global `derivative_hat` into shared memory
     # Transposed load
-    @inbounds shmem_dhat[ty1, ty2] = derivative_dhat[ty2, ty1]
+    @inbounds shmem_dhat[ty1, ty2] = derivative_hat[ty2, ty1]
 
     # Compute flux values
     u_node = get_node_vars(u, equations, ty1, ty2, k)
@@ -1397,7 +1397,7 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
 end
 
 # Kernel for calculating surface integrals
-function surface_integral_kernel!(du, factor_arr, surface_flux_values,
+function surface_integral_kernel!(du, inverse_weights, surface_flux_values,
                                   equations::AbstractEquations{2})
     i = (blockIdx().x - 1) * blockDim().x + threadIdx().x
     j = (blockIdx().y - 1) * blockDim().y + threadIdx().y
@@ -1411,9 +1411,9 @@ function surface_integral_kernel!(du, factor_arr, surface_flux_values,
 
         @inbounds begin
             du[i, j1, j2, k] -= (surface_flux_values[i, j2, 1, k] * isequal(j1, 1) +
-                                 surface_flux_values[i, j1, 3, k] * isequal(j2, 1)) * factor_arr[1]
+                                 surface_flux_values[i, j1, 3, k] * isequal(j2, 1)) * inverse_weights[1]
             du[i, j1, j2, k] += (surface_flux_values[i, j2, 2, k] * isequal(j1, u2) +
-                                 surface_flux_values[i, j1, 4, k] * isequal(j2, u2)) * factor_arr[2]
+                                 surface_flux_values[i, j1, 4, k] * isequal(j2, u2)) * inverse_weights[end]
         end
     end
 

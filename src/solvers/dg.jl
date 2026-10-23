@@ -1,28 +1,25 @@
 # Do we really need to compute the coefficients on the GPU, and do we need to
 # initialize `du` and `u` with a 1D shape, as Trixi.jl does?
 
-# Adapt a general polynomial degree function since `DGSEMGPU` gives a `DG` type
-@inline polydeg(dg::DG) = polydeg(dg.basis)
+# Get the polynomial degree from the solver basis.
+@inline polydeg(dg::DGSEM{<:LobattoLegendreBasisGPU}) = polydeg(dg.basis)
 
 # Based on benchmarks, using `reshape` is faster than `unsafe_wrap` for GPU arrays (why?),
 # but currently we are not sure about if reshape can be used for later `resize!` operations.
 # But now we don't take AMR into account, so we can use `reshape` for now.
 
 # Can we make `unsafe_wrap` faster on GPU arrays?
-
 # Should we use `CuArray` or `AbstractGPUArray`?
 @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
-                            dg::DG, cache)
+                            dg::DGSEM, cache)
     # We skip bounds checking here for better performance. 
     # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
 
     reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
             nelements(dg, cache))
 end
-
-# Should we use `CuArray` or `AbstractGPUArray`?
 @inline function wrap_array_native(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
-                                   dg::DG, cache)
+                                   dg::DGSEM, cache)
     # We skip bounds checking here for better performance. 
     # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
 
@@ -115,7 +112,7 @@ function compute_coefficients_kernel!(u, node_coordinates, func::Any, t,
 end
 
 # Call kernels to compute the coefficients for 1D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, dg::DG, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
@@ -130,7 +127,7 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, 
 end
 
 # Call kernels to compute the coefficients for 2D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, dg::DG, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
@@ -145,7 +142,7 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, 
 end
 
 # Call kernels to compute the coefficients for 3D problems
-function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DG, cache)
+function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
     compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,

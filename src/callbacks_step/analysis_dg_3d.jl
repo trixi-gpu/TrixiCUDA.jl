@@ -1,5 +1,5 @@
-function integrate_via_indices(func::Func, u,
-                               mesh::TreeMesh{3}, equations, dg::DG, cache,
+function integrate_via_indices(func::Func, u::AbstractArray,
+                               mesh::TreeMeshSerial{3}, equations, dg::DGSEM{<:LobattoLegendreBasisGPU}, cache,
                                args...; normalize = true) where {Func}
     (; weights) = dg.basis
 
@@ -33,8 +33,8 @@ function integrate_via_indices(func::Func, u,
 end
 
 function integrate(func::Func, u,
-                   mesh::TreeMesh{3},
-                   equations, dg::DG, cache; normalize = true) where {Func}
+                   mesh::TreeMeshSerial{3},
+                   equations, dg::DGSEM{<:LobattoLegendreBasisGPU}, cache; normalize = true) where {Func}
     integrate_via_indices(u, mesh, equations, dg, cache;
                           normalize = normalize) do u, i, j, k, element, equations, dg
         u_local = get_node_vars_view(u, equations, dg, i, j, k, element) # call view to avoid scalar indexing
@@ -43,8 +43,8 @@ function integrate(func::Func, u,
 end
 
 function calc_error_norms(func, u, t, analyzer,
-                          mesh::TreeMesh{3}, equations, initial_condition,
-                          dg::DG, cache, cache_analysis)
+                          mesh::TreeMeshSerial{3}, equations, initial_condition,
+                          dg::DGSEM{<:LobattoLegendreBasisGPU}, cache, cache_analysis)
     (; vandermonde, weights) = analyzer
     (; node_coordinates) = cache.elements
     (; u_local, u_tmp1, u_tmp2, x_local, x_tmp1, x_tmp2) = cache_analysis

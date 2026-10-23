@@ -6,21 +6,22 @@
 
 # Create cache for general tree mesh
 function create_cache_gpu(mesh, equations,
-                          volume_integral::VolumeIntegralWeakForm, dg::DG,
+                          volume_integral::VolumeIntegralWeakForm, dg::DGSEM,
                           uEltype, cache)
     NamedTuple()
 end
 
 # Create cache specialized for 1D tree mesh
-function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DG, RealT, uEltype)
+function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DGSEM, RealT, uEltype)
     # Get cells for which an element needs to be created (i.e., all leaf cells)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
-    elements = init_elements(leaf_cell_ids, mesh, equations, dg.basis, RealT, uEltype)
+    basis_cpu = LobattoLegendreBasis(real(dg), polydeg(dg))
+    elements = init_elements(leaf_cell_ids, mesh, equations, basis_cpu, RealT, uEltype)
 
     interfaces = init_interfaces(leaf_cell_ids, mesh, elements)
 
-    boundaries = init_boundaries(leaf_cell_ids, mesh, elements)
+    boundaries = init_boundaries(leaf_cell_ids, mesh, elements, basis_cpu)
 
     # Copy cache components from CPU to GPU
     elements = copy_elements(elements)
@@ -38,19 +39,19 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DG, RealT, uEltype)
 end
 
 function create_cache_gpu(mesh::TreeMesh{1}, equations,
-                          volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
+                          volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM,
                           uEltype, cache)
     NamedTuple()
 end
 
 function create_cache_gpu(mesh::TreeMesh{1}, equations,
-                          volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
+                          volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM,
                           uEltype, cache)
     fstar1_L = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
     fstar1_R = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
 
     cache = create_cache_gpu(mesh, equations,
-                             VolumeIntegralFluxDifferencing(volume_integral.volume_flux_dg),
+                             volume_integral.volume_integral_blend_high_order,
                              dg, uEltype, cache)
 
     return (; cache..., fstar1_L, fstar1_R)
@@ -58,15 +59,16 @@ end
 
 # Create cache specialized for 2D tree mesh
 function create_cache_gpu(mesh::TreeMesh{2}, equations,
-                          dg::DG, RealT, uEltype)
+                          dg::DGSEM, RealT, uEltype)
     # Get cells for which an element needs to be created (i.e., all leaf cells)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
-    elements = init_elements(leaf_cell_ids, mesh, equations, dg.basis, RealT, uEltype)
+    basis_cpu = LobattoLegendreBasis(real(dg), polydeg(dg))
+    elements = init_elements(leaf_cell_ids, mesh, equations, basis_cpu, RealT, uEltype)
 
     interfaces = init_interfaces(leaf_cell_ids, mesh, elements)
 
-    boundaries = init_boundaries(leaf_cell_ids, mesh, elements)
+    boundaries = init_boundaries(leaf_cell_ids, mesh, elements, basis_cpu)
 
     mortars = init_mortars(leaf_cell_ids, mesh, elements, dg.mortar)
 
@@ -88,13 +90,13 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
 end
 
 function create_cache_gpu(mesh::TreeMesh{2}, equations,
-                          volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
+                          volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM,
                           uEltype, cache)
     NamedTuple()
 end
 
 function create_cache_gpu(mesh::TreeMesh{2}, equations,
-                          volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
+                          volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM,
                           uEltype, cache)
     fstar1_L = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nnodes(dg),
                           nelements(cache.elements))
@@ -106,7 +108,7 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
                           nelements(cache.elements))
 
     cache = create_cache_gpu(mesh, equations,
-                             VolumeIntegralFluxDifferencing(volume_integral.volume_flux_dg),
+                             volume_integral.volume_integral_blend_high_order,
                              dg, uEltype, cache)
 
     return (; cache..., fstar1_L, fstar1_R, fstar2_L, fstar2_R)
@@ -128,15 +130,16 @@ end
 
 # Create cache specialized for 3D tree mesh
 function create_cache_gpu(mesh::TreeMesh{3}, equations,
-                          dg::DG, RealT, uEltype)
+                          dg::DGSEM, RealT, uEltype)
     # Get cells for which an element needs to be created (i.e., all leaf cells)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
-    elements = init_elements(leaf_cell_ids, mesh, equations, dg.basis, RealT, uEltype)
+    basis_cpu = LobattoLegendreBasis(real(dg), polydeg(dg))
+    elements = init_elements(leaf_cell_ids, mesh, equations, basis_cpu, RealT, uEltype)
 
     interfaces = init_interfaces(leaf_cell_ids, mesh, elements)
 
-    boundaries = init_boundaries(leaf_cell_ids, mesh, elements)
+    boundaries = init_boundaries(leaf_cell_ids, mesh, elements, basis_cpu)
 
     mortars = init_mortars(leaf_cell_ids, mesh, elements, dg.mortar)
 
@@ -158,13 +161,13 @@ function create_cache_gpu(mesh::TreeMesh{3}, equations,
 end
 
 function create_cache_gpu(mesh::TreeMesh{3}, equations,
-                          volume_integral::VolumeIntegralFluxDifferencing, dg::DG,
+                          volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM,
                           uEltype, cache)
     NamedTuple()
 end
 
 function create_cache_gpu(mesh::TreeMesh{3}, equations,
-                          volume_integral::VolumeIntegralShockCapturingHG, dg::DG,
+                          volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM,
                           uEltype, cache)
     fstar1_L = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nnodes(dg),
                           nnodes(dg), nelements(cache.elements))
@@ -180,7 +183,7 @@ function create_cache_gpu(mesh::TreeMesh{3}, equations,
                           nnodes(dg) + 1, nelements(cache.elements))
 
     cache = create_cache_gpu(mesh, equations,
-                             VolumeIntegralFluxDifferencing(volume_integral.volume_flux_dg),
+                             volume_integral.volume_integral_blend_high_order,
                              dg, uEltype, cache)
 
     return (; cache..., fstar1_L, fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R)

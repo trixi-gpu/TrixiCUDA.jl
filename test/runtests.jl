@@ -17,15 +17,12 @@ using CUDA
 
     @info "Starting TrixiCUDA test suite..."
     for (dim, path) in [("1D", "./tree_dgsem_1d/tree_dgsem_1d.jl"),
-        ("2D", "./tree_dgsem_2d/tree_dgsem_2d.jl"),
-        ("3D", "./tree_dgsem_3d/tree_dgsem_3d.jl")]
+            ("2D", "./tree_dgsem_2d/tree_dgsem_2d.jl"),
+            ("3D", "./tree_dgsem_3d/tree_dgsem_3d.jl")]
         @info "Running tests of $dim Galerkin spectral element method with tree mesh on GPU..."
         @time include(path)
         @info "Completed tests of $dim Galerkin spectral element method with tree mesh on GPU..."
     end
-
-    # @info "Starting TrixiCUDA quality test..."
-    # include("./quality_test.jl")
 
     # For debugging 
     # include("../test.jl")

@@ -42,8 +42,8 @@ macro timer(args...)
         end
 
         local val, cpu_time,
-        cpu_alloc_size, cpu_gc_time, cpu_mem_stats,
-        gpu_alloc_size, gpu_mem_time, gpu_mem_stats = CUDA.@timed $(esc(expr)) # synchronize in CUDA.@timed
+              cpu_alloc_size, cpu_gc_time, cpu_mem_stats,
+              gpu_alloc_size, gpu_mem_time, gpu_mem_stats = CUDA.@timed $(esc(expr)) # synchronize in CUDA.@timed
 
         local cpu_alloc_count = Base.gc_alloc_count(cpu_mem_stats)
         local gpu_alloc_count = gpu_mem_stats.alloc_count

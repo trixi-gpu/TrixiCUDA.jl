@@ -2,9 +2,7 @@
 # Note that maybe we should consider optimizing these original CPU code to
 # get it better run on GPU.
 
-# Same as `IndicatorHennemannGassner` in Trixi.jl but with `DG` signature
-# How to implement this in a better way?
-function (indicator_hg::IndicatorHennemannGassner)(u, mesh, equations, dg::DG, cache;
+function (indicator_hg::IndicatorHennemannGassner)(u, mesh, equations, dg::DGSEM{<:LobattoLegendreBasisGPU}, cache;
                                                    kwargs...)
     (; alpha_smooth) = indicator_hg
     (; alpha, alpha_tmp) = indicator_hg.cache

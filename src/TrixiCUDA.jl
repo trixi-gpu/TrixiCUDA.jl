@@ -14,7 +14,7 @@ using StaticArrays: SVector
 
 # Trixi abstractions, meshes, and solvers
 using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidiscretization,
-             TreeMesh, StructuredMesh, DG, DGSEM,
+             TreeMesh, TreeMeshSerial, StructuredMesh, DG, DGSEM,
              True, False, PerformanceCounter
 
 # Basis, mortar, and volume-integral types

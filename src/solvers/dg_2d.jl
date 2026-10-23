@@ -17,7 +17,7 @@ include("dg_2d_kernel.jl")
 # weak form volume operator.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms,
                                equations, volume_integral::VolumeIntegralWeakForm,
-                               dg::DG, cache_gpu, cache_cpu)
+                               dg::DGSEM, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     derivative_hat = dg.basis.derivative_hat
@@ -55,7 +55,7 @@ end
 # volume operator with non-conservative terms disabled.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::False,
                                equations, volume_integral::VolumeIntegralFluxDifferencing,
-                               dg::DG, cache_gpu, cache_cpu)
+                               dg::DGSEM, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
@@ -98,7 +98,7 @@ end
 # volume operator with non-conservative terms enabled.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True,
                                equations, volume_integral::VolumeIntegralFluxDifferencing,
-                               dg::DG, cache_gpu, cache_cpu)
+                               dg::DGSEM, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     symmetric_flux, nonconservative_flux = dg.volume_integral.volume_flux
@@ -158,7 +158,7 @@ end
 # shock capturing operator with non-conservative terms disabled.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::False,
                                equations, volume_integral::VolumeIntegralShockCapturingHGType,
-                               dg::DG, cache_gpu, cache_cpu)
+                               dg::DGSEM, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
@@ -232,7 +232,7 @@ end
 # shock capturing operator with non-conservative terms enabled.
 function cuda_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True,
                                equations, volume_integral::VolumeIntegralShockCapturingHGType,
-                               dg::DG, cache_gpu, cache_cpu)
+                               dg::DGSEM, cache_gpu, cache_cpu)
     RealT = eltype(du)
 
     volume_flux_dg, noncons_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
@@ -541,12 +541,12 @@ function cuda_boundary_flux!(t, mesh::TreeMesh{2}, boundary_conditions::NamedTup
 end
 
 # No operation when mortar data are not allocated.
-function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::False, dg::DG, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::False, dg::DGSEM, cache)
     @assert iszero(length(cache.mortars.orientations))
 end
 
 # Prolong the solution from element faces to mortar interfaces on the GPU for 2D problems.
-function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DG, cache)
+function cuda_prolong2mortars!(u, mesh::TreeMesh{2}, cache_mortars::True, dg::DGSEM, cache)
     neighbor_ids = cache.mortars.neighbor_ids
     large_sides = cache.mortars.large_sides
     orientations = cache.mortars.orientations

@@ -9,38 +9,17 @@
 # But now we don't take AMR into account, so we can use `reshape` for now.
 
 # Can we make `unsafe_wrap` faster on GPU arrays?
-
-# Accept both flat ODE vectors and the shaped state returned by semidiscretizeGPU.
-# The vector specialization resolves the overlap with Trixi's AbstractVector method.
+# Should we use `CuArray` or `AbstractGPUArray`?
 @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
                             dg::DGSEM, cache)
-    wrap_array_gpu(u_ode, mesh, equations, dg, cache)
-end
-
-@inline function wrap_array(u_ode::AbstractGPUVector, mesh::AbstractMesh, equations,
-                            dg::DGSEM, cache)
-    wrap_array_gpu(u_ode, mesh, equations, dg, cache)
-end
-
-@inline function wrap_array_gpu(u_ode, mesh, equations, dg, cache)
     # We skip bounds checking here for better performance. 
     # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
 
     reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
             nelements(dg, cache))
 end
-
 @inline function wrap_array_native(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
                                    dg::DGSEM, cache)
-    wrap_array_native_gpu(u_ode, mesh, equations, dg, cache)
-end
-
-@inline function wrap_array_native(u_ode::AbstractGPUVector, mesh::AbstractMesh, equations,
-                                   dg::DGSEM, cache)
-    wrap_array_native_gpu(u_ode, mesh, equations, dg, cache)
-end
-
-@inline function wrap_array_native_gpu(u_ode, mesh, equations, dg, cache)
     # We skip bounds checking here for better performance. 
     # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
 

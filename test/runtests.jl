@@ -8,6 +8,8 @@ using CUDA
 
 @testset "TrixiCUDA.jl tests" begin
 
+    include("quality_test.jl")
+
     # Log testing environment
     @info "Logging testing environment information..."
     CUDA.versioninfo()

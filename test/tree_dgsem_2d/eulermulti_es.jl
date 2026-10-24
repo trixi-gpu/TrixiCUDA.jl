@@ -6,14 +6,9 @@ using Test
 include("../test_macros.jl")
 
 @testset "Euler Multi ES 2D" begin
-    # More than three components are not supported, this is a bug
-    # equations = CompressibleEulerMulticomponentEquations2D(gammas = (1.4, 1.4, 1.4, 1.4),
-    #                                                        gas_constants = (0.4, 0.4, 0.4, 0.4))
+    equations = CompressibleEulerMulticomponentEquations2D(gammas = (1.4, 1.4, 1.4, 1.4),
+                                                           gas_constants = (0.4, 0.4, 0.4, 0.4))
 
-    equations = CompressibleEulerMulticomponentEquations2D(gammas = (1.4, 1.4),
-                                                           gas_constants = (0.4, 0.4))
-
-    # This cannot handle multicomponent equations and will cause kernel compilation errors
     initial_condition = initial_condition_weak_blast_wave
 
     volume_flux = flux_ranocha

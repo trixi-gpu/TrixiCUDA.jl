@@ -16,6 +16,7 @@ using CUDA
     println("- Max shared memory per block: ", TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK)
 
     @info "Starting TrixiCUDA test suite..."
+    include("kernel_type_inference.jl")
     include("multicomponent_initialization.jl")
     for (dim, path) in [("1D", "./tree_dgsem_1d/tree_dgsem_1d.jl"),
             ("2D", "./tree_dgsem_2d/tree_dgsem_2d.jl"),

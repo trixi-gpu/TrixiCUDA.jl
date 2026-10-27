@@ -6,12 +6,8 @@ using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
 ###############################################################################
 # semidiscretization of the compressible Euler multicomponent equations
 
-# More than two components are not supported, this is a bug
-# equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4, 1.4),
-#                                                        gas_constants = (0.4, 0.4, 0.4))
-
-equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4),
-                                                       gas_constants = (0.4, 0.4))
+equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4, 1.4),
+                                                       gas_constants = (0.4, 0.4, 0.4))
 
 initial_condition = initial_condition_weak_blast_wave
 

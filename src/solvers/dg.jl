@@ -28,6 +28,15 @@ end
                  nelements(dg, cache)))
 end
 
+# Callbacks copy the GPU state to a host Array that already has the expected layout.
+# Return it directly to support Trixi's existing callback interface.
+# TODO: Keep more callback computations on the GPU and improve the interface to
+# reduce host transfers and avoid pass-through adapters like this one.
+@inline function wrap_array_native(u_ode::Array, mesh::TreeMesh, equations,
+                                   dg::DGSEM{<:LobattoLegendreBasisGPU}, cache)
+    return u_ode
+end
+
 # @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
 #                             dg::FDSBP, cache)
 #     @error("TrixiCUDA.jl does not support FDSBP yet.")
@@ -115,10 +124,11 @@ end
 function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{1}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
-    compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
-                                                                                  node_coordinates,
-                                                                                  func, t,
-                                                                                  equations)
+    # Keep captured types in generated initial conditions concrete on Julia 1.10/1.11.
+    compute_coefficients_kernel = @cuda launch=false always_inline=true compute_coefficients_kernel!(u,
+                                                                                                     node_coordinates,
+                                                                                                     func, t,
+                                                                                                     equations)
     compute_coefficients_kernel(u, node_coordinates, func, t, equations;
                                 kernel_configurator_2d(compute_coefficients_kernel, size(u, 2),
                                                        size(u, 3))...)
@@ -130,10 +140,11 @@ end
 function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{2}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
-    compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
-                                                                                  node_coordinates,
-                                                                                  func, t,
-                                                                                  equations)
+    # Keep captured types in generated initial conditions concrete on Julia 1.10/1.11.
+    compute_coefficients_kernel = @cuda launch=false always_inline=true compute_coefficients_kernel!(u,
+                                                                                                     node_coordinates,
+                                                                                                     func, t,
+                                                                                                     equations)
     compute_coefficients_kernel(u, node_coordinates, func, t, equations;
                                 kernel_configurator_2d(compute_coefficients_kernel, size(u, 2)^2,
                                                        size(u, 4))...)
@@ -145,10 +156,10 @@ end
 function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
-    compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
-                                                                                  node_coordinates,
-                                                                                  func, t,
-                                                                                  equations)
+    compute_coefficients_kernel = @cuda launch=false always_inline=true compute_coefficients_kernel!(u,
+                                                                                                     node_coordinates,
+                                                                                                     func, t,
+                                                                                                     equations)
     compute_coefficients_kernel(u, node_coordinates, func, t, equations;
                                 kernel_configurator_2d(compute_coefficients_kernel, size(u, 2)^3,
                                                        size(u, 5))...)

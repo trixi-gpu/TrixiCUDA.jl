@@ -6,8 +6,8 @@ using Test
 include("../test_macros.jl")
 
 @testset "Euler Multi ES 1D" begin
-    equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4),
-                                                           gas_constants = (0.4, 0.4))
+    equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4, 1.4, 1.4),
+                                                           gas_constants = (0.4, 0.4, 0.4, 0.4))
 
     initial_condition = initial_condition_weak_blast_wave
 

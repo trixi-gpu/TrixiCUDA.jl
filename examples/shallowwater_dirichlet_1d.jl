@@ -1,12 +1,12 @@
-using Trixi, TrixiCUDA
+using TrixiShallowWater, TrixiCUDA
 using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
 
-# The example is taken from the Trixi.jl
+# The example is taken from the TrixiShallowWater.jl
 
 ###############################################################################
 # Semidiscretization of the shallow water equations
 
-equations = ShallowWaterEquations1D(gravity_constant = 9.81)
+equations = ShallowWaterEquations1D(gravity = 9.81)
 
 initial_condition = initial_condition_convergence_test
 

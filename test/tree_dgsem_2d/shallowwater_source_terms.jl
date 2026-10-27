@@ -1,12 +1,12 @@
 module TestShallowWaterSourceTerms2D
 
-using TrixiShallowWater, TrixiCUDA
+using Trixi, TrixiCUDA, TrixiShallowWater
 using Test
 
 include("../test_macros.jl")
 
 @testset "Shallow Water Source Terms 2D" begin
-    equations = ShallowWaterEquations2D(gravity_constant = 9.81)
+    equations = ShallowWaterEquations2D(gravity = 9.81)
 
     initial_condition = initial_condition_convergence_test # MMS EOC test
 

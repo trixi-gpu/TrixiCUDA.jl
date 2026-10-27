@@ -1,12 +1,12 @@
 module TestShallowWaterShock1D
 
-using TrixiShallowWater, TrixiCUDA
+using Trixi, TrixiCUDA, TrixiShallowWater
 using Test
 
 include("../test_macros.jl")
 
 @testset "Shallow Water Shock 1D" begin
-    equations = ShallowWaterEquations1D(gravity_constant = 9.812, H0 = 1.75)
+    equations = ShallowWaterEquations1D(gravity = 9.812, H0 = 1.75)
 
     function initial_condition_stone_throw_discontinuous_bottom(x, t,
                                                                 equations::ShallowWaterEquations1D)

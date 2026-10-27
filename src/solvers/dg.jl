@@ -28,12 +28,13 @@ end
                  nelements(dg, cache)))
 end
 
-# SaveSolutionCallback copies the multidimensional GPU state to a host Array.
-@inline function wrap_array_native(u_ode::Union{Array{T, 3}, Array{T, 4}, Array{T, 5}},
-                                   mesh::TreeMesh, equations,
-                                   dg::DGSEM{<:LobattoLegendreBasisGPU}, cache) where {T}
-    return reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
-                   nelements(dg, cache))
+# Callbacks copy the GPU state to a host Array that already has the expected layout.
+# Return it directly to support Trixi's existing callback interface.
+# TODO: Keep more callback computations on the GPU and improve the interface to
+# reduce host transfers and avoid pass-through adapters like this one.
+@inline function wrap_array_native(u_ode::Array, mesh::TreeMesh, equations,
+                                   dg::DGSEM{<:LobattoLegendreBasisGPU}, cache)
+    return u_ode
 end
 
 # @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,

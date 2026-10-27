@@ -34,8 +34,8 @@ function benchmark_case(::Type{RealT}, degree, family, raw) where {RealT}
 
     # Compile both variants and validate them before any timing.
     for force_inline in (false, true)
-        compiled = CUDA.@cuda launch=false always_inline=force_inline TrixiCUDA.compute_coefficients_kernel!(
-            state, coordinates, initial_condition, t, equations)
+        compiled = CUDA.@cuda launch=false always_inline=force_inline TrixiCUDA.compute_coefficients_kernel!(state, coordinates, initial_condition, t,
+                                                                                                             equations)
         configuration = TrixiCUDA.kernel_configurator_2d(compiled, size(state, 2)^3,
                                                          size(state, 5))
         kernels[force_inline] = compiled
@@ -119,11 +119,14 @@ function main()
     open(report, "w") do io
         println(io, "# 3D coefficient initialization: forced inlining")
         println(io, "\nJulia $VERSION; commit `", get(ENV, "BUILDKITE_COMMIT", "local"), "`.")
-        println(io, "\nPrecompiled kernel launch + CUDA synchronization only (BenchmarkTools + CUDA.@sync); no compilation, array allocation, mesh construction, or CPU/GPU copies inside timing. Each variant uses the production launch configurator. Five warmup launches; three alternating rounds, evals=1, up to 2000 samples/1 second per round. Reported times are medians of round medians. Each compiled variant must match CPU initial coefficients before timing. Only the real 3D compute_coefficients_kernel! is measured; both compiler settings must compile and pass validation.")
-        println(io, "\n| Dimension | Initial condition | Precision | Degree | inline=false (us) | inline=true (us) | Speedup | Runtime change | Round spread %, false / true |")
+        println(io,
+                "\nPrecompiled kernel launch + CUDA synchronization only (BenchmarkTools + CUDA.@sync); no compilation, array allocation, mesh construction, or CPU/GPU copies inside timing. Each variant uses the production launch configurator. Five warmup launches; three alternating rounds, evals=1, up to 2000 samples/1 second per round. Reported times are medians of round medians. Each compiled variant must match CPU initial coefficients before timing. Only the real 3D compute_coefficients_kernel! is measured; both compiler settings must compile and pass validation.")
+        println(io,
+                "\n| Dimension | Initial condition | Precision | Degree | inline=false (us) | inline=true (us) | Speedup | Runtime change | Round spread %, false / true |")
         println(io, "|---|---|---|---:|---:|---:|---:|---:|---:|")
         foreach(row -> println(io, row), rows)
-        println(io, "\nSpeedup = false/true; negative runtime change means faster. Round spread = (max-min)/median. Small differences comparable to the spread are inconclusive. This measures initialization only, not RHS or whole-simulation speedup.")
+        println(io,
+                "\nSpeedup = false/true; negative runtime change means faster. Round spread = (max-min)/median. Small differences comparable to the spread are inconclusive. This measures initialization only, not RHS or whole-simulation speedup.")
         println(io, "\n## Launch configurations\n")
         foreach(row -> println(io, "- ", row), configurations)
         println(io, "\nFailed cases: ", isempty(failures) ? "none" : join(failures, "; "))

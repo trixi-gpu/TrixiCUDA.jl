@@ -12,7 +12,6 @@ include("../shallowwater_test_helpers.jl")
 
     function initial_condition_stone_throw_discontinuous_bottom(x, t,
                                                                 equations::ShallowWaterEquations1D)
-
         H = equations.H0
 
         v = 0.0

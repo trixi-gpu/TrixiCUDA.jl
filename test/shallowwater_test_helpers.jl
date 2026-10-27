@@ -1,7 +1,7 @@
 # Compare initialization and the complete DG RHS without running output callbacks.
 function test_shallowwater_rhs(semi;
-                              boundary_conditions = boundary_condition_periodic,
-                              initialize! = nothing)
+                               boundary_conditions = boundary_condition_periodic,
+                               initialize! = nothing)
     solver = semi.solver
     solver_gpu = DGSEMGPU(polydeg = polydeg(solver),
                           surface_flux = solver.surface_integral.surface_flux,

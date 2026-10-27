@@ -24,9 +24,9 @@ using Test
     include("mhd_ec.jl")
     include("mhd_shock.jl")
 
-    include("shallowwater_ec.jl")
+    include("shallowwater_shock_capturing.jl")
     include("shallowwater_source_terms.jl")
-    include("shawllowwater_source_terms_nonperiodic.jl")
+    include("shallowwater_ec.jl")
 end
 
 end # module

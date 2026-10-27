@@ -26,6 +26,8 @@ using CUDA
         @info "Completed tests of $dim Galerkin spectral element method with tree mesh on GPU..."
     end
 
+    include("../benchmark/coefficient_inlining.jl")
+
     # For debugging 
     # include("../test.jl")
 

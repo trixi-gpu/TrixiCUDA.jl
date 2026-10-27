@@ -147,10 +147,10 @@ end
 function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, dg::DGSEM, cache)
     node_coordinates = cache.elements.node_coordinates
 
-    compute_coefficients_kernel = @cuda launch=false compute_coefficients_kernel!(u,
-                                                                                  node_coordinates,
-                                                                                  func, t,
-                                                                                  equations)
+    compute_coefficients_kernel = @cuda launch=false always_inline=true compute_coefficients_kernel!(u,
+                                                                                                     node_coordinates,
+                                                                                                     func, t,
+                                                                                                     equations)
     compute_coefficients_kernel(u, node_coordinates, func, t, equations;
                                 kernel_configurator_2d(compute_coefficients_kernel, size(u, 2)^3,
                                                        size(u, 5))...)

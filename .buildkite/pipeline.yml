@@ -15,6 +15,7 @@ steps:
 
                 println("+++ :julia: Running tests")
                 Pkg.test()'
+    artifact_paths: "benchmark/results/coefficient_inlining/**/*"
     agents:
       queue: "cuda"
     if: build.message !~ /\[skip tests\]/

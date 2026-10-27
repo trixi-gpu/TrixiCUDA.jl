@@ -28,6 +28,14 @@ end
                  nelements(dg, cache)))
 end
 
+# SaveSolutionCallback copies the multidimensional GPU state to a host Array.
+@inline function wrap_array_native(u_ode::Union{Array{T, 3}, Array{T, 4}, Array{T, 5}},
+                                   mesh::TreeMesh, equations,
+                                   dg::DGSEM{<:LobattoLegendreBasisGPU}, cache) where {T}
+    return reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
+                   nelements(dg, cache))
+end
+
 # @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
 #                             dg::FDSBP, cache)
 #     @error("TrixiCUDA.jl does not support FDSBP yet.")

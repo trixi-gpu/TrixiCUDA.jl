@@ -12,25 +12,17 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 
 [compat]
-BenchmarkTools = "1"
 CUDA = "6.4.2"
 GPUArraysCore = "0.2.1"
-HDF5 = "0.17"
-OrdinaryDiffEqLowStorageRK = "3"
 Printf = "1.10"
 SciMLBase = "3.58"
 StaticArrays = "1.9.23"
-Statistics = "1"
 Test = "1.10"
 Trixi = "0.17.16"
 julia = "1.10"
 
 [extras]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-OrdinaryDiffEqLowStorageRK = "b0944070-b475-4768-8dec-fb6eb410534d"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["BenchmarkTools", "HDF5", "OrdinaryDiffEqLowStorageRK", "Statistics", "Test"]
+test = ["Test"]

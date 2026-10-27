@@ -1,6 +1,6 @@
 # TrixiCUDA.jl
 
-[![Style](https://github.com/trixi-gpu/TrixiCUDA.jl/actions/workflows/Style.yml/badge.svg?branch=main)](https://github.com/trixi-gpu/TrixiCUDA.jl/actions/workflows/Style.yml)
+[![Buildkite](https://badge.buildkite.com/3c4c88284c3962a32ed073e1f3a90f5fdc32e6df34cf68d527.svg)](https://buildkite.com/julialang/trixicuda-dot-jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![dev docs](https://img.shields.io/badge/docs-dev-orange.svg)](https://trixi-gpu.github.io/TrixiCUDA.jl/dev)
 [![Julia 1.10+](https://img.shields.io/badge/julia-1.10%2B-9558B2?logo=julia&logoColor=white)](https://github.com/trixi-gpu/TrixiCUDA.jl/blob/main/Project.toml)

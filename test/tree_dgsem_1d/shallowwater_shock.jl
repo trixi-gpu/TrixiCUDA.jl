@@ -1,6 +1,6 @@
 module TestShallowWaterShock1D
 
-using Trixi, TrixiCUDA, TrixiShallowWater
+using TrixiShallowWater, TrixiCUDA
 using Test
 
 include("../test_macros.jl")

@@ -25,7 +25,12 @@ function benchmark_case(::Type{RealT}, degree, family, raw) where {RealT}
                                         boundary_conditions = boundary_condition_periodic)
     t = zero(RealT)
     ode = semidiscretize(semi, (t, RealT(0.1)))
-    reference = Array(Trixi.wrap_array(ode.u0, mesh, equations, solver, semi.cache))
+    u0 = ode.u0
+    # wrap_array may return a PtrArray that does not keep u0 alive.
+    # Preserve its storage until the independent CPU copy is complete.
+    reference = GC.@preserve u0 begin
+        Array(Trixi.wrap_array(u0, mesh, equations, solver, semi.cache))
+    end
     coordinates = CuArray(semi.cache.elements.node_coordinates)
     state = CuArray{RealT}(undef, size(reference)...)
     arguments = (state, coordinates, initial_condition, t, equations)

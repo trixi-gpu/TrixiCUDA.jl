@@ -38,3 +38,26 @@ steps:
       queue: "cuda"
     if: build.pull_request.id != null && build.message !~ /\[skip docs\]/
     timeout_in_minutes: 15
+
+  # Run both revisions on the same benchmark GPU, as in CUDA.jl's pipeline.
+  - label: ":racehorse: GPU RHS benchmarks"
+    key: "benchmarks"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.10"
+    command: bash .buildkite/benchmark.sh
+    agents:
+      queue: "cuda"
+      benchmark: "*"
+      gpu: "rtx2070"
+    concurrency: 1
+    concurrency_group: "trixicuda-rhs-benchmarks"
+    priority: 1
+    if: (build.pull_request.id != null || build.branch == "main") && build.message !~ /\[skip benchmarks\]/
+    timeout_in_minutes: 60
+    soft_fail: true
+    artifact_paths:
+      - "benchmark/results/*.toml"
+      - "benchmark/results/*.md"
+      - "benchmark/results/environments/*/Project.toml"
+      - "benchmark/results/environments/*/Manifest.toml"

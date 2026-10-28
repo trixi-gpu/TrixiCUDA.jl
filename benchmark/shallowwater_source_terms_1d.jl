@@ -1,12 +1,19 @@
-using Trixi, TrixiCUDA
+using Trixi, TrixiShallowWater, TrixiCUDA
 using CUDA
 using BenchmarkTools
+
+# This benchmark uses `Float32`, but TrixiShallowWater.jl only provides `Float64`
+# defaults for `threshold_partially_wet` and `threshold_desingularization`.
+# Both thresholds must therefore be set explicitly.
+
+# This `Float32` benchmark requires explicit thresholds until suitable defaults 
+# are provided upstream.
 
 # Set the precision
 RealT = Float32
 
 # Set up the problem
-equations = ShallowWaterEquations1D(gravity_constant = 9.81f0)
+equations = ShallowWaterEquations1D(gravity = 9.81f0)
 
 initial_condition = initial_condition_convergence_test
 

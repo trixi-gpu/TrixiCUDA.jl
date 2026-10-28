@@ -2,9 +2,7 @@ using TrixiCUDA
 using Test
 
 using CUDA
-# Currently we need to allow scalar indexing on GPU arrays for the tests to pass,
-# once the issues are resolved, this line can be removed.
-# CUDA.allowscalar(true)
+CUDA.allowscalar(false)
 
 @testset "TrixiCUDA.jl tests" begin
 

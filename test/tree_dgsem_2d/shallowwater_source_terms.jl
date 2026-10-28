@@ -1,21 +1,24 @@
 module TestShallowWaterSourceTerms2D
 
-using TrixiShallowWater, TrixiCUDA
+using Trixi, TrixiShallowWater, TrixiCUDA
 using Test
 
+# Adapted from TrixiShallowWater.jl (66644da):
+# https://github.com/trixi-framework/TrixiShallowWater.jl/blob/66644da94ebd3ad881f17379e17ffea456e15e51/examples/tree_2d_dgsem/elixir_shallowwater_source_terms.jl
 include("../test_macros.jl")
 
 @testset "Shallow Water Source Terms 2D" begin
-    equations = ShallowWaterEquations2D(gravity_constant = 9.81)
+    equations = ShallowWaterEquations2D(gravity = 9.81)
 
     initial_condition = initial_condition_convergence_test # MMS EOC test
 
+    surface_flux = (FluxLaxFriedrichs(max_abs_speed_naive), flux_nonconservative_fjordholm_etal)
     volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
     solver = DGSEM(polydeg = 3,
-                   surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
+                   surface_flux = surface_flux,
                    volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
     solver_gpu = DGSEMGPU(polydeg = 3,
-                          surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
+                          surface_flux = surface_flux,
                           volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
     coordinates_min = (0.0, 0.0)
@@ -28,10 +31,11 @@ include("../test_macros.jl")
                                         source_terms = source_terms_convergence_test,
                                         boundary_conditions = boundary_condition_periodic)
     semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
-                                               source_terms = source_terms_convergence_test)
+                                               source_terms = source_terms_convergence_test,
+                                               boundary_conditions = boundary_condition_periodic)
 
-    tspan = tspan_gpu = (0.0, 1.0)
-    t = t_gpu = 0.0
+    tspan = tspan_gpu = (0.0, 0.1)
+    t = t_gpu = 0.1
 
     # Semi on CPU
     (; mesh, equations, boundary_conditions, source_terms, solver, cache) = semi
@@ -56,7 +60,7 @@ include("../test_macros.jl")
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
     # Tests for semidiscretization process
-    @test_approx (u_gpu, u) # du is initlaizaed as undefined, cannot test now
+    @test_approx (u_gpu, u)
     Trixi.set_zero!(du, solver, cache)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,

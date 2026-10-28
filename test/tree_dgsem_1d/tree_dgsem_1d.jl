@@ -30,10 +30,9 @@ using Test
     include("mhd_alfven_wave.jl")
     include("mhd_ec.jl")
 
-    # GPU performance is not good for shallow water equations, and they are moved 
-    # to TrixiShallowWater.jl since Trixi.jl v0.12, so we skip here for now.
-
-    # include("shallowwater_shock.jl")
+    include("shallowwater_shock_capturing.jl")
+    include("shallowwater_source_terms.jl")
+    include("shallowwater_ec.jl")
 end
 
 end # module 

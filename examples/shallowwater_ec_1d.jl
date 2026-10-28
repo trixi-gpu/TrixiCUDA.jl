@@ -1,4 +1,4 @@
-using TrixiShallowWater, TrixiCUDA
+using Trixi, TrixiShallowWater, TrixiCUDA
 using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
 
 # The example is taken from the TrixiShallowWater.jl

@@ -20,6 +20,7 @@ steps:
     if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 60
 
+  # Branch push builds can lack PR metadata even when the branch has an open PR.
   - label: "Documentation - Julia 1.10"
     plugins:
       - JuliaCI/julia#v1:
@@ -36,10 +37,10 @@ steps:
     artifact_paths: "docs/build/**/*"
     agents:
       queue: "cuda"
-    if: build.pull_request.id != null && build.message !~ /\[skip docs\]/
+    if: build.message !~ /\[skip docs\]/
     timeout_in_minutes: 15
 
-  # Run both revisions on the same benchmark GPU, as in CUDA.jl's pipeline.
+  # Both revisions run sequentially in this job, on whichever CUDA agent picks it up.
   - label: ":racehorse: GPU RHS benchmarks"
     key: "benchmarks"
     plugins:
@@ -48,12 +49,9 @@ steps:
     command: bash .buildkite/benchmark.sh
     agents:
       queue: "cuda"
-      benchmark: "*"
-      gpu: "rtx2070"
     concurrency: 1
     concurrency_group: "trixicuda-rhs-benchmarks"
-    priority: 1
-    if: (build.pull_request.id != null || build.branch == "main") && build.message !~ /\[skip benchmarks\]/
+    if: build.message !~ /\[skip benchmarks\]/
     timeout_in_minutes: 60
     soft_fail: true
     artifact_paths:

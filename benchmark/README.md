@@ -27,19 +27,23 @@ sample and the minimum as well.
 
 ## CI comparisons
 
-The Buildkite benchmark step follows [CUDA.jl's GPU runner selection](https://github.com/JuliaGPU/CUDA.jl/blob/main/.buildkite/pipeline.yml):
-`queue=cuda`, `benchmark=*`, `gpu=rtx2070`. Both revisions run sequentially in the
-same job, with Julia 1.10 and one CPU thread. Benchmark jobs for this repository
-are serialized. This requires the corresponding JuliaGPU benchmark agent to be
-available to the TrixiCUDA pipeline.
+The Buildkite benchmark step uses `queue=cuda`, without restricting the GPU model
+or requiring a dedicated benchmark-agent tag. Both revisions run sequentially in
+the same job on the same GPU, with Julia 1.10 and one CPU thread. Benchmark jobs
+for this repository are serialized. The report records the actual GPU model;
+timings from separate builds may come from different hardware and should not be
+compared directly.
 
 - PR build: fetch and compare the target-branch tip against the checked-out PR
   commit, recording both exact SHAs.
-- Main build: compare the first parent against the new main commit. This measures
-  the change since the previous main baseline, which advances naturally on each
+- Branch push without PR metadata: fetch and compare the pipeline's default
+  branch (`main`) against the checked-out branch commit. An open GitHub PR does
+  not guarantee that Buildkite supplies PR metadata for a push build.
+- Default-branch build: compare the first parent against the new commit. This measures
+  the change since the previous baseline, which advances naturally on each
   push; it also handles merge and squash commits. A push containing multiple
-  main commits compares only its last commit with its first parent.
-- Both use the **target's harness**, even if the baseline has no benchmark suite.
+  commits compares only its last commit with its first parent.
+- All comparisons use the **target's harness**, even if the baseline has no benchmark suite.
   The target environment is resolved first; its manifest is copied to the
   baseline environment, where only the local TrixiCUDA source path is replaced
   with `Pkg.PRESERVE_ALL`. If the two commits cannot use the same dependency

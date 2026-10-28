@@ -37,8 +37,8 @@ function write_report(io, baseline, target)
             "Informational only: no regression threshold is applied. ",
             "Small differences may be measurement noise.\n")
     println(io, "The target's benchmark definitions and seeded random inputs are used for both commits. ",
-            "On PRs the baseline is the fetched target-branch tip; on main it is the first parent. ",
-            "The current main commit becomes the next build's baseline. ",
+            "PR builds use the fetched target-branch tip; branch builds without PR metadata ",
+            "use the default branch. Default-branch builds use the first parent. ",
             "Raw samples, environment details, and both manifests are attached as build artifacts.")
 end
 

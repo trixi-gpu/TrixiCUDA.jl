@@ -14,12 +14,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
+default_branch="${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-main}"
+base_branch=""
 if [[ "${BUILDKITE_PULL_REQUEST:-false}" != "false" ]]; then
     base_branch="${BUILDKITE_PULL_REQUEST_BASE_BRANCH:?Missing PR target branch}"
+elif [[ "${BUILDKITE_BRANCH:-$default_branch}" != "$default_branch" ]]; then
+    # Push builds can lack PR metadata; compare with the default branch.
+    base_branch="$default_branch"
+fi
+
+if [[ -n "$base_branch" ]]; then
     git fetch --no-tags origin "$base_branch"
     base_sha=$(git rev-parse FETCH_HEAD)
 else
-    # First parent is the previous main baseline, including for merge commits.
+    # First parent is the previous default-branch baseline, including merge commits.
     base_sha=$(git rev-parse "${head_sha}^1")
 fi
 printf 'Baseline: %s\nTarget: %s\n' "$base_sha" "$head_sha"

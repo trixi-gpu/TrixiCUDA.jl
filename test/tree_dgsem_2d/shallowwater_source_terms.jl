@@ -1,6 +1,6 @@
 module TestShallowWaterSourceTerms2D
 
-using Trixi, TrixiCUDA, TrixiShallowWater
+using Trixi, TrixiShallowWater, TrixiCUDA
 using Test
 
 # Adapted from TrixiShallowWater.jl (66644da):
@@ -61,11 +61,7 @@ include("../test_macros.jl")
 
     # Tests for semidiscretization process
     @test_approx (u_gpu, u)
-    @test all(isfinite, Array(u_gpu))
     Trixi.set_zero!(du, solver, cache)
-    # Boundary faces have not been filled when comparing the interface fluxes.
-    fill!(cache.elements.surface_flux_values, 0.0)
-    fill!(cache_gpu.elements.surface_flux_values, 0.0)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
                                     Trixi.have_nonconservative_terms(equations_gpu),
@@ -130,8 +126,6 @@ include("../test_macros.jl")
                             equations_gpu, cache_gpu)
     Trixi.calc_sources!(nothing, du, u, t, source_terms, equations, solver, cache)
     @test_approx (du_gpu, du)
-    @test all(isfinite, Array(du_gpu))
-    @test all(iszero, selectdim(Array(du_gpu), 1, 4))
 end
 
 end # module

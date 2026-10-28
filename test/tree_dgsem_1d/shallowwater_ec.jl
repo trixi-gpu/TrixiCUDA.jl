@@ -1,39 +1,55 @@
-module TestShallowWaterSourceTermsNonperiodic2D
+module TestShallowWaterEC1D
 
-using TrixiShallowWater, TrixiCUDA
+using Trixi, TrixiShallowWater, TrixiCUDA
 using Test
 
+# Adapted from TrixiShallowWater.jl (66644da):
+# https://github.com/trixi-framework/TrixiShallowWater.jl/blob/66644da94ebd3ad881f17379e17ffea456e15e51/examples/tree_1d_dgsem/elixir_shallowwater_ec.jl
 include("../test_macros.jl")
 
-@testset "Shallow Water Source Terms Nonperiodic 2D" begin
-    equations = ShallowWaterEquations2D(gravity_constant = 9.81)
+@testset "Shallow Water EC 1D" begin
+    equations = ShallowWaterEquations1D(gravity = 9.81)
 
-    initial_condition = initial_condition_convergence_test
+    function initial_condition_ec_discontinuous_bottom(x, t,
+                                                       equations::ShallowWaterEquations1D)
+        H = 4.25
+        v = 0.0
+        b = sin(x[1]) # arbitrary continuous function
 
-    boundary_condition = BoundaryConditionDirichlet(initial_condition)
+        if x[1] >= 0.125 && x[1] <= 0.25
+            H = 5.0
+            v = 0.1882
+        end
+
+        if x[1] >= -0.25 && x[1] <= -0.125
+            b = 2.0 + 0.5 * sin(2.0 * pi * x[1])
+        end
+
+        return prim2cons(SVector(H, v, b), equations)
+    end
+
+    initial_condition = initial_condition_ec_discontinuous_bottom
 
     volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-    solver = DGSEM(polydeg = 3,
-                   surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
+    solver = DGSEM(polydeg = 4,
+                   surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal),
                    volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
-    solver_gpu = DGSEMGPU(polydeg = 3,
-                          surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
+    solver_gpu = DGSEMGPU(polydeg = 4,
+                          surface_flux = (flux_fjordholm_etal, flux_nonconservative_fjordholm_etal),
                           volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
-    coordinates_min = (0.0, 0.0)
-    coordinates_max = (sqrt(2.0), sqrt(2.0))
+    coordinates_min = -1.0
+    coordinates_max = 1.0
     mesh = TreeMesh(coordinates_min, coordinates_max,
-                    initial_refinement_level = 3,
-                    periodicity = false)
+                    initial_refinement_level = 4,
+                    periodicity = true)
 
-    semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
-                                        boundary_conditions = boundary_condition,
-                                        source_terms = source_terms_convergence_test)
-    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
-                                               boundary_conditions = boundary_condition,
-                                               source_terms = source_terms_convergence_test)
+    semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver;
+                                        boundary_conditions = boundary_condition_periodic)
+    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu;
+                                               boundary_conditions = boundary_condition_periodic)
 
-    tspan = tspan_gpu = (0.0, 1.0)
+    tspan = tspan_gpu = (0.0, 0.1)
     t = t_gpu = 0.0
 
     # Semi on CPU
@@ -59,7 +75,7 @@ include("../test_macros.jl")
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
     # Tests for semidiscretization process
-    @test_approx (u_gpu, u) # du is initlaizaed as undefined, cannot test now
+    @test_approx (u_gpu, u)
     Trixi.set_zero!(du, solver, cache)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
@@ -71,13 +87,13 @@ include("../test_macros.jl")
     @test_approx (du_gpu, du)
 
     TrixiCUDA.cuda_prolong2interfaces!(u_gpu, mesh_gpu, equations_gpu, cache_gpu)
-    Trixi.prolong2interfaces!(nothing, cache, u, mesh, equations, solver)
+    Trixi.prolong2interfaces!(cache, u, mesh, equations, solver)
     @test_approx (cache_gpu.interfaces.u, cache.interfaces.u)
 
     TrixiCUDA.cuda_interface_flux!(mesh_gpu,
                                    Trixi.have_nonconservative_terms(equations_gpu),
                                    equations_gpu, solver_gpu, cache_gpu)
-    Trixi.calc_interface_flux!(nothing, cache.elements.surface_flux_values, mesh,
+    Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
                                Trixi.have_nonconservative_terms(equations), equations,
                                solver.surface_integral, solver, cache)
     @test_approx (cache_gpu.elements.surface_flux_values,
@@ -93,22 +109,6 @@ include("../test_macros.jl")
                                   equations_gpu, solver_gpu, cache_gpu)
     Trixi.calc_boundary_flux!(nothing, cache, t, boundary_conditions, mesh, equations,
                               solver.surface_integral, solver)
-    @test_approx (cache_gpu.elements.surface_flux_values,
-                  cache.elements.surface_flux_values)
-
-    TrixiCUDA.cuda_prolong2mortars!(u_gpu, mesh_gpu,
-                                    TrixiCUDA.check_cache_mortars(cache_gpu),
-                                    solver_gpu, cache_gpu)
-    Trixi.prolong2mortars!(cache, u, mesh, equations, solver.mortar, solver)
-    @test_approx (cache_gpu.mortars.u_upper, cache.mortars.u_upper)
-    @test_approx (cache_gpu.mortars.u_lower, cache.mortars.u_lower)
-
-    TrixiCUDA.cuda_mortar_flux!(mesh_gpu, TrixiCUDA.check_cache_mortars(cache_gpu),
-                                Trixi.have_nonconservative_terms(equations_gpu),
-                                equations_gpu, solver_gpu, cache_gpu)
-    Trixi.calc_mortar_flux!(cache.elements.surface_flux_values, mesh,
-                            Trixi.have_nonconservative_terms(equations), equations,
-                            solver.mortar, solver.surface_integral, solver, cache)
     @test_approx (cache_gpu.elements.surface_flux_values,
                   cache.elements.surface_flux_values)
 

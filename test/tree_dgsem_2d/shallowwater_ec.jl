@@ -1,12 +1,14 @@
 module TestShallowWaterEC2D
 
-using TrixiShallowWater, TrixiCUDA
+using Trixi, TrixiShallowWater, TrixiCUDA
 using Test
 
+# Adapted from TrixiShallowWater.jl (66644da):
+# https://github.com/trixi-framework/TrixiShallowWater.jl/blob/66644da94ebd3ad881f17379e17ffea456e15e51/examples/tree_2d_dgsem/elixir_shallowwater_ec.jl
 include("../test_macros.jl")
 
 @testset "Shallow Water EC 2D" begin
-    equations = ShallowWaterEquations2D(gravity_constant = 9.81)
+    equations = ShallowWaterEquations2D(gravity = 9.81)
 
     initial_condition = initial_condition_weak_blast_wave
 
@@ -26,9 +28,51 @@ include("../test_macros.jl")
 
     semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                         boundary_conditions = boundary_condition_periodic)
-    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
+    semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
+                                               boundary_conditions = boundary_condition_periodic)
 
-    tspan = tspan_gpu = (0.0, 2.0)
+    function initial_condition_ec_discontinuous_bottom(x, t, element_id,
+                                                       equations::ShallowWaterEquations2D)
+        inicenter = SVector(0.7, 0.7)
+        x_norm = x[1] - inicenter[1]
+        y_norm = x[2] - inicenter[2]
+        r = sqrt(x_norm^2 + y_norm^2)
+        phi = atan(y_norm, x_norm)
+        sin_phi, cos_phi = sincos(phi)
+
+        H = 4.25
+        v1 = 0.0
+        v2 = 0.0
+        b = 0.0
+
+        if element_id == 10
+            H = 5.0
+            v1 = 0.1882 * cos_phi
+            v2 = 0.1882 * sin_phi
+        end
+
+        if element_id == 7
+            b = 2.0 + 0.5 * sin(2.0 * pi * x[1]) + 0.5 * cos(2.0 * pi * x[2])
+        end
+
+        return prim2cons(SVector(H, v1, v2, b), equations)
+    end
+
+    function initialize_ec!(u, semi)
+        equations = semi.equations
+        for element in eachelement(semi.solver, semi.cache)
+            for j in eachnode(semi.solver), i in eachnode(semi.solver)
+                x_node = Trixi.get_node_coords(semi.cache.elements.node_coordinates, equations,
+                                               semi.solver, i, j, element)
+                u_node = initial_condition_ec_discontinuous_bottom(x_node, 0.0, element,
+                                                                   equations)
+                Trixi.set_node_vars!(u, u_node, equations, semi.solver, i, j, element)
+            end
+        end
+        return nothing
+    end
+
+    tspan = tspan_gpu = (0.0, 0.1)
     t = t_gpu = 0.0
 
     # Semi on CPU
@@ -53,8 +97,15 @@ include("../test_macros.jl")
     u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
+    # Apply the element-dependent initial condition to both solution buffers.
+    # This is how TrixiShallowWater.jl initializes the solution for this example, and we follow it.
+    initialize_ec!(u, semi)
+    u_host = Array(u_gpu)
+    initialize_ec!(u_host, semi)
+    copyto!(u_gpu, u_host)
+
     # Tests for semidiscretization process
-    @test_approx (u_gpu, u) # du is initlaizaed as undefined, cannot test now
+    @test_approx (u_gpu, u)
     Trixi.set_zero!(du, solver, cache)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,

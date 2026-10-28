@@ -1,0 +1,12 @@
+[deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
+TrixiShallowWater = "804cb1fc-5b08-4398-a671-a789bfe091b3"
+
+[compat]
+CUDA = "6.4.2"
+Test = "1.10"
+Trixi = "0.17.16"
+TrixiShallowWater = "0.3.3"
+julia = "1.10"

@@ -1,19 +1,19 @@
-module TestShallowWaterShock1D
+module TestShallowWaterShockCapturing1D
 
-using TrixiShallowWater, TrixiCUDA
+using Trixi, TrixiShallowWater, TrixiCUDA
 using Test
 
+# Adapted from TrixiShallowWater.jl (66644da):
+# https://github.com/trixi-framework/TrixiShallowWater.jl/blob/66644da94ebd3ad881f17379e17ffea456e15e51/examples/tree_1d_dgsem/elixir_shallowwater_shock_capturing.jl
 include("../test_macros.jl")
 
-@testset "Shallow Water Shock 1D" begin
-    equations = ShallowWaterEquations1D(gravity_constant = 9.812, H0 = 1.75)
+@testset "Shallow Water Shock Capturing 1D" begin
+    equations = ShallowWaterEquations1D(gravity = 9.812, H0 = 1.75)
 
     function initial_condition_stone_throw_discontinuous_bottom(x, t,
                                                                 equations::ShallowWaterEquations1D)
-        # Flat lake
         H = equations.H0
 
-        # Discontinuous velocity
         v = 0.0
         if x[1] >= -0.75 && x[1] <= 0.0
             v = -1.0
@@ -24,7 +24,6 @@ include("../test_macros.jl")
         b = (1.5 / exp(0.5 * ((x[1] - 1.0)^2)) +
              0.75 / exp(0.5 * ((x[1] + 1.0)^2)))
 
-        # Force a discontinuous bottom topography
         if x[1] >= -1.5 && x[1] <= 0.0
             b = 0.5
         end
@@ -37,12 +36,10 @@ include("../test_macros.jl")
     boundary_condition = boundary_condition_slip_wall
 
     volume_flux = (flux_wintermeyer_etal, flux_nonconservative_wintermeyer_etal)
-    surface_flux = (FluxHydrostaticReconstruction(flux_lax_friedrichs,
+    surface_flux = (FluxHydrostaticReconstruction(FluxLaxFriedrichs(max_abs_speed_naive),
                                                   hydrostatic_reconstruction_audusse_etal),
                     flux_nonconservative_audusse_etal)
-    polydeg = 4
-    basis = LobattoLegendreBasis(polydeg)
-    basis_gpu = LobattoLegendreBasisGPU(polydeg)
+    basis = LobattoLegendreBasis(4)
 
     indicator_sc = IndicatorHennemannGassner(equations, basis,
                                              alpha_max = 0.5,
@@ -53,8 +50,9 @@ include("../test_macros.jl")
                                                      volume_flux_dg = volume_flux,
                                                      volume_flux_fv = surface_flux)
 
-    solver = DGSEM(polydeg = polydeg, surface_flux = surface_flux, volume_integral = volume_integral)
-    solver_gpu = DGSEMGPU(polydeg = polydeg, surface_flux = surface_flux, volume_integral = volume_integral)
+    solver = DGSEM(basis, surface_flux, volume_integral)
+    solver_gpu = DGSEMGPU(polydeg = 4, surface_flux = surface_flux,
+                          volume_integral = volume_integral)
 
     coordinates_min = -3.0
     coordinates_max = 3.0
@@ -67,7 +65,7 @@ include("../test_macros.jl")
     semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
                                                boundary_conditions = boundary_condition)
 
-    tspan = tspan_gpu = (0.0, 3.0)
+    tspan = tspan_gpu = (0.0, 0.1)
     t = t_gpu = 0.0
 
     # Semi on CPU
@@ -93,7 +91,7 @@ include("../test_macros.jl")
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
     # Tests for semidiscretization process
-    @test_approx (u_gpu, u) # du is initlaizaed as undefined, cannot test now
+    @test_approx (u_gpu, u)
     Trixi.set_zero!(du, solver, cache)
 
     TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,

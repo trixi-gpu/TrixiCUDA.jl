@@ -7,6 +7,7 @@ using CUDA
 # CUDA.allowscalar(true)
 
 @testset "TrixiCUDA.jl tests" begin
+    include("quality_test.jl")
 
     # Log testing environment
     @info "Logging testing environment information..."

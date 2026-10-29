@@ -21,9 +21,12 @@ function benchmark_rhs(case; seconds, samples, seed)
 
     # Synchronize the reset outside the timed expression. evals=1 guarantees each
     # measurement starts with du=0, including RHS implementations that accumulate.
-    trial = @benchmark CUDA.@sync TrixiCUDA.rhs_gpu!($du, $u, $t, $mesh, $equations,
-                                                     $boundary_conditions, $source_terms,
-                                                     $solver, $cache_gpu, $cache_cpu) setup=(CUDA.@sync fill!($du, 0.0f0)) evals=1 seconds=seconds samples=samples
+    # The block keeps BenchmarkTools options outside CUDA.@sync.
+    trial = @benchmark begin
+        CUDA.@sync TrixiCUDA.rhs_gpu!($du, $u, $t, $mesh, $equations,
+                                      $boundary_conditions, $source_terms,
+                                      $solver, $cache_gpu, $cache_cpu)
+    end setup=(CUDA.@sync fill!($du, 0.0f0)) evals=1 seconds=seconds samples=samples
     return Dict("median_ns" => median(trial).time,
                 "minimum_ns" => minimum(trial).time,
                 "samples_ns" => trial.times,

@@ -1,5 +1,6 @@
 using TrixiCUDA
 using Test
+import Trixi
 
 using CUDA
 CUDA.allowscalar(false)
@@ -8,6 +9,7 @@ CUDA.allowscalar(false)
 
     # Log testing environment
     @info "Logging testing environment information..."
+    @info "Trixi preferences" log=Trixi._PREFERENCE_LOG sqrt=Trixi._PREFERENCE_SQRT loop_vectorization=Trixi._PREFERENCE_LOOPVECTORIZATION threading=Trixi._PREFERENCE_THREADING
     CUDA.versioninfo()
     println("- Multiprocessor count: ", TrixiCUDA.MULTIPROCESSOR_COUNT)
     println("- Max threads per block: ", TrixiCUDA.MAX_THREADS_PER_BLOCK)

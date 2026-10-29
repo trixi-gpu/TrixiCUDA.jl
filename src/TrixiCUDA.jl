@@ -2,14 +2,14 @@ module TrixiCUDA
 
 # GPU arrays and kernel launches
 import CUDA
-using CUDA: CuArray, CuDynamicSharedArray,
+using CUDA: CuArray, CuDynamicSharedArray, CUDABackend,
             @cuda, HostKernel, launch_configuration,
             threadIdx, blockIdx, blockDim, sync_threads
 using GPUArraysCore: AbstractGPUArray
 
 # Formatting, ODE problems, and static arrays
 using Printf: @printf, @sprintf
-using SciMLBase: ODEProblem, FullSpecialize
+using SciMLBase: ODEProblem, ODEFunction, FullSpecialize
 using StaticArrays: SVector
 
 # Trixi abstractions, meshes, and solvers
@@ -20,7 +20,8 @@ using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidis
 # Basis, mortar, and volume-integral types
 using Trixi: AbstractBasisSBP, LobattoLegendreBasis, LobattoLegendreMortarL2, LobattoLegendreAnalyzer,
              AbstractSurfaceIntegral, SurfaceIntegralWeakForm,
-             VolumeIntegralWeakForm, VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHGType
+             VolumeIntegralWeakForm, VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHGType,
+             VolumeIntegralPureLGLFiniteVolume
 
 # Tree-mesh containers
 using Trixi: TreeElementContainer1D, TreeElementContainer2D, TreeElementContainer3D,
@@ -40,6 +41,9 @@ using Trixi: gauss_lobatto_nodes_weights, polynomial_interpolation_matrix, multi
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
              IndicatorHennemannGassner, calc_indicator_hennemann_gassner!, apply_smoothing!,
              analyze, pretty_form_utf
+
+# Backend selection and time conversion shared with upstream Trixi
+using Trixi: trixi_backend, convert_tspan
 
 # Display
 using Trixi: summary_header, summary_line, summary_footer, increment_indent

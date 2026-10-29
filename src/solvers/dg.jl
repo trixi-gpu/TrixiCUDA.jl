@@ -167,168 +167,115 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, 
     return u
 end
 
-# Generic GPU kernels definitions and docs. 
-# More specific function definitions and comments are in dg_1d.jl, dg_2d.jl, dg_3d.jl files.
+# These entry points mirror Trixi's names and argument order in the TrixiCUDA namespace.
+# The extra CPU cache in the volume integral/RHS supports the current host-side HG indicator.
+
 """
-    cuda_volume_integral!(du, u, mesh, nonconservative_terms, equations, volume_integral, dg,
-                          cache_gpu, cache_cpu)
+    calc_volume_integral!(backend, du, u, mesh, nonconservative_terms, equations,
+                          volume_integral, dg, cache_gpu, cache_cpu)
 
-Compute the DG volume term on the GPU. This routine dispatches to the appropriate kernel 
-implementation depending on `volume_integral` and whether `nonconservative_terms` are present.
-
-Variants include:
-  - [`VolumeIntegralWeakForm`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.VolumeIntegralWeakForm) 
-    (classical weak form);
-  - [`VolumeIntegralFluxDifferencing`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.VolumeIntegralFluxDifferencing) 
-    (split form using symmetric two-point flux) with and without non-conservative terms;
-  - [`VolumeIntegralShockCapturingHG`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.VolumeIntegralShockCapturingHG) 
-    (hybrid DG–FV scheme using an indicator) with and without non-conservative terms.
-
-Writes into `du` in place. Returns `nothing`.
+Compute the DG volume term on the GPU for weak form, flux differencing, or classic HG
+shock capturing. `backend` must be a `CUDA.CUDABackend`. The additional `cache_cpu`
+argument is required by the current HG indicator implementation. Writes `du` in place;
+resetting `du` is fused into the first kernel.
 """
-function cuda_volume_integral!(du, u, mesh, nonconservative_terms, equations, volume_integral, dg,
-                               cache_gpu, cache_cpu)
+function calc_volume_integral! end
+
+"""
+    prolong2interfaces!(cache, u, mesh::TreeMesh{1}, equations, dg)
+    prolong2interfaces!(backend, cache, u, mesh::TreeMesh, equations, dg)
+
+Prolong the GPU solution to interior interfaces. As in Trixi, only the 2D/3D methods
+have a backend argument. Writes `cache.interfaces.u` in place.
+"""
+function prolong2interfaces! end
+
+"""
+    calc_interface_flux!(surface_flux_values, mesh::TreeMesh{1}, nonconservative_terms,
+                         equations, surface_integral, dg, cache)
+    calc_interface_flux!(backend, surface_flux_values, mesh::TreeMesh,
+                         nonconservative_terms, equations, surface_integral, dg, cache)
+
+Compute GPU interface fluxes with the supplied surface integral and conservative/nonconservative
+trait. Only 2D/3D methods take a backend. Writes into `surface_flux_values`.
+"""
+function calc_interface_flux! end
+
+"""
+    prolong2boundaries!(backend, cache, u, mesh, equations, dg)
+
+Prolong the GPU solution to physical boundaries. Empty boundary containers are a no-op,
+including periodic meshes. Writes `cache.boundaries.u` in place.
+"""
+function prolong2boundaries! end
+
+"""
+    calc_boundary_flux!(backend, cache, t, boundary_conditions, mesh, equations,
+                        surface_integral, dg)
+
+Compute GPU boundary fluxes with the supplied boundary conditions and surface integral.
+Periodic boundary conditions are a no-op. The nonconservative trait is selected internally.
+Writes `cache.elements.surface_flux_values` in place.
+"""
+function calc_boundary_flux! end
+
+function calc_boundary_flux!(backend::CUDABackend, cache, t,
+                             boundary_conditions::NamedTuple,
+                             mesh::Union{TreeMesh{1}, TreeMesh{2}}, equations,
+                             surface_integral, dg::DGSEM)
+    return calc_boundary_flux!(backend, cache, t, boundary_conditions, mesh,
+                               have_nonconservative_terms(equations), equations,
+                               surface_integral, dg)
 end
 
 """
-    cuda_prolong2interfaces!(u, mesh, equations, cache)
+    prolong2mortars!(cache, u, mesh, equations, mortar_l2, dg)
 
-Prolong the solution from element interiors to interior interfaces on the GPU.
-This prepares trace data used by interface flux kernels.
-
-Writes interface traces to `cache.interfaces.u`. Returns `nothing`.
+Prolong the GPU solution to 2D/3D mortar interfaces with the supplied mortar operators.
+As in Trixi's TreeMesh methods, no backend or cache-presence trait is passed. Empty mortar
+containers are a no-op. Writes the trace buffers in `cache.mortars`.
 """
-function cuda_prolong2interfaces!(u, mesh, equations, cache) end
-
-"""
-    cuda_interface_flux!(mesh, nonconservative_terms, equations, dg, cache)
-
-Compute numerical fluxes on interior interfaces on the GPU, with or without
-non-conservative terms.
-
-If `nonconservative_terms` is `False`, use the conservative surface flux from 
-`dg.surface_integral.surface_flux`; if `nonconservative_terms` is `True`, take 
-both the conservative and non-conservative fluxes from it and accumulate both.
-
-Writes interface fluxes to `cache.elements.surface_flux_values`. Returns `nothing`.
-"""
-function cuda_interface_flux!(mesh, nonconservative_terms, equations, dg, cache) end
+function prolong2mortars! end
 
 """
-    cuda_prolong2boundaries!(u, mesh, boundary_conditions, equations, cache)
+    calc_mortar_flux!(surface_flux_values, mesh, nonconservative_terms, equations,
+                      mortar_l2, surface_integral, dg, cache)
 
-Prolong the solution from element interiors to physical boundaries on the GPU.
-For periodic boundaries this is a no-op method.
-
-Variants include:
-  - [`BoundaryConditionPeriodic`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.boundary_condition_periodic) 
-    (no operation for periodic boundaries);
-  - `NamedTuple` (boundary conditions provided as a `NamedTuple`).
-
-Writes boundary traces to `cache.boundaries.u` when applicable. Returns `nothing`.
+Compute GPU mortar fluxes with the supplied mortar and surface-integral operators.
+No backend or cache-presence trait is passed. Empty mortar containers are a no-op.
+Writes into `surface_flux_values`.
 """
-function cuda_prolong2boundaries!(u, mesh, boundary_conditions, equations, cache) end
+function calc_mortar_flux! end
 
 """
-    cuda_boundary_flux!(t, mesh, boundary_conditions, nonconservative_terms, equations, dg, 
-                        cache)
+    calc_surface_integral!(backend, du, u, mesh, equations, surface_integral, dg, cache)
 
-Compute numerical fluxes on physical boundaries on the GPU at time `t`. The
-flux implementation is taken from `dg.surface_integral.surface_flux` and may
-handle non-conservative contributions when requested. For periodic boundaries
-this is a no-op method.
-
-Variants include:
-  - [`BoundaryConditionPeriodic`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.boundary_condition_periodic) 
-    (no operation for periodic boundaries);
-  - `NamedTuple` (boundary conditions provided as a `NamedTuple`) with and without non-conservative terms.
-
-Writes boundary flux contributions to `cache.elements.surface_flux_values`. 
-Returns `nothing`.
+Accumulate GPU surface contributions in `du`. Currently supports `SurfaceIntegralWeakForm`.
+The `u` argument is retained to match Trixi's signature.
 """
-function cuda_boundary_flux!(t, mesh, boundary_conditions, nonconservative_terms, equations,
-                             dg, cache)
-end
+function calc_surface_integral! end
 
 """
-    cuda_prolong2mortars!(u, mesh, cache_mortars, dg, cache)
+    apply_jacobian!(backend, du, mesh, equations, dg, cache)
 
-Prolong the solution from element faces to mortar interfaces on the GPU for 2D/3D problems.
-
-When `cache_mortars` is `True`, fills the mortar trace buffers in `cache.mortars` using the
-appropriate transfer operators from `dg.mortar`. When `cache_mortars` is `False`, this is a no-op.
-
-Writes mortar trace buffers to `cache.mortars` (layout depends on dimension).
-Returns `nothing`.
+Apply inverse-Jacobian scaling to the GPU residual in place.
 """
-function cuda_prolong2mortars!(u, mesh, cache_mortars, dg, cache) end
+function apply_jacobian! end
 
 """
-    cuda_mortar_flux!(mesh, cache_mortars, nonconservative_terms, equations, dg, cache)
+    calc_sources!(backend, du, u, t, source_terms, equations, dg, cache)
 
-Compute numerical fluxes on mortar interfaces on the GPU for 2D/3D problems.
-
-Uses `dg.surface_integral.surface_flux`; when `nonconservative_terms` is `True`,
-also includes the corresponding non-conservative partner flux. Contributions are
-assembled back to the element side via the reverse mortar maps. When
-`cache_mortars` is `False`, this is a no-op.
-
-Writes to `cache.elements.surface_flux_values` (via temporary mortar buffers).
-Returns `nothing`.
+Add source terms to the GPU residual. `source_terms = nothing` is a no-op.
 """
-function cuda_mortar_flux!(mesh, cache_mortars, nonconservative_terms, equations, dg, cache) end
+function calc_sources! end
 
 """
-    cuda_surface_integral!(du, mesh, equations, dg, cache)
+    rhs_hyperbolic!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
+    rhs_hyperbolic!(backend, du, u, t, mesh, equations, boundary_conditions,
+                    source_terms, dg, cache_gpu, cache_cpu)
 
-Accumulate interface and boundary fluxes into the element residual on the GPU
-using the DG surface integral with boundary interpolation weights.
-
-Updates `du` in place. Returns `nothing`.
+Assemble the GPU hyperbolic right-hand side from volume, interface, boundary, mortar,
+surface, Jacobian, and source operations. Writes `du` in place and returns `nothing`.
+The extra CPU cache supports the host-side HG indicator; 1D has no mortar stages.
 """
-function cuda_surface_integral!(du, mesh, equations, dg, cache) end
-
-"""
-    cuda_jacobian!(du, mesh, equations, cache)
-
-Apply the inverse Jacobian and geometric scaling on the GPU to map reference
-operators to physical space as part of the semidiscretization.
-
-Updates `du` in place. Returns `nothing`.
-"""
-function cuda_jacobian!(du, mesh, equations, cache) end
-
-"""
-    cuda_sources!(du, u, t, source_terms, equations, cache)
-
-Evaluate and add source terms on the GPU at time `t`. When `source_terms` is not presented,
-this method is a no-op.
-
-Updates `du` in place. Returns `nothing`.
-"""
-function cuda_sources!(du, u, t, source_terms, equations, cache) end
-
-"""
-    rhs_gpu!(du, u, t, mesh, equations, boundary_conditions, source_terms, dg, cache_gpu, 
-             cache_cpu)
-
-Assemble the semidiscrete right-hand side on the GPU. This routine orchestrates
-CUDA kernels for: volume integrals; prolongation to interior interfaces (and, in
-2D/3D, to mortars with the associated mortar fluxes); interior-interface fluxes;
-boundary prolongation and boundary fluxes; surface accumulation; inverse-Jacobian
-scaling; and source terms.
-
-Variants:
-  - [`TreeMesh{1}`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.TreeMesh): 
-    no mortar stages.
-  - [`TreeMesh{2}`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.TreeMesh) / 
-    [`TreeMesh{3}`](https://trixi-framework.github.io/TrixiDocumentation/stable/reference-trixi/#Trixi.TreeMesh): 
-    includes [`cuda_prolong2mortars!`](@ref) and [`cuda_mortar_flux!`](@ref).
-
-Effects: writes results into `du` in place. Return value: `nothing`.
-
-Notes: `reset_du!(du)` is fused into the first kernel and therefore not called separately.
-"""
-function rhs_gpu!(du, u, t, mesh, equations, boundary_conditions, source_terms, dg,
-                  cache_gpu, cache_cpu)
-end
+function rhs_hyperbolic! end

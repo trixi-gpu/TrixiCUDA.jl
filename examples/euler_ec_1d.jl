@@ -19,7 +19,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 initial_refinement_level = 5,
                 periodicity = true)
 
-semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
+semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver, boundary_conditions = boundary_condition_periodic)
 
 ###############################################################################
 # ODE solvers, callbacks etc.

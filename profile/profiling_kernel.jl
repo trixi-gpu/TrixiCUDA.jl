@@ -1,4 +1,5 @@
 using Trixi, TrixiCUDA
+using CUDA
 
 # Set the precision
 RealT = Float32
@@ -32,7 +33,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 periodicity = true,
                 RealT = RealT)
 
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu, boundary_conditions = boundary_condition_periodic)
 
 tspan_gpu = (0.0f0, 0.4f0)
 t_gpu = 0.0f0
@@ -50,7 +51,5 @@ u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_
 du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
 # Reset du and volume integral
-TrixiCUDA.cuda_volume_integral!(du_gpu, u_gpu, mesh_gpu,
-                                Trixi.have_nonconservative_terms(equations_gpu),
-                                equations_gpu, solver_gpu.volume_integral, solver_gpu,
-                                cache_gpu, cache_cpu)
+TrixiCUDA.calc_volume_integral!(CUDA.CUDABackend(), du_gpu, u_gpu, mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+                                solver_gpu.volume_integral, solver_gpu, cache_gpu, cache_cpu)

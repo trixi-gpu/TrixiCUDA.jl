@@ -11,28 +11,24 @@ CUDA.allowscalar(false)
     println()
 
     # Trixi settings and CPU execution
-    @info(
-        "Trixi and CPU configuration",
-        trixi_version = pkgversion(Trixi),
-        cpu_threads = Threads.nthreads(),
-        log = Trixi._PREFERENCE_LOG,
-        sqrt = Trixi._PREFERENCE_SQRT,
-        loop_vectorization = Trixi._PREFERENCE_LOOPVECTORIZATION,
-        threading = Trixi._PREFERENCE_THREADING,
-        timer_bars = Trixi._PREFERENCE_TIMER_BARS,
-    )
+    @info("Trixi and CPU configuration",
+          trixi_version=pkgversion(Trixi),
+          cpu_threads=Threads.nthreads(),
+          log=Trixi._PREFERENCE_LOG,
+          sqrt=Trixi._PREFERENCE_SQRT,
+          loop_vectorization=Trixi._PREFERENCE_LOOPVECTORIZATION,
+          threading=Trixi._PREFERENCE_THREADING,
+          timer_bars=Trixi._PREFERENCE_TIMER_BARS,)
     println()
     # Maybe TrixiShallowWater configurations are also needed here.
     # This will be implemented in the future if necessary.
 
     # TrixiCUDA settings and GPU hardware
-    @info(
-        "TrixiCUDA and GPU information",
-        multiprocessor_count = TrixiCUDA.MULTIPROCESSOR_COUNT,
-        max_threads_per_block = TrixiCUDA.MAX_THREADS_PER_BLOCK,
-        max_shared_memory_per_block = TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK,
-    )
-    
+    @info("TrixiCUDA and GPU information",
+          multiprocessor_count=TrixiCUDA.MULTIPROCESSOR_COUNT,
+          max_threads_per_block=TrixiCUDA.MAX_THREADS_PER_BLOCK,
+          max_shared_memory_per_block=TrixiCUDA.MAX_SHARED_MEMORY_PER_BLOCK,)
+
     # CUDA version info
     println()
     CUDA.versioninfo()

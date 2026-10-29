@@ -1,3 +1,3 @@
 # TrixiCUDA.jl
 
-TrixiCUDA.jl is a component package of the Trixi.jl ecosystem and provides GPU acceleration support for solving hyperbolic partial differential equations (PDEs). 
+TrixiCUDA.jl is a component package of the Trixi.jl ecosystem and provides native CUDA acceleration support for solving PDEs on high-order DG solvers. 

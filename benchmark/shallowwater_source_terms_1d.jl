@@ -39,7 +39,7 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                     source_terms = source_terms_convergence_test,
                                     boundary_conditions = boundary_condition_periodic)
 semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
-                                           source_terms = source_terms_convergence_test)
+                                           source_terms = source_terms_convergence_test, boundary_conditions = boundary_condition_periodic)
 
 tspan = tspan_gpu = (0.0f0, 1.0f0)
 t = t_gpu = 0.0f0
@@ -68,18 +68,17 @@ du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cach
 
 # Warm up
 Trixi.rhs_hyperbolic!(nothing, du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
-TrixiCUDA.rhs_gpu!(du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu, boundary_conditions_gpu,
-                   source_terms_gpu, solver_gpu, cache_gpu, cache_cpu)
+TrixiCUDA.rhs_hyperbolic!(CUDA.CUDABackend(), du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu, boundary_conditions_gpu, source_terms_gpu, solver_gpu,
+                          cache_gpu, cache_cpu)
 
 # Get DOFs (per field)
 dofs = Trixi.ndofsglobal(semi)
 
 # Benchmark on CPU and GPU
-@info "Benchmarking rhs! on CPU"
+@info "Benchmarking rhs_hyperbolic! on CPU"
 cpu_trial = @benchmark Trixi.rhs_hyperbolic!(nothing, du, u, t, mesh, equations, boundary_conditions, source_terms,
                                              solver, cache)
 
-@info "Benchmarking rhs! on GPU"
-gpu_trial = @benchmark CUDA.@sync TrixiCUDA.rhs_gpu!(du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu,
-                                                     boundary_conditions_gpu, source_terms_gpu,
-                                                     solver_gpu, cache_gpu, cache_cpu)
+@info "Benchmarking rhs_hyperbolic! on GPU"
+gpu_trial = @benchmark CUDA.@sync TrixiCUDA.rhs_hyperbolic!(CUDA.CUDABackend(), du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu,
+                                                            boundary_conditions_gpu, source_terms_gpu, solver_gpu, cache_gpu, cache_cpu)

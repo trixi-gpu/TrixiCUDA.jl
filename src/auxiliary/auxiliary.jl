@@ -57,15 +57,6 @@ end
     return @view u[:, indices...]
 end
 
-# Helper function for checking `cache.mortars`
-@inline function check_cache_mortars(cache)
-    if iszero(length(cache.mortars.orientations))
-        return False()
-    else
-        return True()
-    end
-end
-
 # Callable function to replace the `boundary_condition_periodic` from Trixi.jl
 @inline function boundary_condition_periodic_callable(u_inner, orientation,
                                                       direction, x, t, surface_flux, equations)

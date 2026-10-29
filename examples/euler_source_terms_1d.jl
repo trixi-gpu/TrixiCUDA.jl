@@ -21,7 +21,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 periodicity = true)
 
 semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
-                                       source_terms = source_terms_convergence_test)
+                                       source_terms = source_terms_convergence_test, boundary_conditions = boundary_condition_periodic)
 
 ###############################################################################
 # ODE solvers, callbacks etc.

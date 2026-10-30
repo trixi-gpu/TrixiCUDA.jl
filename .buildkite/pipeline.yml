@@ -41,7 +41,7 @@ steps:
     timeout_in_minutes: 15
 
   # Both revisions run sequentially in this job, on whichever CUDA agent picks it up.
-  - label: ":racehorse: GPU RHS benchmarks"
+  - label: "GPU RHS benchmarks"
     key: "benchmarks"
     plugins:
       - JuliaCI/julia#v1:
@@ -51,7 +51,7 @@ steps:
       queue: "cuda"
     concurrency: 1
     concurrency_group: "trixicuda-rhs-benchmarks"
-    if: build.message !~ /\[skip benchmarks\]/
+    if: build.message !~ /\[skip benchmarks\]/ && !build.pull_request.draft
     timeout_in_minutes: 60
     soft_fail: true
     artifact_paths:

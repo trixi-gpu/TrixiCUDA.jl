@@ -1,0 +1,33 @@
+name: Benchmark reports
+
+# Like CUDA.jl, publish from a status workflow on the default branch. The job
+# reads Buildkite's public report; it never checks out or runs the measured PR.
+on: status
+
+permissions: {}
+
+concurrency:
+  group: benchmark-report-${{ github.event.sha }}
+  cancel-in-progress: false
+
+jobs:
+  comment:
+    # This pipeline currently publishes an overall status rather than per-step
+    # statuses. Check the benchmark step itself before publishing its report.
+    if: |
+      github.event.context == 'buildkite/trixicuda-dot-jl' &&
+      contains(fromJSON('["success", "failure", "error"]'), github.event.state)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const {publish} = await import(`${process.env.GITHUB_WORKSPACE}/.github/scripts/benchmark-comment.mjs`);
+            await publish({github, context, log: core.info});

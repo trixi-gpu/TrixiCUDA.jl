@@ -132,6 +132,32 @@ See the most recent benchmark results for the semidiscretization process [here](
 
 The benchmark results presented at JuliaCon 2025 can be reproduced [here](https://github.com/trixi-gpu/juliacon-2025-semidiscretization-benchmark).
 
+CI also compares all 26 GPU RHS configurations using seeded Float32 inputs and
+minimum synchronized wall time, excluding warmup, input initialization and resets.
+Draft PRs and builds with `[skip benchmarks]` in the build message skip the benchmark
+step. Each build measures its checked-out head once; it does not iterate over the
+commits in a push. PR/branch builds compare with the exact merge base of the fetched
+target/default branch; main builds compare with the first parent.
+
+The target's benchmark harness is used for both revisions, with identical resolved
+dependencies. Existing baseline results are reused from the Julia depot's persistent
+scratchspace only when the exact commit, device UUID, host, Julia/CUDA versions,
+dependencies, harness and parameters match; a cache miss measures the baseline.
+The annotation lists all cases, runtime changes, speedups and measurement provenance.
+Results, raw samples and both dependency environments remain Buildkite artifacts.
+Open PRs also receive a short, updated-in-place comment linking to the full report;
+the status workflow becomes active when it is on the default branch. Main builds
+publish only the annotation and artifacts. Reports are informational.
+
+To run the same comparison locally on a CUDA machine:
+
+```sh
+bash .buildkite/benchmark.sh
+```
+
+`TRIXICUDA_BENCHMARK_FILTER`, `TRIXICUDA_BENCHMARK_SAMPLES` and
+`TRIXICUDA_BENCHMARK_SECONDS` optionally select cases and set the sampling budget.
+`TRIXICUDA_BENCHMARK_CACHE` overrides the local cache directory.
 
 # Join Our Slack Group
 

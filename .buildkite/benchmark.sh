@@ -15,17 +15,14 @@ cleanup() {
 trap cleanup EXIT
 
 default_branch="${BUILDKITE_PIPELINE_DEFAULT_BRANCH:-main}"
-base_branch=""
-if [[ "${BUILDKITE_PULL_REQUEST:-false}" != "false" ]]; then
-    base_branch="${BUILDKITE_PULL_REQUEST_BASE_BRANCH:?Missing PR target branch}"
-elif [[ "${BUILDKITE_BRANCH:-$default_branch}" != "$default_branch" ]]; then
-    # Push builds can lack PR metadata; compare with the default branch.
-    base_branch="$default_branch"
+branch="${BUILDKITE_BRANCH:-$(git branch --show-current)}"
+if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
+    git fetch --unshallow origin
 fi
-
-if [[ -n "$base_branch" ]]; then
+if [[ "$branch" != "$default_branch" ]]; then
+    base_branch="${BUILDKITE_PULL_REQUEST_BASE_BRANCH:-$default_branch}"
     git fetch --no-tags origin "$base_branch"
-    base_sha=$(git rev-parse FETCH_HEAD)
+    base_sha=$(git merge-base "$head_sha" FETCH_HEAD)
 else
     # First parent is the previous default-branch baseline, including merge commits.
     base_sha=$(git rev-parse "${head_sha}^1")
@@ -37,15 +34,16 @@ git worktree add --detach "$work/baseline" "$base_sha"
 # comparison against commits predating the benchmark infrastructure.
 export JULIA_NUM_THREADS=1
 julia --threads=1 "$repo/benchmark/ci/test_report.jl"
+julia --threads=1 "$repo/benchmark/ci/test_cache.jl"
 julia --threads=1 "$repo/benchmark/ci/prepare.jl" \
     "$repo/benchmark" "$repo" "$work/baseline" "$results/environments"
 julia --threads=1 --project="$results/environments/target" "$repo/benchmark/ci/test_cases.jl"
-for revision in baseline target; do
-    sha="$base_sha"
-    if [[ "$revision" == target ]]; then sha="$head_sha"; fi
-    julia --threads=1 --project="$results/environments/$revision" \
-        "$repo/benchmark/ci/run.jl" "$results/$revision.toml" "$sha"
-done
+# Always measure the new head. Reuse the exact baseline only when its measurement
+# context matches; otherwise run it using this target's harness and environment.
+julia --threads=1 --project="$results/environments/target" \
+    "$repo/benchmark/ci/run.jl" "$results/target.toml" "$head_sha"
+julia --threads=1 --project="$results/environments/baseline" \
+    "$repo/benchmark/ci/run.jl" "$results/baseline.toml" "$base_sha" --reuse
 julia --threads=1 "$repo/benchmark/ci/report.jl" \
     "$results/baseline.toml" "$results/target.toml" "$results/report.md"
 if [[ -n "${BUILDKITE:-}" ]]; then

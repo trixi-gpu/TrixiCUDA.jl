@@ -20,7 +20,6 @@ steps:
     if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 60
 
-  # Branch push builds can lack PR metadata even when the branch has an open PR.
   - label: "Documentation - Julia 1.10"
     plugins:
       - JuliaCI/julia#v1:
@@ -37,7 +36,7 @@ steps:
     artifact_paths: "docs/build/**/*"
     agents:
       queue: "cuda"
-    if: build.message !~ /\[skip docs\]/
+    if: build.message !~ /\[skip docs\]/ && build.pull_request.id != null
     timeout_in_minutes: 15
 
   # Both revisions run sequentially in this job, on whichever CUDA agent picks it up.
@@ -55,7 +54,5 @@ steps:
     timeout_in_minutes: 60
     soft_fail: true
     artifact_paths:
-      - "benchmark/results/*.toml"
       - "benchmark/results/*.md"
-      - "benchmark/results/environments/*/Project.toml"
-      - "benchmark/results/environments/*/Manifest.toml"
+      - "benchmark/results/*.toml"

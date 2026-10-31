@@ -16,8 +16,10 @@ end
     mktempdir() do directory
         expected = cache_fixture()
         path = cache_path(directory, expected)
+        @test endswith(path, ".json")
         @test restore_baseline(path, expected, ["case"]) === nothing
         write_result(path, expected)
+        @test read_result(path) == expected
         restored = restore_baseline(path, expected, ["case"])
         @test restored["reused"]
         @test restored["environment"]["measured_at"] == "2026-10-30"
@@ -41,7 +43,7 @@ end
         changed["environment"]["measured_at"] = "later"
         @test cache_path(directory, changed) == path
         old = deepcopy(expected)
-        old["schema"] = 1
+        old["schema"] = RESULT_SCHEMA - 1
         write_result(path, old)
         @test_logs (:warn, r"Ignoring invalid baseline cache") restore_baseline(path, expected, ["case"])
         @test restore_baseline(path * ".missing", expected, ["case"]) === nothing

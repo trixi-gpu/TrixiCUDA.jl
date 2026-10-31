@@ -1,13 +1,16 @@
 name: Benchmark reports
 
-# Like CUDA.jl, publish from a status workflow on the default branch. The job
-# reads Buildkite's public report; it never checks out or runs the measured PR.
-on: status
+# Like CUDA.jl, publish from status events once this reaches the default branch.
+# Same-repository PRs can also publish before that; fork PR code gets no write token.
+on:
+  status:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions: {}
 
 concurrency:
-  group: benchmark-report-${{ github.event.sha }}
+  group: benchmark-report-${{ github.event.pull_request.head.sha || github.event.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -15,6 +18,7 @@ jobs:
     # This pipeline currently publishes an overall status rather than per-step
     # statuses. Check the benchmark step itself before publishing its report.
     if: |
+      github.event_name == 'status' &&
       github.event.context == 'buildkite/trixicuda-dot-jl' &&
       contains(fromJSON('["success", "failure", "error"]'), github.event.state)
     runs-on: ubuntu-latest
@@ -28,6 +32,29 @@ jobs:
           persist-credentials: false
       - uses: actions/github-script@v8
         with:
+          github-token: ${{ github.token }}
           script: |
             const {publish} = await import(`${process.env.GITHUB_WORKSPACE}/.github/scripts/benchmark-comment.mjs`);
             await publish({github, context, log: core.info});
+
+  pull-request-comment:
+    if: |
+      github.event_name == 'pull_request' &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/github-script@v8
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const {publishPullRequest} = await import(`${process.env.GITHUB_WORKSPACE}/.github/scripts/benchmark-comment.mjs`);
+            await publishPullRequest({github, context, log: core.info});

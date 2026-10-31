@@ -72,11 +72,20 @@ if any(a.endswith('/ci/report.jl') for a in args):
                                 env=env, capture_output=True, text=True, check=True)
         head = self.git("rev-parse", "HEAD")
         self.assertIn(f"Baseline: {expected}\nTarget: {head}", result.stdout)
-        runs = [json.loads(line) for line in self.log.read_text().splitlines()]
-        runs = [args for args in runs if any(a.endswith("/ci/run.jl") for a in args)]
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        runs = [args for args in calls if any(a.endswith("/ci/run.jl") for a in args)]
         self.assertEqual(len(runs), 2)
         self.assertEqual(runs[0][-1], head)
         self.assertEqual(runs[1][-2:], [expected, "--reuse"])
+        self.assertTrue(runs[0][-2].endswith("/results/target.json"))
+        self.assertTrue(runs[1][-3].endswith("/results/baseline.json"))
+        for script in ("test_report.jl", "test_cache.jl", "report.jl"):
+            args = next(a for a in calls if any(v.endswith("/ci/" + script) for v in a))
+            self.assertTrue(any(v.startswith("--project=") and
+                                v.endswith("/environments/target") for v in args))
+        report = next(a for a in calls if any(v.endswith("/ci/report.jl") for v in a))
+        self.assertTrue(report[-3].endswith("/baseline.json"))
+        self.assertTrue(report[-2].endswith("/target.json"))
         self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
 
     def test_pr_uses_merge_base_and_only_measures_pushed_head(self):

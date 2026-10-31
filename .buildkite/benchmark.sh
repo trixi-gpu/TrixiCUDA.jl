@@ -6,7 +6,7 @@ head_sha=$(git rev-parse HEAD)
 results="$repo/benchmark/results"
 mkdir -p "$results"
 results=$(cd "$results" && pwd)
-rm -f "$results/report.md" "$results/baseline.toml" "$results/target.toml"
+rm -f "$results/report.md" "$results/baseline.json" "$results/target.json"
 work=$(mktemp -d)
 cleanup() {
     git -C "$repo" worktree remove --force "$work/baseline" 2>/dev/null || true
@@ -33,19 +33,19 @@ git worktree add --detach "$work/baseline" "$base_sha"
 # Always run the target's harness against both source trees. This also bootstraps
 # comparison against commits predating the benchmark infrastructure.
 export JULIA_NUM_THREADS=1
-julia --threads=1 "$repo/benchmark/ci/test_report.jl"
-julia --threads=1 "$repo/benchmark/ci/test_cache.jl"
 julia --threads=1 "$repo/benchmark/ci/prepare.jl" \
     "$repo/benchmark" "$repo" "$work/baseline" "$results/environments"
+julia --threads=1 --project="$results/environments/target" "$repo/benchmark/ci/test_report.jl"
+julia --threads=1 --project="$results/environments/target" "$repo/benchmark/ci/test_cache.jl"
 julia --threads=1 --project="$results/environments/target" "$repo/benchmark/ci/test_cases.jl"
 # Always measure the new head. Reuse the exact baseline only when its measurement
 # context matches; otherwise run it using this target's harness and environment.
 julia --threads=1 --project="$results/environments/target" \
-    "$repo/benchmark/ci/run.jl" "$results/target.toml" "$head_sha"
+    "$repo/benchmark/ci/run.jl" "$results/target.json" "$head_sha"
 julia --threads=1 --project="$results/environments/baseline" \
-    "$repo/benchmark/ci/run.jl" "$results/baseline.toml" "$base_sha" --reuse
-julia --threads=1 "$repo/benchmark/ci/report.jl" \
-    "$results/baseline.toml" "$results/target.toml" "$results/report.md"
+    "$repo/benchmark/ci/run.jl" "$results/baseline.json" "$base_sha" --reuse
+julia --threads=1 --project="$results/environments/target" "$repo/benchmark/ci/report.jl" \
+    "$results/baseline.json" "$results/target.json" "$results/report.md"
 if [[ -n "${BUILDKITE:-}" ]]; then
     buildkite-agent annotate --context gpu-rhs-benchmarks --style info < "$results/report.md"
 fi

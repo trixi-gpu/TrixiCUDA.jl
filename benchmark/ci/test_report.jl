@@ -1,4 +1,4 @@
-using Test, TOML
+using Test
 include("report.jl")
 
 function report_fixture()
@@ -25,8 +25,14 @@ end
         target["benchmarks"][name]["samples_ns"] = [time, 2time]
     end
     # Test the serialized form used for real artifacts as well as the calculations.
-    baseline = TOML.parse(sprint(io -> TOML.print(io, baseline)))
-    target = TOML.parse(sprint(io -> TOML.print(io, target)))
+    baseline, target = mktempdir() do directory
+        files = joinpath.(directory, ("baseline.json", "target.json"))
+        write_result(files[1], baseline)
+        write_result(files[2], target)
+        @test startswith(read(files[1], String), "{")
+        @test startswith(read(files[2], String), "{")
+        read_result.(files)
+    end
     report = sprint(io -> write_report(io, baseline, target))
     @test occursin("| faster | 32 | 2.0000 | 1.0000 | -50.00% | 2.000x |", report)
     @test occursin("| unchanged | 32 | 1.0000 | 1.0000 | +0.00% | 1.000x |", report)
@@ -35,6 +41,7 @@ end
     @test occursin("Minimum wall time", report)
     @test occursin("geometric mean speedup: **1.000x**", report)
     @test !occursin("Median", report)
+    @test occursin("baseline.json and target.json", report)
     cached = deepcopy(baseline)
     cached["reused"] = true
     @test occursin("Baseline measurement: reused", sprint(io -> write_report(io, cached, target)))

@@ -1,6 +1,7 @@
 // Buildkite's public annotation is the detailed report; no Buildkite API token
-// or PR-controlled code is needed in this privileged GitHub status workflow.
+// is needed. The status workflow runs trusted code from the default branch.
 const MARKER = '<!-- trixicuda-gpu-rhs-benchmarks -->';
+const BRIDGE = '_Posted from the completed Buildkite report as a pre-merge bridge;';
 const BUILD = /^https:\/\/buildkite\.com\/julialang\/trixicuda-dot-jl\/builds\/[1-9]\d*(?:#[\da-f-]+)?$/;
 const SHA = /^[\da-f]{40}$/;
 
@@ -73,29 +74,98 @@ export async function publish({github, context, fetchImpl = fetch, log = console
     }
     const build = await readJson('.json');
     if (build.commit_id !== sha) throw new Error('Build does not match the status commit');
-    if (!build.pull_request) return log('No PR: the report remains in the annotation and artifacts.');
+    const finished = ['passed', 'failed', 'canceled', 'not_run'].includes(build.state);
+    if (!build.pull_request) {
+        log('No PR: the report remains in the annotation and artifacts.');
+        return 'skipped';
+    }
     if (!/^[1-9]\d*$/.test(String(build.pull_request.id))) throw new Error('Invalid pull request number');
     const pull_number = Number(build.pull_request.id);
     const repo = context.repo;
     const currentPR = async () => (await github.rest.pulls.get({...repo, pull_number})).data;
     const eligible = (pr) => pr.state === 'open' && !pr.draft && pr.head.sha === sha;
-    if (!eligible(await currentPR())) return log('The PR is closed, draft, or has a newer head.');
+    const pr = await currentPR();
+    if (!eligible(pr)) {
+        log('The PR is closed, draft, or has a newer head.');
+        return 'skipped';
+    }
     const steps = await readJson('/data/steps');
-    if (!Array.isArray(steps) || !steps.some((s) => s.key === 'benchmarks' && s.outcome === 'passed'))
-        return log('No successful benchmark step.');
+    if (!Array.isArray(steps)) throw new Error('Invalid Buildkite steps');
+    const step = steps.find((s) => s.key === 'benchmarks');
+    if (step?.outcome !== 'passed') {
+        if (step?.outcome || finished) {
+            log('No successful benchmark step.');
+            return 'skipped';
+        }
+        return 'pending';
+    }
     const annotations = await readJson('/data/annotations');
     const report = annotations.records?.find((a) => a.context === 'gpu-rhs-benchmarks');
-    if (!report) return log('No benchmark annotation.');
+    if (!report) {
+        if (finished) throw new Error('Successful benchmark has no annotation');
+        return 'pending';
+    }
     const body = formatComment(parseReport(report.body?.html, sha), buildUrl);
     const comments = await github.paginate(github.rest.issues.listComments, {...repo, issue_number: pull_number, per_page: 100});
     const existing = comments.filter((c) => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(MARKER)).at(-1);
     // Recheck after reading the report so a completed old build does not replace
     // the comment of a head pushed while this workflow was running.
-    if (!eligible(await currentPR())) return log('The PR moved on while publishing.');
+    if (!eligible(await currentPR())) {
+        log('The PR moved on while publishing.');
+        return 'skipped';
+    }
     if (existing) {
         if (existing.body !== body)
             await github.rest.issues.updateComment({...repo, comment_id: existing.id, body});
     } else {
         await github.rest.issues.createComment({...repo, issue_number: pull_number, body});
+    }
+    // Replace only the explicitly marked, author-posted transitional report,
+    // after the Actions bot has successfully published its own comment.
+    for (const comment of comments) {
+        if (pr.user?.login && comment.user?.login === pr.user.login &&
+            comment.body?.startsWith(MARKER) && comment.body.includes(BRIDGE))
+            await github.rest.issues.deleteComment({...repo, comment_id: comment.id});
+    }
+    return 'published';
+}
+
+export async function publishPullRequest({github, context, fetchImpl = fetch, log = console.log,
+    sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), now = Date.now,
+    timeoutMs = 165 * 60_000, intervalMs = 60_000}) {
+    const eventPR = context.payload.pull_request;
+    const sha = eventPR?.head?.sha;
+    if (!SHA.test(sha) || !Number.isSafeInteger(eventPR?.number) || eventPR.number < 1)
+        throw new Error('Invalid pull request event');
+    const repo = context.repo;
+    const eligible = (pr) => pr.state === 'open' && !pr.draft && pr.head.sha === sha &&
+        pr.head.repo?.full_name === `${repo.owner}/${repo.repo}`;
+    if (!eligible(eventPR)) return 'skipped';
+    // Once this workflow is on the default branch, status events publish reports
+    // without keeping a runner waiting. This path bootstraps same-repository PRs.
+    try {
+        await github.rest.repos.getContent({...repo, path: '.github/workflows/Benchmark.yml',
+            ref: context.payload.repository.default_branch});
+        log('The default-branch status workflow will publish this report.');
+        return 'skipped';
+    } catch (error) {
+        if (error.status !== 404) throw error;
+    }
+    const commit = (await github.rest.repos.getCommit({...repo, ref: sha})).data;
+    if (commit.commit.message.includes('[skip benchmarks]')) return 'skipped';
+    const deadline = now() + timeoutMs;
+    log('Waiting for the current head\'s Buildkite benchmark report.');
+    while (true) {
+        const pr = (await github.rest.pulls.get({...repo, pull_number: eventPR.number})).data;
+        if (!eligible(pr)) return 'skipped';
+        const combined = (await github.rest.repos.getCombinedStatusForRef({...repo, ref: sha})).data;
+        const status = combined.statuses.find((s) => s.context === 'buildkite/trixicuda-dot-jl');
+        if (status) {
+            const result = await publish({github, fetchImpl, log, context: {repo,
+                payload: {sha, target_url: status.target_url}}});
+            if (result !== 'pending') return result;
+        }
+        if (now() >= deadline) throw new Error('Timed out waiting for the benchmark report');
+        await sleep(Math.min(intervalMs, deadline - now()));
     }
 }

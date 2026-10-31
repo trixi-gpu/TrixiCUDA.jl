@@ -37,7 +37,7 @@ end
 
 function main()
     (length(ARGS) == 2 || (length(ARGS) == 3 && ARGS[3] == "--reuse")) ||
-        error("Usage: run.jl OUTPUT.toml COMMIT_SHA [--reuse]")
+        error("Usage: run.jl OUTPUT.json COMMIT_SHA [--reuse]")
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
     seconds = parse(Float64, get(ENV, "TRIXICUDA_BENCHMARK_SECONDS", "2"))
     samples = parse(Int, get(ENV, "TRIXICUDA_BENCHMARK_SAMPLES", "100"))

@@ -1,6 +1,6 @@
-using SHA, TOML
+using JSON, SHA, TOML
 
-const RESULT_SCHEMA = 2
+const RESULT_SCHEMA = 3
 const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
 
 function measurement_context(result)
@@ -44,7 +44,7 @@ function write_result(path, result)
     # An interrupted job must never leave a partially written cache entry.
     temp, io = mktemp(dirname(path))
     try
-        TOML.print(io, result; sorted = true)
+        JSON.json(io, result)
         close(io)
         mv(temp, path; force = true)
     finally
@@ -53,18 +53,20 @@ function write_result(path, result)
     end
 end
 
+read_result(path) = JSON.parsefile(path; dicttype = Dict{String, Any})
+
 function cache_path(directory, result)
     identity = measurement_context(result)
     identity["schema"] = RESULT_SCHEMA
     identity["commit"] = result["environment"]["commit"]
     key = bytes2hex(sha256(sprint(io -> TOML.print(io, identity; sorted = true))))
-    return joinpath(directory, key * ".toml")
+    return joinpath(directory, key * ".json")
 end
 
 function restore_baseline(path, expected, case_names)
     isfile(path) || return nothing
     try
-        result = TOML.parsefile(path)
+        result = read_result(path)
         validate_result(result)
         result["environment"]["commit"] == expected["environment"]["commit"] || return nothing
         measurement_context(result) == measurement_context(expected) || return nothing

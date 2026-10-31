@@ -1,4 +1,4 @@
-using TOML, Printf
+using Printf
 include("results.jl")
 
 function write_report(io, baseline, target)
@@ -38,12 +38,12 @@ function write_report(io, baseline, target)
             "benchmark harness and parameters.\n")
     println(io, "GPU UUID: `", t_env["gpu_uuid"], "`; host: `", t_env["host"],
             "`; harness SHA-256: `", t_env["harness"], "`. ",
-            "Raw samples, environment details, and both manifests are attached as build artifacts.")
+            "Raw samples and environment details are attached in baseline.json and target.json, alongside this report.")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    length(ARGS) == 3 || error("Usage: report.jl BASELINE.toml TARGET.toml REPORT.md")
-    baseline, target = TOML.parsefile(ARGS[1]), TOML.parsefile(ARGS[2])
+    length(ARGS) == 3 || error("Usage: report.jl BASELINE.json TARGET.json REPORT.md")
+    baseline, target = read_result(ARGS[1]), read_result(ARGS[2])
     # Validate the entire comparison before creating an output file.
     report = sprint(io -> write_report(io, baseline, target))
     write(ARGS[3], report)

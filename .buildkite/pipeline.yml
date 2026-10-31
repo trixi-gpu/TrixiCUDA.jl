@@ -54,5 +54,6 @@ steps:
     timeout_in_minutes: 60
     soft_fail: true
     artifact_paths:
-      - "benchmark/results/*.md"
-      - "benchmark/results/*.toml"
+      - "benchmark/results/baseline.json"
+      - "benchmark/results/target.json"
+      - "benchmark/results/report.md"

@@ -1,7 +1,7 @@
 name: Benchmark reports
 
-# Like CUDA.jl, publish from status events once this reaches the default branch.
-# Same-repository PRs can also publish before that; fork PR code gets no write token.
+# Like JuliaGPU/benchmark-action, publish from Buildkite commit statuses.
+# The PR event also lets this infrastructure PR publish before it reaches main.
 on:
   status:
   pull_request:
@@ -15,46 +15,113 @@ concurrency:
 
 jobs:
   comment:
-    # This pipeline currently publishes an overall status rather than per-step
-    # statuses. Check the benchmark step itself before publishing its report.
     if: |
-      github.event_name == 'status' &&
-      github.event.context == 'buildkite/trixicuda-dot-jl' &&
-      contains(fromJSON('["success", "failure", "error"]'), github.event.state)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-      - uses: actions/github-script@v8
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            const {publish} = await import(`${process.env.GITHUB_WORKSPACE}/.github/scripts/benchmark-comment.mjs`);
-            await publish({github, context, log: core.info});
-
-  pull-request-comment:
-    if: |
-      github.event_name == 'pull_request' &&
-      !github.event.pull_request.draft &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event_name == 'status' &&
+       github.event.context == 'buildkite/trixicuda-dot-jl' &&
+       contains(fromJSON('["success", "failure", "error"]'), github.event.state)) ||
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
       - uses: actions/github-script@v8
         with:
           github-token: ${{ github.token }}
           script: |
-            const {publishPullRequest} = await import(`${process.env.GITHUB_WORKSPACE}/.github/scripts/benchmark-comment.mjs`);
-            await publishPullRequest({github, context, log: core.info});
+            const repo = context.repo;
+            const isPR = context.eventName === 'pull_request';
+            const sha = isPR ? context.payload.pull_request.head.sha : context.payload.sha;
+            const marker = '<!-- trixicuda-gpu-rhs-benchmarks -->';
+            const shaPattern = /^[a-f0-9]{40}$/;
+            if (!shaPattern.test(sha)) throw new Error('Invalid benchmark commit');
+            const eligible = pr => pr.state === 'open' && !pr.draft && pr.head.sha === sha;
+            const getPR = async number => (await github.rest.pulls.get({...repo, pull_number: number})).data;
+            const readJSON = async url => {
+              const response = await fetch(url, {signal: AbortSignal.timeout(30000)});
+              if (!response.ok) throw new Error(`Buildkite request failed: ${response.status}`);
+              const text = await response.text();
+              if (text.length > 20000000) throw new Error('Benchmark data is too large');
+              return JSON.parse(text);
+            };
+            async function publish(url) {
+              const match = /^https:\/\/buildkite\.com\/julialang\/trixicuda-dot-jl\/builds\/([1-9]\d*)(?:#[a-f0-9-]+)?$/.exec(url);
+              if (!match) throw new Error('Unexpected Buildkite URL');
+              const buildURL = url.split('#')[0];
+              const build = await readJSON(buildURL + '.json');
+              if (build.commit_id !== sha) throw new Error('Build does not match commit');
+              if (!build.pull_request) return true; // Main reports stay in Buildkite.
+              const number = Number(build.pull_request.id);
+              if (!Number.isSafeInteger(number) || number < 1) throw new Error('Invalid PR');
+              if (!eligible(await getPR(number))) return true;
+              const finished = ['passed', 'failed', 'canceled', 'not_run'].includes(build.state);
+              const steps = await readJSON(buildURL + '/data/steps');
+              const step = steps.find(s => s.key === 'benchmarks');
+              if (step?.outcome !== 'passed') return Boolean(step?.outcome || finished);
+              const annotations = await readJSON(buildURL + '/data/annotations');
+              if (!annotations.records?.some(a => a.context === 'gpu-rhs-benchmarks')) {
+                if (finished) throw new Error('Successful benchmark has no annotation');
+                return false;
+              }
+              const job = step.statistics?.latest_job_id;
+              if (!/^[a-f0-9-]{36}$/.test(job)) throw new Error('Invalid benchmark job');
+              const jobURL = `https://buildkite.com/organizations/julialang/pipelines/trixicuda-dot-jl/builds/${match[1]}/jobs/${job}`;
+              const artifacts = await readJSON(jobURL + '/artifacts');
+              if (!artifacts.some(a => a.path === 'benchmark/results/report.md')) throw new Error('Missing full report');
+              const result = async name => {
+                const artifact = artifacts.find(a => a.path === `benchmark/results/${name}.json`);
+                if (!artifact || !/^[a-f0-9-]{36}$/.test(artifact.id)) throw new Error(`Missing ${name}.json`);
+                return readJSON(jobURL + '/artifacts/' + artifact.id);
+              };
+              const [base, target] = await Promise.all([result('baseline'), result('target')]);
+              if (base.schema !== 3 || target.schema !== 3 || target.environment?.commit !== sha ||
+                  !shaPattern.test(base.environment?.commit)) throw new Error('Invalid benchmark results');
+              const rows = Object.entries(target.benchmarks).map(([name, value]) => {
+                const bt = base.benchmarks[name]?.minimum_ns, tt = value.minimum_ns;
+                if (!/^[a-z0-9_]{1,100}$/.test(name) || ![bt, tt].every(n => Number.isFinite(n) && n > 0))
+                  throw new Error('Invalid benchmark timing');
+                const speedup = bt / tt, change = 100 * (tt / bt - 1);
+                if (!Number.isFinite(speedup) || speedup <= 0 || !Number.isFinite(change)) throw new Error('Invalid speedup');
+                return {name, speedup, change};
+              });
+              if (!rows.length || rows.length > 1000 || rows.length !== Object.keys(base.benchmarks).length)
+                throw new Error('Benchmark case sets differ');
+              const speedup = Math.exp(rows.reduce((sum, r) => sum + Math.log(r.speedup), 0) / rows.length);
+              // TODO: Agree on the final summary format; keep all cases in the annotation.
+              const body = [marker, '### GPU RHS benchmarks', '',
+                `\`${sha.slice(0, 7)}\` vs merge base \`${base.environment.commit.slice(0, 7)}\`; ${rows.length} cases, minimum synchronized wall time.`,
+                `Geometric mean speedup: **${speedup.toFixed(3)}x**.`, '',
+                '| Largest time changes | Time change | Speedup |', '|:--|--:|--:|',
+                ...rows.sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 3).map(r =>
+                  `| \`${r.name}\` | ${r.change >= 0 ? '+' : ''}${r.change.toFixed(2)}% | ${r.speedup.toFixed(3)}x |`), '',
+                `[Full report and artifacts](${buildURL}). Informational; differences may be measurement noise.`].join('\n');
+              const comments = await github.paginate(github.rest.issues.listComments, {...repo, issue_number: number, per_page: 100});
+              const existing = comments.filter(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker)).at(-1);
+              if (!eligible(await getPR(number))) return true;
+              if (existing) {
+                if (existing.body !== body) await github.rest.issues.updateComment({...repo, comment_id: existing.id, body});
+              } else {
+                await github.rest.issues.createComment({...repo, issue_number: number, body});
+              }
+              return true;
+            }
+            if (!isPR) { await publish(context.payload.target_url); return; }
+            // Status events take over once this workflow exists on the default branch.
+            try {
+              await github.rest.repos.getContent({...repo, path: '.github/workflows/Benchmark.yml', ref: context.payload.repository.default_branch});
+              return;
+            } catch (error) { if (error.status !== 404) throw error; }
+            const commit = (await github.rest.repos.getCommit({...repo, ref: sha})).data;
+            if (commit.commit.message.includes('[skip benchmarks]')) return;
+            const deadline = Date.now() + 165 * 60000;
+            core.info("Waiting for this PR head's Buildkite benchmark report.");
+            while (true) {
+              if (!eligible(await getPR(context.payload.pull_request.number))) return;
+              const combined = (await github.rest.repos.getCombinedStatusForRef({...repo, ref: sha})).data;
+              const status = combined.statuses.find(s => s.context === 'buildkite/trixicuda-dot-jl');
+              if (status && await publish(status.target_url)) return;
+              if (Date.now() >= deadline) throw new Error('Timed out waiting for benchmark report');
+              await new Promise(resolve => setTimeout(resolve, 60000));
+            }

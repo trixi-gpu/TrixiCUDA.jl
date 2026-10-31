@@ -45,7 +45,13 @@ steps:
     plugins:
       - JuliaCI/julia#v1:
           version: "1.10"
-    command: bash .buildkite/benchmark.sh
+    command: |
+      julia --threads=1 --project=benchmark -e '
+        using Pkg
+        Pkg.develop(path=pwd())
+        Pkg.instantiate()
+        include("benchmark/runbenchmarks.jl")
+        main()'
     agents:
       queue: "cuda"
     concurrency: 1

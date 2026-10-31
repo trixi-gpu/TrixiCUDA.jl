@@ -52,7 +52,7 @@ function make_equations(family, variant, dim)
     end
 end
 
-function make_solver(case, equations, solver_type)
+function make_solver(case, equations)
     (; family, variant, dim) = case
     polydeg = family == :hypdiff || (family == :shallowwater && variant == :ec) ? 4 : 3
     surface_flux = flux_lax_friedrichs
@@ -90,7 +90,7 @@ function make_solver(case, equations, solver_type)
         volume_integral = VolumeIntegralFluxDifferencing((flux_wintermeyer_etal,
                                                           flux_nonconservative_wintermeyer_etal))
     end
-    return solver_type(; polydeg, surface_flux, volume_integral, RealT = Float32)
+    return DGSEMGPU(; polydeg, surface_flux, volume_integral, RealT = Float32)
 end
 
 function make_mesh(case)
@@ -130,10 +130,9 @@ function make_mesh(case)
                     periodicity, RealT = Float32)
 end
 
-# Constructors are arguments so the exact same setups can also be checked on CPU.
-function make_problem(case, solver_type, semi_type)
+function make_problem(case)
     equations = make_equations(case.family, case.variant, case.dim)
-    solver = make_solver(case, equations, solver_type)
+    solver = make_solver(case, equations)
     mesh = make_mesh(case)
     boundary_conditions = boundary_condition_periodic
     source_terms = nothing
@@ -147,7 +146,7 @@ function make_problem(case, solver_type, semi_type)
         source_terms = source_terms_convergence_test
     end
     # No initial condition or ODE solve is evaluated; u is supplied directly below.
-    return semi_type(mesh, equations, nothing, solver; boundary_conditions, source_terms)
+    return SemidiscretizationHyperbolicGPU(mesh, equations, nothing, solver; boundary_conditions, source_terms)
 end
 
 function random_state(rng, equations, family)

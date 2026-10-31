@@ -122,7 +122,23 @@ Please check out [benchmark.ipynb](https://github.com/trixi-gpu/TrixiCUDA.jl/blo
 See the most recent benchmark results for the semidiscretization process [here](https://trixi-gpu.github.io/benchmark/).
 
 The benchmark results presented at JuliaCon 2025 can be reproduced [here](https://github.com/trixi-gpu/juliacon-2025-semidiscretization-benchmark).
+We currently focus on optimizing semidiscretization, using CPU and GPU `rhs!` benchmarks to assess performance and track changes during development.
 
+CI runs GPU RHS benchmarks for non-draft PRs, unless the build message contains `[skip benchmarks]`. Results are available in:
+
+- **PR comment:** a short summary with speedups and a link to the full report.
+- **Buildkite annotation:** detailed timings and speedups for every configuration, plus environment and measurement information.
+- **Buildkite artifacts:** raw results, timing samples and dependency environments.
+
+PRs are compared with their merge base using minimum wall time with GPU synchronization. Main builds compare with their first parent and publish to Buildkite only. Reports are informational.
+
+**Reference benchmarks (2025)**
+
+For a comprehensive CPU/GPU comparison of semidiscretization performance, see the [2025 benchmark report](https://trixi-gpu.github.io/benchmark/). These results reflect the package versions and test environment used at the time;
+ongoing PR performance comparisons are reported separately by CI.
+
+The benchmarks presented at JuliaCon 2025 can be reproduced using the
+[benchmark repository](https://github.com/trixi-gpu/juliacon-2025-semidiscretization-benchmark).
 
 # Join Our Slack Group
 

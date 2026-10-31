@@ -36,5 +36,30 @@ steps:
     artifact_paths: "docs/build/**/*"
     agents:
       queue: "cuda"
-    if: build.pull_request.id != null && build.message !~ /\[skip docs\]/
+    if: build.message !~ /\[skip docs\]/ && build.pull_request.id != null
     timeout_in_minutes: 15
+
+  # Both revisions run sequentially in this job, on whichever CUDA agent picks it up.
+  - label: "GPU RHS benchmarks"
+    key: "benchmarks"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.10"
+    command: |
+      julia --threads=1 --project=benchmark -e '
+        using Pkg
+        Pkg.develop(path=pwd())
+        Pkg.instantiate()
+        include("benchmark/runbenchmarks.jl")
+        main()'
+    agents:
+      queue: "cuda"
+    concurrency: 1
+    concurrency_group: "trixicuda-rhs-benchmarks"
+    if: build.message !~ /\[skip benchmarks\]/ && !build.pull_request.draft
+    timeout_in_minutes: 60
+    soft_fail: true
+    artifact_paths:
+      - "benchmark/results/baseline.json"
+      - "benchmark/results/target.json"
+      - "benchmark/results/report.md"

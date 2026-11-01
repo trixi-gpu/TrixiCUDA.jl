@@ -1607,21 +1607,23 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         u_lower_right1 = (2 - large_side) * u_lower_right_ll + (large_side - 1) * u_lower_right_rr
         u_lower_right2 = (large_side - 1) * u_lower_right_ll + (2 - large_side) * u_lower_right_rr
 
-        noncons_flux_primary_upper_left = nonconservative_flux(u_upper_left1, u_upper_left2,
+        # Nonconservative fluxes take the receiving element's state first.
+        # Primary fluxes go to the small elements; secondary fluxes to the large element.
+        noncons_flux_primary_upper_left = nonconservative_flux(u_upper_left2, u_upper_left1,
                                                                orientation, equations)
-        noncons_flux_primary_upper_right = nonconservative_flux(u_upper_right1, u_upper_right2,
+        noncons_flux_primary_upper_right = nonconservative_flux(u_upper_right2, u_upper_right1,
                                                                 orientation, equations)
-        noncons_flux_primary_lower_left = nonconservative_flux(u_lower_left1, u_lower_left2,
+        noncons_flux_primary_lower_left = nonconservative_flux(u_lower_left2, u_lower_left1,
                                                                orientation, equations)
-        noncons_flux_primary_lower_right = nonconservative_flux(u_lower_right1, u_lower_right2,
+        noncons_flux_primary_lower_right = nonconservative_flux(u_lower_right2, u_lower_right1,
                                                                 orientation, equations)
-        noncons_flux_secondary_upper_left = nonconservative_flux(u_upper_left2, u_upper_left1,
+        noncons_flux_secondary_upper_left = nonconservative_flux(u_upper_left1, u_upper_left2,
                                                                  orientation, equations)
-        noncons_flux_secondary_upper_right = nonconservative_flux(u_upper_right2, u_upper_right1,
+        noncons_flux_secondary_upper_right = nonconservative_flux(u_upper_right1, u_upper_right2,
                                                                   orientation, equations)
-        noncons_flux_secondary_lower_left = nonconservative_flux(u_lower_left2, u_lower_left1,
+        noncons_flux_secondary_lower_left = nonconservative_flux(u_lower_left1, u_lower_left2,
                                                                  orientation, equations)
-        noncons_flux_secondary_lower_right = nonconservative_flux(u_lower_right2, u_lower_right1,
+        noncons_flux_secondary_lower_right = nonconservative_flux(u_lower_right1, u_lower_right2,
                                                                   orientation, equations)
 
         for ii in axes(fstar_primary_upper_left, 1)

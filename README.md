@@ -6,7 +6,7 @@
 [![Julia 1.10+](https://img.shields.io/badge/julia-1.10%2B-9558B2?logo=julia&logoColor=white)](https://github.com/trixi-gpu/TrixiCUDA.jl/blob/main/Project.toml)
 [![CUDA accelerated](https://img.shields.io/badge/CUDA-accelerated-76B900?logo=nvidia&logoColor=white)](https://github.com/JuliaGPU/CUDA.jl)
 
-TrixiCUDA.jl offers CUDA acceleration for solving hyperbolic PDEs.
+High-order DG solvers for hyperbolic PDEs with native CUDA.jl kernels.
 
 Package docs: https://trixi-gpu.github.io/TrixiCUDA.jl/dev (in development) \
 General docs: https://trixi-gpu.github.io
@@ -50,15 +50,6 @@ Then enter the Julia REPL in the package directory, activate and instantiate the
 ```julia
 julia> using Pkg; Pkg.activate("."); Pkg.instantiate()
 ```
-Please note that after package precompilation, the terminal will generate some output like:
-```
-(TrixiCUDA) pkg> precompile
-Precompiling project...
-        Info Given TrixiCUDA was explicitly requested, output will be shown live
-[ Info: Please restart Julia and reload Trixi.jl for the `log` computation change to take effect
-[ Info: Please restart Julia and reload Trixi.jl for the `sqrt` computation change to take effect
-```
-This is normal, and you can safely ignore it (i.e., there is no need to restart Julia and reload Trixi.jl). This occurs because custom `log` and `sqrt` functions from Trixi.jl are currently not supported on GPUs, so we are using the `log` and `sqrt` functions from Julia Base (i.e., Base.jl).
 
 # Supported Mesh and Solver Types
 Our current focus is on the semidiscretization of PDEs. The table below shows the status of this work across different mesh types and solvers. Looking ahead, we plan to extend parallelization to include mesh initialization and callbacks on the GPU. 

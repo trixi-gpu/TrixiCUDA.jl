@@ -41,9 +41,8 @@ using Trixi: gauss_lobatto_nodes_weights, polynomial_interpolation_matrix, multi
              IndicatorHennemannGassner, calc_indicator_hennemann_gassner!, apply_smoothing!,
              analyze, pretty_form_utf
 
-# Preferences and display
-using Trixi: set_log_type!, set_sqrt_type!, set_loop_vectorization!,
-             summary_header, summary_line, summary_footer, increment_indent
+# Display
+using Trixi: summary_header, summary_line, summary_footer, increment_indent
 
 # Trixi functions and constructors extended by this package
 import Trixi: get_nodes, nnodes, polydeg, eachnode, SolutionAnalyzer,
@@ -51,15 +50,6 @@ import Trixi: get_nodes, nnodes, polydeg, eachnode, SolutionAnalyzer,
               nelements, ninterfaces, nmortars,
               create_cache, mesh_equations_solver_cache, wrap_array, wrap_array_native,
               integrate, integrate_via_indices, calc_error_norms, analyze_integrals, max_dt
-
-# Change to use the Base.log and Base.sqrt and disable loop vectorization
-# FIXME: This set preference part has to be fixed to avoid precompilation outputs 
-# ```[ Info: Please restart Julia and reload Trixi.jl for the `log` computation change to take effect
-#    [ Info: Please restart Julia and reload Trixi.jl for the `sqrt` computation change to take effect
-#    [ Info: Please restart Julia and reload Trixi.jl for the `loop_vectorization` change to take effect```
-set_log_type!("log_Base")
-set_sqrt_type!("sqrt_Base")
-set_loop_vectorization!(false)
 
 # Include other source files
 include("auxiliary/auxiliary.jl")

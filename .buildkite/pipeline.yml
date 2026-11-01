@@ -7,45 +7,26 @@ steps:
       - JuliaCI/julia#v1:
           version: "{{matrix.julia}}"
     command: |
-      julia --project=. -e 'using Pkg
+      julia --project=. -e '
+        using Pkg
+        println("--- :julia: Instantiating environment")
+        Pkg.update()
+        Pkg.status()
 
-                println("--- :julia: Instantiating environment")
-                Pkg.update()
-                Pkg.status()
-
-                println("+++ :julia: Running tests")
-                Pkg.test()'
+        println("+++ :julia: Running tests")
+        Pkg.test()'
     agents:
       queue: "cuda"
     if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 60
 
-  - label: "Documentation - Julia 1.10"
-    plugins:
-      - JuliaCI/julia#v1:
-          version: "1.10"
-    command: |
-      julia --project=docs -e '
-        println("--- :julia: Instantiating project")
-        using Pkg
-        Pkg.develop(path=pwd())
-        Pkg.instantiate()
-
-        println("+++ :julia: Building documentation")
-        include("docs/make.jl")'
-    artifact_paths: "docs/build/**/*"
-    agents:
-      queue: "cuda"
-    if: build.message !~ /\[skip docs\]/ && build.pull_request.id != null
-    timeout_in_minutes: 15
-
-  # Both revisions run sequentially in this job, on whichever CUDA agent picks it up.
   - label: "GPU RHS benchmarks"
     key: "benchmarks"
     plugins:
       - JuliaCI/julia#v1:
           version: "1.10"
     command: |
+      # Fix Julia's CPU thread count across agents for consistent host-side RHS work.
       julia --threads=1 --project=benchmark -e '
         using Pkg
         Pkg.develop(path=pwd())
@@ -54,8 +35,8 @@ steps:
         main()'
     agents:
       queue: "cuda"
-    concurrency: 1
-    concurrency_group: "trixicuda-rhs-benchmarks"
+      benchmark: "true"
+      exclusive: "true"
     if: build.message !~ /\[skip benchmarks\]/ && !build.pull_request.draft
     timeout_in_minutes: 60
     soft_fail: true
@@ -63,3 +44,24 @@ steps:
       - "benchmark/results/baseline.json"
       - "benchmark/results/target.json"
       - "benchmark/results/report.md"
+
+  - label: "Documentation - Julia 1.10"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.10"
+    command: |
+      julia --project=docs -e '
+        using Pkg
+        println("--- :julia: Instantiating project")
+        Pkg.develop(path=pwd())
+        Pkg.instantiate()
+
+        println("+++ :julia: Building documentation")
+        include("docs/make.jl")'
+    agents:
+      queue: "cuda"
+    if: build.message !~ /\[skip docs\]/ && build.pull_request.id != null
+    timeout_in_minutes: 15
+    artifact_paths:
+      - "docs/build/**/*"
+

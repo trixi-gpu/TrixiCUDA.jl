@@ -1321,13 +1321,15 @@ function mortar_flux_kernel!(fstar_primary_upper, fstar_primary_lower, fstar_sec
         u_lower1 = (2 - large_side) * u_lower_ll + (large_side - 1) * u_lower_rr
         u_lower2 = (large_side - 1) * u_lower_ll + (2 - large_side) * u_lower_rr
 
-        noncons_flux_primary_upper = nonconservative_flux(u_upper1, u_upper2, orientation,
+        # Nonconservative fluxes take the receiving element's state first.
+        # Primary fluxes go to the small elements; secondary fluxes to the large element.
+        noncons_flux_primary_upper = nonconservative_flux(u_upper2, u_upper1, orientation,
                                                           equations)
-        noncons_flux_primary_lower = nonconservative_flux(u_lower1, u_lower2, orientation,
+        noncons_flux_primary_lower = nonconservative_flux(u_lower2, u_lower1, orientation,
                                                           equations)
-        noncons_flux_secondary_upper = nonconservative_flux(u_upper2, u_upper1, orientation,
+        noncons_flux_secondary_upper = nonconservative_flux(u_upper1, u_upper2, orientation,
                                                             equations)
-        noncons_flux_secondary_lower = nonconservative_flux(u_lower2, u_lower1, orientation,
+        noncons_flux_secondary_lower = nonconservative_flux(u_lower1, u_lower2, orientation,
                                                             equations)
 
         for ii in axes(fstar_primary_upper, 1)

@@ -126,20 +126,16 @@ sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
 Please also try the examples in the tests directory, as they are always the most up-to-date.
 
 # Benchmarks
-Please check out [benchmark.ipynb](https://github.com/trixi-gpu/TrixiCUDA.jl/blob/main/benchmark/benchmark.ipynb) in the [benchmark](https://github.com/trixi-gpu/TrixiCUDA.jl/tree/main/benchmark) directory to run the existing benchmark examples or your own. At present, our focus is on optimizing and benchmarking the semidiscretization process, so the benchmarks mainly measure the performance of `rhs!` functions on CPU and GPU.
+We currently focus on optimizing semidiscretization process, using CPU and GPU benchmarks of `rhs!` (the function that computes the solution’s time derivative after spatial discretization) to assess performance and track changes during development.
 
-See the most recent benchmark results for the semidiscretization process [here](https://trixi-gpu.github.io/benchmark/).
-
-The benchmark results presented at JuliaCon 2025 can be reproduced [here](https://github.com/trixi-gpu/juliacon-2025-semidiscretization-benchmark).
-We currently focus on optimizing semidiscretization, using CPU and GPU `rhs!` benchmarks to assess performance and track changes during development.
-
-CI runs GPU RHS benchmarks for non-draft PRs, unless the build message contains `[skip benchmarks]`. Results are available in:
+CI automatically runs GPU benchmarks of `rhs!` for non-draft PRs on each push, unless the commit message contains `[skip benchmarks]`. Each PR uses its merge base with the target branch as the baseline, with both revisions measured on the same GPU using minimum synchronized wall time. **Speedup = baseline time / PR time** and results are available in:
 
 - **PR comment:** a short summary with speedups and a link to the full report.
-- **Buildkite annotation:** detailed timings and speedups for every configuration, plus environment and measurement information.
-- **Buildkite artifacts:** raw results, timing samples and dependency environments.
+- **Buildkite annotation:** detailed timings and speedups for every configuration,
+  plus environment and measurement information.
+- **Buildkite artifacts:** raw results, timing samples and environment details.
 
-PRs are compared with their merge base using minimum wall time with GPU synchronization. Main builds compare with their first parent and publish to Buildkite only. Reports are informational.
+Main builds use the previous main commit as the baseline and publish results only to Buildkite. Reports are informational; differences may reflect measurement noise.
 
 **Reference benchmarks (2025)**
 

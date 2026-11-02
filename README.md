@@ -12,7 +12,7 @@ Package docs: https://trixi-gpu.github.io/TrixiCUDA.jl/dev (in development) \
 General docs: https://trixi-gpu.github.io
 
 > [!IMPORTANT]
-> TrixiCUDA.jl is actively maintained to stay close to the latest releases of Trixi.jl and CUDA.jl. Automated monitoring and AI-assisted maintenance help detect upstream compatibility issues and address them promptly, including breaking changes in pacakge's `0.x` releases and issues exposed by `0.x.x` patch updates.
+> TrixiCUDA.jl is actively maintained to stay close to the latest releases of Trixi.jl and CUDA.jl. Automated monitoring and AI-assisted maintenance help detect upstream compatibility issues and address them promptly, including breaking changes in upstream packages' `0.x` releases and issues exposed by `0.x.x` patch updates. See [Project.toml](Project.toml) for the currently supported dependency versions.
 >
 > We are also tracking safeguards for AI-assisted changes in [#236](https://github.com/trixi-gpu/TrixiCUDA.jl/issues/236) and will keep regular local code backups as a recovery option.
 

@@ -23,9 +23,8 @@ function rhs_hyperbolic!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t
     # For more details, see https://trixi-framework.github.io/Trixi.jl/stable/conventions/#Array-types-and-wrapping
     u = wrap_array(u_ode, mesh, equations, solver, cache_gpu)
     du = wrap_array(du_ode, mesh, equations, solver, cache_gpu)
-    backend = trixi_backend(u)
 
-    rhs_hyperbolic!(backend, du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu)
+    rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu)
 
     return nothing
 end

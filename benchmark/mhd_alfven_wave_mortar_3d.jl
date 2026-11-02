@@ -66,7 +66,7 @@ du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cach
 
 # Warm up
 Trixi.rhs_hyperbolic!(nothing, du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
-TrixiCUDA.rhs_hyperbolic!(CUDA.CUDABackend(), du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu, boundary_conditions_gpu, source_terms_gpu, solver_gpu,
+TrixiCUDA.rhs_hyperbolic!(du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu, boundary_conditions_gpu, source_terms_gpu, solver_gpu,
                           cache_gpu, cache_cpu)
 
 # Get DOFs (per field)
@@ -78,5 +78,5 @@ cpu_trial = @benchmark Trixi.rhs_hyperbolic!(nothing, du, u, t, mesh, equations,
                                              solver, cache)
 
 @info "Benchmarking rhs_hyperbolic! on GPU"
-gpu_trial = @benchmark CUDA.@sync TrixiCUDA.rhs_hyperbolic!(CUDA.CUDABackend(), du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu,
+gpu_trial = @benchmark CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du_gpu, u_gpu, t_gpu, mesh_gpu, equations_gpu,
                                                             boundary_conditions_gpu, source_terms_gpu, solver_gpu, cache_gpu, cache_cpu)

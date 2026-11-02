@@ -33,21 +33,21 @@ u_gpu = copy(ode_gpu.u0)
 du_gpu = similar(u_gpu)
 
 # Volume integral test
-TrixiCUDA.calc_volume_integral!(CUDA.CUDABackend(), du_gpu, u_gpu, mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+TrixiCUDA.calc_volume_integral!(du_gpu, u_gpu, mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
                                 solver_gpu.volume_integral, solver_gpu, cache_gpu, cache_cpu)
 
 # Prolong to interfaces test
-TrixiCUDA.prolong2interfaces!(CUDA.CUDABackend(), cache_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu)
+TrixiCUDA.prolong2interfaces!(cache_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu)
 
 # Interface flux test
-TrixiCUDA.calc_interface_flux!(CUDA.CUDABackend(), cache_gpu.elements.surface_flux_values, mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
+TrixiCUDA.calc_interface_flux!(cache_gpu.elements.surface_flux_values, mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu),
                                equations_gpu, solver_gpu.surface_integral, solver_gpu, cache_gpu)
 
 # Prolong to boundaries test
-TrixiCUDA.prolong2boundaries!(CUDA.CUDABackend(), cache_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu)
+TrixiCUDA.prolong2boundaries!(cache_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu)
 
 # Boundary flux test
-TrixiCUDA.calc_boundary_flux!(CUDA.CUDABackend(), cache_gpu, t_gpu, boundary_conditions_gpu, mesh_gpu, equations_gpu, solver_gpu.surface_integral,
+TrixiCUDA.calc_boundary_flux!(cache_gpu, t_gpu, boundary_conditions_gpu, mesh_gpu, equations_gpu, solver_gpu.surface_integral,
                               solver_gpu)
 
 # Prolong to mortars test
@@ -58,10 +58,10 @@ TrixiCUDA.calc_mortar_flux!(cache_gpu.elements.surface_flux_values, mesh_gpu, Tr
                             solver_gpu.mortar, solver_gpu.surface_integral, solver_gpu, cache_gpu)
 
 # Surface integral test
-TrixiCUDA.calc_surface_integral!(CUDA.CUDABackend(), du_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu.surface_integral, solver_gpu, cache_gpu)
+TrixiCUDA.calc_surface_integral!(du_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu.surface_integral, solver_gpu, cache_gpu)
 
 # Jacobian test
-TrixiCUDA.apply_jacobian!(CUDA.CUDABackend(), du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
+TrixiCUDA.apply_jacobian!(du_gpu, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
 # Sources test
-TrixiCUDA.calc_sources!(CUDA.CUDABackend(), du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, solver_gpu, cache_gpu)
+TrixiCUDA.calc_sources!(du_gpu, u_gpu, t_gpu, source_terms_gpu, equations_gpu, solver_gpu, cache_gpu)

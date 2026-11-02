@@ -2,7 +2,7 @@ module TrixiCUDA
 
 # GPU arrays and kernel launches
 import CUDA
-using CUDA: CuArray, CuDynamicSharedArray, CUDABackend,
+using CUDA: CuArray, CuDynamicSharedArray,
             @cuda, HostKernel, launch_configuration,
             threadIdx, blockIdx, blockDim, sync_threads
 using GPUArraysCore: AbstractGPUArray
@@ -42,8 +42,8 @@ using Trixi: gauss_lobatto_nodes_weights, polynomial_interpolation_matrix, multi
              IndicatorHennemannGassner, calc_indicator_hennemann_gassner!, apply_smoothing!,
              analyze, pretty_form_utf
 
-# Backend selection and time conversion shared with upstream Trixi
-using Trixi: trixi_backend, convert_tspan
+# Time conversion shared with upstream Trixi
+using Trixi: convert_tspan
 
 # Display
 using Trixi: summary_header, summary_line, summary_footer, increment_indent

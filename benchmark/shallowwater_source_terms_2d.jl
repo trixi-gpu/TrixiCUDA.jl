@@ -39,7 +39,8 @@ semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                     source_terms = source_terms_convergence_test,
                                     boundary_conditions = boundary_condition_periodic)
 semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
-                                           source_terms = source_terms_convergence_test, boundary_conditions = boundary_condition_periodic)
+                                           source_terms = source_terms_convergence_test,
+                                           boundary_conditions = boundary_condition_periodic)
 
 tspan = tspan_gpu = (0.0f0, 1.0f0)
 t = t_gpu = 0.0f0

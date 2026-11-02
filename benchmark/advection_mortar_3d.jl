@@ -28,7 +28,8 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 # Cache initialization
 semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                     boundary_conditions = boundary_condition_periodic)
-semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu, boundary_conditions = boundary_condition_periodic)
+semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
+                                           boundary_conditions = boundary_condition_periodic)
 
 tspan = tspan_gpu = (0.0f0, 5.0f0)
 t = t_gpu = 0.0f0

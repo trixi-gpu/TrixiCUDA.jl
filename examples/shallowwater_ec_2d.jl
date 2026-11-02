@@ -31,7 +31,8 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 periodicity = true)
 
 # Create the semi discretization object
-semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver, boundary_conditions = boundary_condition_periodic)
+semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
+                                       boundary_conditions = boundary_condition_periodic)
 
 ###############################################################################
 # ODE solver

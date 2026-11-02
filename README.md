@@ -11,17 +11,19 @@ High-order DG solvers for hyperbolic PDEs with native CUDA.jl kernels.
 Package docs: https://trixi-gpu.github.io/TrixiCUDA.jl/dev (in development) \
 General docs: https://trixi-gpu.github.io
 
-> [!WARNING]
-> The package may not always be updated with the latest updates in Trixi.jl. Forcing an update of Trixi.jl as a dependency for TrixiCUDA.jl beyond the version bounds specified in Project.toml may cause unexpected errors.
+> [!IMPORTANT]
+> TrixiCUDA.jl is actively maintained to stay close to the latest releases of Trixi.jl and CUDA.jl. Automated monitoring and AI-assisted maintenance help detect upstream compatibility issues and address them promptly, including breaking changes and compatibility issues introduced by major (`X.0.0`), minor (`X.Y.0`), or patch (`X.Y.Z`) updates. See [Project.toml](Project.toml) for the currently supported dependency versions.
+>
+> We are also tracking safeguards for AI-assisted changes in [#236](https://github.com/trixi-gpu/TrixiCUDA.jl/issues/236) and will keep regular local code backups as a recovery option.
 
-*Update on Jun 6, 2025*:
-- The scalar indexing issue on GPU arrays has been fixed for most common examples, but for more complicated cases you can run them error‐free by doing `using CUDA; CUDA.allowscalar(true)`, and a permanent fix will be available soon.
+*Update on Nov 1, 2026*:
+- Corrected the state order in 2D/3D nonconservative mortar fluxes to match Trixi.jl v0.17.19, fixing the resulting CPU/GPU discrepancies in MHD mortar tests (see [TrixiCUDA.jl PR #235](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/235)).
 
-*Update on Mar 19, 2025*:
-- The issue between the latest version of CUDA.jl and Trixi.jl has been resolved. The package is now compatible with CUDA.jl v5.7.0 and Trixi.jl v0.10 (see [TrixiCUDA.jl PR #141](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/141)).
+*Update on Oct 29, 2026*:
+- Loading TrixiCUDA.jl now preserves Trixi.jl's default preferences and any user settings, without overwriting them or printing restart messages (see [TrixiCUDA.jl PR #230](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/230)).
 
-*Update on Jan 28, 2025*:
-- It is recommended to update your Julia version to 1.10.8 (the latest LTS release) to avoid the issue of circular dependencies during package precompilation, which is present in Julia 1.10.7 (see [issue](https://discourse.julialang.org/t/circular-dependency-warning/123388)).
+*Update on Oct 28, 2026*:
+- Restored 1D/2D shallow-water test coverage using TrixiShallowWater.jl, with CPU/GPU comparisons and scalar indexing disabled. Test dependencies now live in a separate test environment (see [TrixiCUDA.jl PR #226](https://github.com/trixi-gpu/TrixiCUDA.jl/pull/226)).
 
 [Archived Update](https://trixi-gpu.github.io/update/)
 

@@ -28,8 +28,8 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 periodicity = (false, true, true))
 
 semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
-                                       source_terms = source_terms_poisson_nonperiodic,
-                                       boundary_conditions = boundary_conditions)
+                                       boundary_conditions = boundary_conditions,
+                                       source_terms = source_terms_poisson_nonperiodic)
 
 ###############################################################################
 # ODE solvers, callbacks etc.

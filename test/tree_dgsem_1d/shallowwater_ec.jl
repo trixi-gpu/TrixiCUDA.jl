@@ -2,7 +2,6 @@ module TestShallowWaterEC1D
 
 using Trixi, TrixiShallowWater, TrixiCUDA
 using Test
-using CUDA
 
 # Adapted from TrixiShallowWater.jl (66644da):
 # https://github.com/trixi-framework/TrixiShallowWater.jl/blob/66644da94ebd3ad881f17379e17ffea456e15e51/examples/tree_1d_dgsem/elixir_shallowwater_ec.jl

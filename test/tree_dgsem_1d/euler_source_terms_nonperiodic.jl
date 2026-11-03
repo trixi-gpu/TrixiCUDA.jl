@@ -2,7 +2,6 @@ module EulerSourceTermsNonperiodic1D
 
 using Trixi, TrixiCUDA
 using Test
-using CUDA
 
 include("../test_macros.jl")
 

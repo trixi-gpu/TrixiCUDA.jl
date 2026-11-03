@@ -1,7 +1,7 @@
 import Trixi, TrixiCUDA
 using Test
 
-using CUDA
+import CUDA
 CUDA.allowscalar(false)
 
 @testset "TrixiCUDA.jl tests" begin

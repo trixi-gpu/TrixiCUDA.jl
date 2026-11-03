@@ -5,6 +5,7 @@ on:
     branches:
       - main
     tags: "*"
+  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -14,6 +15,8 @@ concurrency:
 jobs:
   build:
     name: Build & Deploy Docs
+    # Fork PRs keep their build-only documentation check on Buildkite.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       actions: write
       contents: write

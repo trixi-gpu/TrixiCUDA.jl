@@ -72,7 +72,7 @@ Let's take a look at a simple example to see how to use TrixiCUDA.jl to run the 
 ```julia
 # Take 1D linear advection equation as an example
 using Trixi, TrixiCUDA
-using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
+using OrdinaryDiffEqLowStorageRK
 
 ###############################################################################
 # semidiscretization of the linear advection equation

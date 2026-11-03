@@ -1,5 +1,5 @@
 using Trixi, TrixiCUDA
-using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
+using OrdinaryDiffEqLowStorageRK
 
 using CUDA
 CUDA.allowscalar(true)

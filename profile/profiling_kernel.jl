@@ -1,5 +1,4 @@
 using Trixi, TrixiCUDA
-using CUDA
 
 # Set the precision
 RealT = Float32

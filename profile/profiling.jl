@@ -1,5 +1,4 @@
 using Trixi, TrixiCUDA
-using CUDA
 
 equations = CompressibleEulerEquations3D(1.4)
 

@@ -1,6 +1,5 @@
 module DGSEMTree1D
 
-using Trixi, TrixiCUDA
 using Test
 
 @testset "DGSEM Tree 1D" begin

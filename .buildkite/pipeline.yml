@@ -1,12 +1,15 @@
 steps:
-  - label: "Test TrixiCUDA.jl - Julia {{matrix.julia}}"
-    matrix:
-      setup:
-        julia: ["1.10", "1.11", "1.12", "1.13"]
+  # Collect coverage once, reusing the existing Julia 1.10 GPU test run.
+  - label: "Test TrixiCUDA.jl - Julia 1.10"
     plugins:
       - JuliaCI/julia#v1:
-          version: "{{matrix.julia}}"
-    command: |
+          version: "1.10"
+      - JuliaCI/julia-coverage#v1:
+          dirs: ["src"]
+          fail-on-error: false
+    env:
+      TRIXICUDA_COVERAGE: "true"
+    command: &run-tests |
       julia --project=. -e 'using Pkg
 
                 println("--- :julia: Instantiating environment")
@@ -14,7 +17,22 @@ steps:
                 Pkg.status()
 
                 println("+++ :julia: Running tests")
-                Pkg.test()'
+                coverage = get(ENV, "TRIXICUDA_COVERAGE", "false") == "true" ? "user" : false
+                Pkg.test(; coverage)'
+    artifact_paths: "lcov.info"
+    agents:
+      queue: "cuda"
+    if: build.message !~ /\[skip tests\]/
+    timeout_in_minutes: 60
+
+  - label: "Test TrixiCUDA.jl - Julia {{matrix.julia}}"
+    matrix:
+      setup:
+        julia: ["1.11", "1.12", "1.13"]
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "{{matrix.julia}}"
+    command: *run-tests
     agents:
       queue: "cuda"
     if: build.message !~ /\[skip tests\]/

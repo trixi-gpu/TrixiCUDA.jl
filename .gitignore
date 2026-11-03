@@ -6,3 +6,7 @@ docs/build
 .outdated/
 
 *.png
+
+# Julia coverage output
+*.cov
+lcov.info

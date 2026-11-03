@@ -63,7 +63,7 @@ include("../test_macros.jl")
     @test_approx (u_gpu, u)
     Trixi.set_zero!(du, solver, cache)
 
-    TrixiCUDA.calc_volume_integral!(du_gpu, u_gpu, mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+    TrixiCUDA.calc_volume_integral!(du_gpu, u_gpu, mesh_gpu, equations_gpu,
                                     solver_gpu.volume_integral, solver_gpu, cache_gpu, cache_cpu)
     Trixi.calc_volume_integral!(nothing, du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                 equations, solver.volume_integral, solver, cache)
@@ -73,7 +73,7 @@ include("../test_macros.jl")
     Trixi.prolong2interfaces!(cache, u, mesh, equations, solver)
     @test_approx (cache_gpu.interfaces.u, cache.interfaces.u)
 
-    TrixiCUDA.calc_interface_flux!(cache_gpu.elements.surface_flux_values, mesh_gpu, Trixi.have_nonconservative_terms(equations_gpu), equations_gpu,
+    TrixiCUDA.calc_interface_flux!(cache_gpu.elements.surface_flux_values, mesh_gpu, equations_gpu,
                                    solver_gpu.surface_integral, solver_gpu, cache_gpu)
     Trixi.calc_interface_flux!(cache.elements.surface_flux_values, mesh,
                                Trixi.have_nonconservative_terms(equations), equations,

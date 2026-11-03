@@ -24,7 +24,8 @@ function rhs_hyperbolic!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t
     u = wrap_array(u_ode, mesh, equations, solver, cache_gpu)
     du = wrap_array(du_ode, mesh, equations, solver, cache_gpu)
 
-    rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu)
+    rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, 
+                    cache_gpu, cache_cpu)
 
     return nothing
 end
@@ -35,11 +36,8 @@ end
 
 Wrap the GPU-accelerated semidiscretization `semi` as an ODE problem over the time interval `tspan`,
 which can be solved using the [SciML ecosystem](https://diffeq.sciml.ai/latest/).
-As in Trixi's `semidiscretize`, `tspan` is converted to `real(semi)` before evaluating the
-initial condition. Optional `jac_prototype` and `colorvec` are stored in the ODE function;
-the Jacobian prototype's element type is converted to that of the initial state.
-Its storage backend is preserved, so callers must choose one supported by their ODE solver.
-These options do not add GPU automatic differentiation or implicit-solver support.
+The optional `jac_prototype` specifies the Jacobian matrix type and sparsity pattern,
+while `colorvec` provides column coloring to accelerate sparse Jacobian computation.
 
 !!! warning "Experimental implementation"
     This is an experimental feature and may change or be removed in future releases due to 

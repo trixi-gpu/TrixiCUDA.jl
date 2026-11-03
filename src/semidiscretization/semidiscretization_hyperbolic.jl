@@ -52,7 +52,7 @@ end
 
 Construct a semidiscretization of a hyperbolic PDE for GPU-accelerated computations. This version 
 stores and manages computational caches on both GPU and CPU to achieve efficient data transfer.
-Pass `boundary_conditions` explicitly, including `boundary_condition_periodic` for periodic meshes.
+The `boundary_conditions` keyword must be specified explicitly.
 
 !!! warning "Experimental implementation"
     This is an experimental implementation and may change or be removed in future releases due to 
@@ -179,11 +179,10 @@ function print_boundary_conditions(io, semi::SemiHypMeshBCSolver{<:Any, <:NamedT
     end
 end
 
-function print_boundary_conditions(io,
-                                   semi::SemiHypMeshBCSolver{<:Union{TreeMesh,
-                                                                     StructuredMesh},
-                                                             <:Union{Tuple, NamedTuple,
-                                                                     AbstractArray}})
+function print_boundary_conditions(io, semi::SemiHypMeshBCSolver{<:Union{TreeMesh,
+                                                                         StructuredMesh},
+                                                                 <:Union{Tuple, NamedTuple,
+                                                                         AbstractArray}})
     summary_line(io, "boundary conditions", 2 * ndims(semi))
     bcs = semi.boundary_conditions
 

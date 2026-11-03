@@ -271,8 +271,13 @@ function calc_sources! end
     rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
                     source_terms, dg, cache_gpu, cache_cpu)
 
-Assemble the GPU hyperbolic right-hand side from volume, interface, boundary, mortar,
-surface, Jacobian, and source operations. Writes `du` in place and returns `nothing`.
-The extra CPU cache supports the host-side HG indicator; 1D has no mortar stages.
+Compute the hyperbolic right-hand side on the GPU.
+
+The first method extracts the required data from `semi` and calls the second method.
+
+The second method assembles the right-hand side from volume, interface, boundary,
+mortar, surface, Jacobian, and source operations. It writes `du` in place and returns
+`nothing`. The additional `cache_cpu` supports the current host-side HG indicator;
+1D problems have no mortar stages.
 """
 function rhs_hyperbolic! end

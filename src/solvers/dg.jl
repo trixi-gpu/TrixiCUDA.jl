@@ -226,10 +226,12 @@ function prolong2boundaries! end
 """
     calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                         surface_integral, dg)
+    calc_boundary_flux!(cache, t, boundary_conditions, mesh, nonconservative_terms,
+                        equations, surface_integral, dg)
 
 Compute GPU boundary fluxes with the supplied boundary conditions and surface integral.
-Periodic boundary conditions are a no-op. The nonconservative trait is selected internally.
-Writes `cache.elements.surface_flux_values` in place.
+When omitted, the nonconservative trait is selected from `equations`.
+Periodic boundary conditions are a no-op. Writes `cache.elements.surface_flux_values` in place.
 """
 function calc_boundary_flux! end
 

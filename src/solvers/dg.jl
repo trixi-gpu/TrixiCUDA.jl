@@ -191,17 +191,17 @@ function calc_volume_integral!(du, u, mesh::TreeMesh, equations,
 end
 
 """
-    prolong2interfaces!(cache, u, mesh::TreeMesh, equations, dg)
+    prolong2interfaces!(cache, u, mesh, equations, dg)
 
 Prolong the GPU solution to interior interfaces. Writes `cache.interfaces.u` in place.
 """
 function prolong2interfaces! end
 
 """
-    calc_interface_flux!(surface_flux_values, mesh::TreeMesh,
-                         equations, surface_integral, dg, cache)
-    calc_interface_flux!(surface_flux_values, mesh::TreeMesh,
-                         nonconservative_terms, equations, surface_integral, dg, cache)
+    calc_interface_flux!(surface_flux_values, mesh, equations, 
+                         surface_integral, dg, cache)
+    calc_interface_flux!(surface_flux_values, mesh, nonconservative_terms, equations, 
+                         surface_integral, dg, cache)
 
 Compute GPU interface fluxes with the supplied surface integral. When omitted, the
 nonconservative trait is selected from `equations`. Writes into `surface_flux_values`.
@@ -226,8 +226,8 @@ function prolong2boundaries! end
 """
     calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations,
                         surface_integral, dg)
-    calc_boundary_flux!(cache, t, boundary_conditions, mesh, nonconservative_terms,
-                        equations, surface_integral, dg)
+    calc_boundary_flux!(cache, t, boundary_conditions, mesh, nonconservative_terms, equations, 
+                        surface_integral, dg)
 
 Compute GPU boundary fluxes with the supplied boundary conditions and surface integral.
 When omitted, the nonconservative trait is selected from `equations`.

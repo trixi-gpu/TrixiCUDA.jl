@@ -36,8 +36,8 @@ end
 
 Create a discontinuous Galerkin spectral element method (DGSEM) optimized for GPU computations, 
 using a Lobatto-Legendre basis that is partially implemented on the GPU (`LobattoLegendreBasisGPU`).
-Like upstream `DGSEM`, `basis_type` is called with `(RealT, polydeg)`. It must return a
-`LobattoLegendreBasisGPU`; other bases are not supported by the CUDA kernels.
+Currently, only the `LobattoLegendreBasisGPU` type is supported;
+other bases are not supported by the CUDA kernels.
 
 Supported volume integrals are `VolumeIntegralWeakForm`, `VolumeIntegralFluxDifferencing`,
 and classic `VolumeIntegralShockCapturingHG`: identical default/blended high-order

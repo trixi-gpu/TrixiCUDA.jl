@@ -172,15 +172,23 @@ end
 # The extra CPU cache in the volume integral/RHS supports the current host-side HG indicator.
 
 """
+    calc_volume_integral!(du, u, mesh, equations,
+                          volume_integral, dg, cache_gpu, cache_cpu)
     calc_volume_integral!(du, u, mesh, nonconservative_terms, equations,
                           volume_integral, dg, cache_gpu, cache_cpu)
 
 Compute the DG volume term on the GPU for weak form, flux differencing, or classic HG
-shock capturing. The additional `cache_cpu`
-argument is required by the current HG indicator implementation. Writes `du` in place;
-resetting `du` is fused into the first kernel.
+shock capturing. When omitted, the nonconservative trait is selected from `equations`.
+The additional `cache_cpu` argument is required by the current HG indicator implementation.
+Writes `du` in place; resetting `du` is fused into the first kernel.
 """
 function calc_volume_integral! end
+
+function calc_volume_integral!(du, u, mesh::TreeMesh, equations,
+                               volume_integral, dg::DGSEM, cache_gpu, cache_cpu)
+    return calc_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
+                                 volume_integral, dg, cache_gpu, cache_cpu)
+end
 
 """
     prolong2interfaces!(cache, u, mesh::TreeMesh, equations, dg)
@@ -191,12 +199,21 @@ function prolong2interfaces! end
 
 """
     calc_interface_flux!(surface_flux_values, mesh::TreeMesh,
+                         equations, surface_integral, dg, cache)
+    calc_interface_flux!(surface_flux_values, mesh::TreeMesh,
                          nonconservative_terms, equations, surface_integral, dg, cache)
 
-Compute GPU interface fluxes with the supplied surface integral and conservative/nonconservative
-trait. Writes into `surface_flux_values`.
+Compute GPU interface fluxes with the supplied surface integral. When omitted, the
+nonconservative trait is selected from `equations`. Writes into `surface_flux_values`.
 """
 function calc_interface_flux! end
+
+function calc_interface_flux!(surface_flux_values, mesh::TreeMesh, equations,
+                              surface_integral, dg::DGSEM, cache)
+    return calc_interface_flux!(surface_flux_values, mesh,
+                                have_nonconservative_terms(equations), equations,
+                                surface_integral, dg, cache)
+end
 
 """
     prolong2boundaries!(cache, u, mesh, equations, dg)
@@ -235,14 +252,24 @@ containers are a no-op. Writes the trace buffers in `cache.mortars`.
 function prolong2mortars! end
 
 """
+    calc_mortar_flux!(surface_flux_values, mesh, equations,
+                      mortar_l2, surface_integral, dg, cache)
     calc_mortar_flux!(surface_flux_values, mesh, nonconservative_terms, equations,
                       mortar_l2, surface_integral, dg, cache)
 
 Compute GPU mortar fluxes with the supplied mortar and surface-integral operators.
+When omitted, the nonconservative trait is selected from `equations`.
 No backend or cache-presence trait is passed. Empty mortar containers are a no-op.
 Writes into `surface_flux_values`.
 """
 function calc_mortar_flux! end
+
+function calc_mortar_flux!(surface_flux_values, mesh::Union{TreeMesh{2}, TreeMesh{3}}, equations,
+                           mortar_l2, surface_integral, dg::DGSEM, cache)
+    return calc_mortar_flux!(surface_flux_values, mesh,
+                             have_nonconservative_terms(equations), equations,
+                             mortar_l2, surface_integral, dg, cache)
+end
 
 """
     calc_surface_integral!(du, u, mesh, equations, surface_integral, dg, cache)

@@ -745,12 +745,12 @@ function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{2}, equations, boundary_condit
     # reset_du!(du) is now fused into the next kernel, 
     # removing the need for a separate function call.
 
-    calc_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
+    calc_volume_integral!(du, u, mesh, equations,
                           dg.volume_integral, dg, cache_gpu, cache_cpu)
 
     prolong2interfaces!(cache_gpu, u, mesh, equations, dg)
 
-    calc_interface_flux!(cache_gpu.elements.surface_flux_values, mesh, have_nonconservative_terms(equations), equations,
+    calc_interface_flux!(cache_gpu.elements.surface_flux_values, mesh, equations,
                          dg.surface_integral, dg, cache_gpu)
 
     prolong2boundaries!(cache_gpu, u, mesh, equations, dg)
@@ -759,7 +759,7 @@ function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{2}, equations, boundary_condit
 
     prolong2mortars!(cache_gpu, u, mesh, equations, dg.mortar, dg)
 
-    calc_mortar_flux!(cache_gpu.elements.surface_flux_values, mesh, have_nonconservative_terms(equations), equations,
+    calc_mortar_flux!(cache_gpu.elements.surface_flux_values, mesh, equations,
                       dg.mortar, dg.surface_integral, dg, cache_gpu)
 
     calc_surface_integral!(du, u, mesh, equations, dg.surface_integral, dg, cache_gpu)

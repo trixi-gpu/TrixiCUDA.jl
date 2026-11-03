@@ -1,5 +1,5 @@
 using Trixi, TrixiCUDA
-using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
+using OrdinaryDiffEqLowStorageRK
 
 # The example is taken from the Trixi.jl 
 
@@ -22,7 +22,7 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
 
 # A semidiscretization collects data structures and functions for the spatial discretization
 semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition_convergence_test,
-                                       solver)
+                                       solver, boundary_conditions = boundary_condition_periodic)
 
 ###############################################################################
 # ODE solvers, callbacks etc.

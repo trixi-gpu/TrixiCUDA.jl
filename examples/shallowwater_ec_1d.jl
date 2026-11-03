@@ -1,5 +1,5 @@
 using Trixi, TrixiShallowWater, TrixiCUDA
-using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
+using OrdinaryDiffEqLowStorageRK
 
 # The example is taken from the TrixiShallowWater.jl
 
@@ -56,7 +56,8 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 periodicity = true)
 
 # Create the semi discretization object
-semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
+semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
+                                       boundary_conditions = boundary_condition_periodic)
 
 ###############################################################################
 # ODE solver

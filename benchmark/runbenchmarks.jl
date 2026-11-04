@@ -139,14 +139,14 @@ function measure()
                        "driver" => CUDA.has_nvml() ? string(CUDA.NVML.driver_version()) : string(CUDA.driver_version()),
                        "threads" => Threads.nthreads(), "packages" => packages,
                        "cuda_versioninfo" => sprint(CUDA.versioninfo),
-                       "agent" => get(ENV, "BUILDKITE_AGENT_NAME", "local"),
+                       "agent" => get(ENV, "RUNNER_NAME", "local"),
                        "measured_at" => string(now(UTC)),
-                       "build_url" => get(ENV, "BUILDKITE_BUILD_URL", "local"))
+                       "build_url" => get(ENV, "TRIXICUDA_BENCHMARK_RUN_URL", "local"))
     output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                                        "precision" => "Float32", "evals" => 1,
                                        "filter" => filter), "reused" => false)
-    # JuliaCI/julia preserves scratchspaces between jobs on this agent. Cache
+    # Keep scratchspaces local to this runner. Cache
     # entries include the device UUID, host, exact source SHA and full context.
     directory = get(ENV, "TRIXICUDA_BENCHMARK_CACHE",
                     joinpath(first(DEPOT_PATH), "scratchspaces", TRIXICUDA_UUID, "rhs-benchmarks"))
@@ -218,28 +218,34 @@ end
 function comparison_commits(repo)
     git(args...) = Cmd(String["git", "-C", repo, args...])
     head = readchomp(git("rev-parse", "HEAD"))
-    default = get(ENV, "BUILDKITE_PIPELINE_DEFAULT_BRANCH", "main")
-    branch = get(ENV, "BUILDKITE_BRANCH", readchomp(git("branch", "--show-current")))
-    is_pr = get(ENV, "BUILDKITE_PULL_REQUEST", "false") ∉ ("false", "")
+    default = get(ENV, "TRIXICUDA_BENCHMARK_DEFAULT_BRANCH", "main")
+    branch = get(ENV, "GITHUB_REF_NAME", readchomp(git("branch", "--show-current")))
+    is_pr = !isempty(get(ENV, "TRIXICUDA_BENCHMARK_PR", get(ENV, "GITHUB_HEAD_REF", "")))
     if readchomp(git("rev-parse", "--is-shallow-repository")) == "true"
         run(git("fetch", "--unshallow", "origin"))
     end
     if branch == default && !is_pr
         baseline = readchomp(git("rev-parse", "$(head)^1"))
     else
-        base_branch = get(ENV, "BUILDKITE_PULL_REQUEST_BASE_BRANCH", default)
+        base_branch = get(ENV, "TRIXICUDA_BENCHMARK_BASE_BRANCH", get(ENV, "GITHUB_BASE_REF", default))
         run(git("fetch", "--no-tags", "origin", base_branch))
         baseline = readchomp(git("merge-base", head, "FETCH_HEAD"))
     end
     return head, baseline
 end
 
-# Buildkite instantiates the target project; the baseline uses the same resolution.
+# The workflow instantiates the target project; the baseline uses the same resolution.
 function compare()
     repo = dirname(@__DIR__)
     git(args...) = Cmd(String["git", "-C", repo, args...])
     head, baseline = comparison_commits(repo)
     println("Baseline: ", baseline, "\nTarget: ", head)
+    if haskey(ENV, "GITHUB_OUTPUT")
+        open(ENV["GITHUB_OUTPUT"], "a") do io
+            println(io, "baseline=", baseline)
+            println(io, "head=", head)
+        end
+    end
     output = joinpath(@__DIR__, "results")
     mkpath(output)
     for file in ("baseline.json", "target.json", "report.md")
@@ -259,6 +265,16 @@ function compare()
                 Pkg.instantiate()
                 Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
             end
+            # Save the exact resolved projects separately from the three report files.
+            if haskey(ENV, "TRIXICUDA_BENCHMARK_ENVIRONMENT")
+                directory = ENV["TRIXICUDA_BENCHMARK_ENVIRONMENT"]
+                for (label, project) in (("target", @__DIR__), ("baseline", env))
+                    mkpath(joinpath(directory, label))
+                    for file in ("Project.toml", "Manifest.toml")
+                        cp(joinpath(project, file), joinpath(directory, label, file); force = true)
+                    end
+                end
+            end
             # The target is always measured; only an exactly matching baseline can be reused.
             script = joinpath(@__DIR__, "runbenchmarks.jl")
             run(`$(Base.julia_cmd()) --threads=1 --project=$(@__DIR__) $script $(joinpath(output, "target.json")) $head`)
@@ -270,8 +286,10 @@ function compare()
             end
             write(report, text)
             print(text)
-            if haskey(ENV, "BUILDKITE")
-                run(pipeline(`buildkite-agent annotate --context gpu-rhs-benchmarks --style info`; stdin = report))
+            if haskey(ENV, "GITHUB_STEP_SUMMARY")
+                open(ENV["GITHUB_STEP_SUMMARY"], "a") do io
+                    write(io, text)
+                end
             end
         finally
             Pkg.activate(@__DIR__)

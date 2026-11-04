@@ -29,12 +29,20 @@ end
 """
     DGSEMGPU(; RealT = Float64,
                polydeg::Integer,
+               basis_type = LobattoLegendreBasisGPU,
                surface_flux = flux_central,
                surface_integral = SurfaceIntegralWeakForm(surface_flux),
                volume_integral = VolumeIntegralWeakForm()) 
 
 Create a discontinuous Galerkin spectral element method (DGSEM) optimized for GPU computations, 
 using a Lobatto-Legendre basis that is partially implemented on the GPU (`LobattoLegendreBasisGPU`).
+Currently, only the `LobattoLegendreBasisGPU` type is supported;
+other bases are not supported by the CUDA kernels.
+
+Supported volume integrals are `VolumeIntegralWeakForm`, `VolumeIntegralFluxDifferencing`,
+and classic `VolumeIntegralShockCapturingHG`: identical default/blended high-order
+flux-differencing operators with first-order subcell FV. Generalized HG configurations
+with a different default operator or second-order FV are not yet supported.
 
 !!! warning "Experimental implementation"
     This is an experimental implementation and may change or be removed in future releases due to 
@@ -42,10 +50,14 @@ using a Lobatto-Legendre basis that is partially implemented on the GPU (`Lobatt
 """
 function DGSEMGPU(; RealT = Float64,
                   polydeg::Integer,
+                  basis_type = LobattoLegendreBasisGPU,
                   surface_flux = flux_central,
                   surface_integral = SurfaceIntegralWeakForm(surface_flux),
                   volume_integral = VolumeIntegralWeakForm())
-    basis = LobattoLegendreBasisGPU(RealT, polydeg)
+    basis = basis_type(RealT, polydeg)
+    if !(basis isa LobattoLegendreBasisGPU)
+        throw(ArgumentError("DGSEMGPU requires basis_type to return a LobattoLegendreBasisGPU"))
+    end
     # Preserve the GPU basis and mortar types in the DG solver.
     return DGSEMGPU(basis, surface_integral, volume_integral)
 end

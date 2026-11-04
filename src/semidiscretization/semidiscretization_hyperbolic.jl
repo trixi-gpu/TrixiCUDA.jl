@@ -43,8 +43,8 @@ end
 
 """
     SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver;
+                                    boundary_conditions,
                                     source_terms=nothing,
-                                    boundary_conditions=boundary_condition_periodic,
                                     RealT=real(solver),
                                     uEltype=RealT,
                                     initial_cache_gpu=NamedTuple(),
@@ -52,14 +52,15 @@ end
 
 Construct a semidiscretization of a hyperbolic PDE for GPU-accelerated computations. This version 
 stores and manages computational caches on both GPU and CPU to achieve efficient data transfer.
+The `boundary_conditions` keyword must be specified explicitly.
 
 !!! warning "Experimental implementation"
     This is an experimental implementation and may change or be removed in future releases due to 
     ongoing performance optimizations.
 """
 function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver;
+                                         boundary_conditions,
                                          source_terms = nothing,
-                                         boundary_conditions = boundary_condition_periodic,
                                          RealT = real(solver), # `RealT` is used as real type for node locations etc.
                                          uEltype = RealT, # `uEltype` is used as element type of solutions etc.
                                          initial_cache_gpu = NamedTuple(),
@@ -93,6 +94,7 @@ function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, sol
 end
 
 @inline Base.ndims(semi::SemidiscretizationHyperbolicGPU) = ndims(semi.mesh)
+@inline Base.real(semi::SemidiscretizationHyperbolicGPU) = real(semi.solver)
 
 @inline function mesh_equations_solver_cache(semi::SemidiscretizationHyperbolicGPU)
     # Unpack CPU cache or GPU cache?
@@ -177,11 +179,10 @@ function print_boundary_conditions(io, semi::SemiHypMeshBCSolver{<:Any, <:NamedT
     end
 end
 
-function print_boundary_conditions(io,
-                                   semi::SemiHypMeshBCSolver{<:Union{TreeMesh,
-                                                                     StructuredMesh},
-                                                             <:Union{Tuple, NamedTuple,
-                                                                     AbstractArray}})
+function print_boundary_conditions(io, semi::SemiHypMeshBCSolver{<:Union{TreeMesh,
+                                                                         StructuredMesh},
+                                                                 <:Union{Tuple, NamedTuple,
+                                                                         AbstractArray}})
     summary_line(io, "boundary conditions", 2 * ndims(semi))
     bcs = semi.boundary_conditions
 

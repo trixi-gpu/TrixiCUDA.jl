@@ -93,7 +93,7 @@ function benchmark_rhs(case; seconds, samples, seed)
     # instead of publishing plausible timings for NaN-producing computations.
     for _ in 1:2
         fill!(du, 0.0f0)
-        CUDA.@sync TrixiCUDA.rhs_gpu!(du, u, t, mesh, equations, boundary_conditions,
+        CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
                                       source_terms, solver, cache_gpu, cache_cpu)
     end
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
@@ -102,7 +102,7 @@ function benchmark_rhs(case; seconds, samples, seed)
     # measurement starts with du=0, including RHS implementations that accumulate.
     # The block keeps BenchmarkTools options outside CUDA.@sync.
     trial = @benchmark begin
-        CUDA.@sync TrixiCUDA.rhs_gpu!($du, $u, $t, $mesh, $equations,
+        CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $t, $mesh, $equations,
                                       $boundary_conditions, $source_terms,
                                       $solver, $cache_gpu, $cache_cpu)
     end setup=(CUDA.@sync fill!($du, 0.0f0)) evals=1 seconds=seconds samples=samples

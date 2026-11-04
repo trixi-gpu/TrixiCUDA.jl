@@ -13,19 +13,19 @@ TrixiCUDA.semidiscretizeGPU
 
 ## Semidiscretization
 ```@docs
-TrixiCUDA.rhs_gpu!
+TrixiCUDA.rhs_hyperbolic!
 ```
 
 ## GPU Kernels in Semidiscretization
 ```@docs
-TrixiCUDA.cuda_volume_integral!
-TrixiCUDA.cuda_prolong2interfaces!
-TrixiCUDA.cuda_interface_flux!
-TrixiCUDA.cuda_prolong2boundaries!
-TrixiCUDA.cuda_boundary_flux!
-TrixiCUDA.cuda_prolong2mortars!
-TrixiCUDA.cuda_mortar_flux!
-TrixiCUDA.cuda_surface_integral!
-TrixiCUDA.cuda_jacobian!
-TrixiCUDA.cuda_sources!
+TrixiCUDA.calc_volume_integral!
+TrixiCUDA.prolong2interfaces!
+TrixiCUDA.calc_interface_flux!
+TrixiCUDA.prolong2boundaries!
+TrixiCUDA.calc_boundary_flux!
+TrixiCUDA.prolong2mortars!
+TrixiCUDA.calc_mortar_flux!
+TrixiCUDA.calc_surface_integral!
+TrixiCUDA.apply_jacobian!
+TrixiCUDA.calc_sources!
 ```

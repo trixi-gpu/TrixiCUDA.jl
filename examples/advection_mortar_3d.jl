@@ -1,6 +1,6 @@
 
 using Trixi, TrixiCUDA
-using OrdinaryDiffEqSSPRK, OrdinaryDiffEqLowStorageRK
+using OrdinaryDiffEqLowStorageRK
 
 using CUDA
 CUDA.allowscalar(true)
@@ -27,7 +27,8 @@ mesh = TreeMesh(coordinates_min, coordinates_max,
                 refinement_patches = refinement_patches,
                 periodicity = true)
 
-semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver)
+semi = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver,
+                                       boundary_conditions = boundary_condition_periodic)
 
 ###############################################################################
 # ODE solvers, callbacks etc.

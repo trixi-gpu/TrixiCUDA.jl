@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      # Honor [skip docs] in the PR head commit or the triggering commit.
+      # Skip documentation builds when the commit message contains [skip docs].
       - name: Check whether to skip docs
         id: docs
         env:

@@ -1,6 +1,9 @@
 name: Self-hosted runner check
 
 on:
+  push:
+    branches:
+      - benchmark-rhs-ci
   workflow_dispatch:
 
 permissions:
@@ -8,7 +11,7 @@ permissions:
 
 jobs:
   check:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [self-hosted, linux, x64, gpu]
     timeout-minutes: 5
     steps:
       - name: Check GPU and Julia

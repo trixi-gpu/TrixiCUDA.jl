@@ -1,4 +1,4 @@
-name: GPU RHS benchmarks
+name: GPU Benchmarks
 
 on:
   # Only trusted repository branches or an explicit manual run can use the GPU runner.
@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   prepare:
+    name: Prepare benchmark run
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.select.outputs.run }}
@@ -67,7 +68,7 @@ jobs:
   benchmark:
     needs: prepare
     if: needs.prepare.outputs.run == 'true'
-    name: GPU RHS benchmarks
+    name: Run benchmarks
     runs-on: [self-hosted, linux, x64, gpu]
     timeout-minutes: 60
     continue-on-error: true

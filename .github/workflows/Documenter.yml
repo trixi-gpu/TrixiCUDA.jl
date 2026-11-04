@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build & Deploy Docs
+    name: Build and deploy docs
     permissions:
       actions: write
       contents: write
@@ -55,7 +55,7 @@ jobs:
         if: steps.docs.outputs.skip != 'true'
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
 
-      - name: Build & deploy documentation
+      - name: Build and deploy documentation
         if: steps.docs.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}      # for Documenter via GitHub Actions

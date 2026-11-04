@@ -7,13 +7,13 @@ on:
 
 jobs:
   compat-helper:
-    name: Run Compat Helper
+    name: Run compat helper
     runs-on: ubuntu-latest
     steps:
-      - name: Add CompatHelper Package
+      - name: Add CompatHelper package
         run: julia -e 'using Pkg; Pkg.add("CompatHelper")'
 
-      - name: Run CompatHelper to Update Dependencies
+      - name: Run CompatHelper to update dependencies
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # COMPATHELPER_PRIV: ${{ secrets.DOCUMENTER_KEY }}

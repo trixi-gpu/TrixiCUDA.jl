@@ -121,19 +121,20 @@ Please also try the examples in the tests directory, as they are always the most
 # Benchmarks
 We currently focus on optimizing the semidiscretization process, using CPU and GPU benchmarks of `rhs_hyperbolic!` (the function that computes the solution’s time derivative after spatial discretization) to assess performance and track changes during development.
 
-CI automatically runs GPU benchmarks of `rhs_hyperbolic!` for non-draft PRs on each push, unless the commit message contains `[skip benchmarks]`. Each PR uses its merge base with the target branch as the baseline, with both revisions measured on the same GPU using minimum synchronized wall time. **Speedup = baseline time / PR time** and results are available in:
+GPU RHS benchmarks can be run manually on a machine with a working CUDA GPU:
 
-- **PR comment:** a short summary with speedups and a link to the full report.
-- **Buildkite annotation:** detailed timings and speedups for every configuration,
-  plus environment and measurement information.
-- **Buildkite artifacts:** raw results, timing samples and environment details.
+```bash
+julia --project=benchmark -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+julia --threads=1 --project=benchmark benchmark/runbenchmarks.jl
+```
 
-Main builds use the previous main commit as the baseline and publish results only to Buildkite. Reports are informational; differences may reflect measurement noise.
+The runner compares the current checkout with its merge base with `main` (or the previous commit when running on `main`), using the same GPU and resolved dependencies for both revisions. It writes `baseline.json`, `target.json`, and `report.md` to `benchmark/results/`. **Speedup = baseline time / target time**; differences may reflect measurement noise.
+
+Benchmark execution and report publishing are not currently connected to CI. A self-hosted GitHub Actions runner will be configured separately.
 
 **Reference benchmarks (2025)**
 
-For a comprehensive CPU/GPU comparison of semidiscretization performance, see the [2025 benchmark report](https://trixi-gpu.github.io/benchmark/). These results reflect the package versions and test environment used at the time;
-ongoing PR performance comparisons are reported separately by CI.
+For a comprehensive CPU/GPU comparison of semidiscretization performance, see the [2025 benchmark report](https://trixi-gpu.github.io/benchmark/). These results reflect the package versions and test environment used at the time.
 
 The benchmarks presented at JuliaCon 2025 can be reproduced using the
 [benchmark repository](https://github.com/trixi-gpu/juliacon-2025-semidiscretization-benchmark).

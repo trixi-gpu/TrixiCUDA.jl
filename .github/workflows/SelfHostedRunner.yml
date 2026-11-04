@@ -1,0 +1,17 @@
+name: Self-hosted runner check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - name: Check GPU and Julia
+        run: |
+          nvidia-smi
+          julia --version

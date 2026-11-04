@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: gpu-rhs-${{ github.repository }}-${{ inputs.pull_request || github.ref_name }}
@@ -21,15 +22,11 @@ concurrency:
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
     outputs:
       run: ${{ steps.select.outputs.run }}
       head: ${{ steps.select.outputs.head }}
       pr: ${{ steps.select.outputs.pr }}
       base: ${{ steps.select.outputs.base }}
-      default: ${{ steps.select.outputs.default }}
     steps:
       - uses: actions/github-script@v8
         id: select
@@ -39,7 +36,6 @@ jobs:
           script: |
             const repo = context.repo;
             const defaultBranch = context.payload.repository.default_branch;
-            core.setOutput('default', defaultBranch);
             const input = process.env.INPUT_PR || '';
             if (input && !/^[1-9][0-9]*$/.test(input)) throw new Error('Invalid PR number');
             let number = Number(input);
@@ -75,20 +71,15 @@ jobs:
     runs-on: [self-hosted, linux, x64, gpu]
     timeout-minutes: 60
     continue-on-error: true
-    permissions:
-      contents: read
-      pull-requests: read
     outputs:
       complete: ${{ steps.results.outcome == 'success' && steps.environment.outcome == 'success' }}
-      head: ${{ steps.measure.outputs.head }}
       baseline: ${{ steps.measure.outputs.baseline }}
       results: ${{ steps.results.outputs.artifact-url }}
       environment: ${{ steps.environment.outputs.artifact-url }}
     env:
-      JULIA_NUM_THREADS: '1'
       TRIXICUDA_BENCHMARK_PR: ${{ needs.prepare.outputs.pr }}
       TRIXICUDA_BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
-      TRIXICUDA_BENCHMARK_DEFAULT_BRANCH: ${{ needs.prepare.outputs.default }}
+      TRIXICUDA_BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       TRIXICUDA_BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v7
@@ -102,7 +93,6 @@ jobs:
         env:
           PR_NUMBER: ${{ needs.prepare.outputs.pr }}
           HEAD_SHA: ${{ needs.prepare.outputs.head }}
-          DEFAULT_BRANCH: ${{ needs.prepare.outputs.default }}
         with:
           script: |
             const number = Number(process.env.PR_NUMBER);
@@ -112,7 +102,7 @@ jobs:
                 pr.head.repo?.full_name === context.payload.repository.full_name &&
                 pr.base.ref === process.env.TRIXICUDA_BENCHMARK_BASE_BRANCH;
             }
-            const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: process.env.DEFAULT_BRANCH});
+            const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: process.env.TRIXICUDA_BENCHMARK_DEFAULT_BRANCH});
             return branch.commit.sha === process.env.HEAD_SHA;
       - uses: julia-actions/setup-julia@v3
         if: steps.current.outputs.result == 'true'
@@ -124,7 +114,6 @@ jobs:
         env:
           TRIXICUDA_BENCHMARK_ENVIRONMENT: ${{ runner.temp }}/gpu-rhs-environment-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          printf 'TRIXICUDA_BENCHMARK_ENVIRONMENT=%s\n' "$TRIXICUDA_BENCHMARK_ENVIRONMENT" >> "$GITHUB_ENV"
           julia --version
           nvidia-smi
           julia --threads=1 --project=benchmark -e '
@@ -152,7 +141,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: gpu-rhs-environment-${{ needs.prepare.outputs.head }}
-          path: ${{ env.TRIXICUDA_BENCHMARK_ENVIRONMENT }}/
+          path: ${{ runner.temp }}/gpu-rhs-environment-${{ github.run_id }}-${{ github.run_attempt }}/
           if-no-files-found: error
           retention-days: 90
           overwrite: true
@@ -172,6 +161,12 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          # Load the publisher from this workflow revision, not the measured PR.
+          ref: ${{ github.workflow_sha }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
@@ -180,77 +175,11 @@ jobs:
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.prepare.outputs.pr }}
-          HEAD_SHA: ${{ needs.benchmark.outputs.head }}
+          HEAD_SHA: ${{ needs.prepare.outputs.head }}
           BASELINE_SHA: ${{ needs.benchmark.outputs.baseline }}
           BASE_BRANCH: ${{ needs.prepare.outputs.base }}
           RESULTS_URL: ${{ needs.benchmark.outputs.results }}
           ENVIRONMENT_URL: ${{ needs.benchmark.outputs.environment }}
         with:
           script: |
-            const fs = require('fs');
-            const repo = context.repo, number = Number(process.env.PR_NUMBER);
-            const sha = process.env.HEAD_SHA, baseline = process.env.BASELINE_SHA;
-            const runURL = `${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${context.runId}`;
-            const eligible = pr => pr.state === 'open' && !pr.draft && pr.head.sha === sha &&
-              pr.head.repo?.full_name === `${repo.owner}/${repo.repo}` && pr.base.ref === process.env.BASE_BRANCH;
-            const getPR = async () => (await github.rest.pulls.get({...repo, pull_number: number})).data;
-            if (!eligible(await getPR())) return;
-            const base = JSON.parse(fs.readFileSync('results/baseline.json', 'utf8'));
-            const target = JSON.parse(fs.readFileSync('results/target.json', 'utf8'));
-            const report = fs.readFileSync('results/report.md', 'utf8');
-            if (!/^[a-f0-9]{40}$/.test(sha) || !/^[a-f0-9]{40}$/.test(baseline) ||
-                base.schema !== 3 || target.schema !== 3 || target.reused !== false ||
-                base.environment?.commit !== baseline || target.environment?.commit !== sha ||
-                target.environment.build_url !== runURL || !report.includes(sha) || !report.includes(baseline))
-              throw new Error('Report does not belong to this comparison');
-            const stable = value => JSON.stringify(value, function(key, item) {
-              return item && !Array.isArray(item) && typeof item === 'object'
-                ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item;
-            });
-            const measurementContext = result => ({
-              ...Object.fromEntries(['julia', 'gpu', 'gpu_uuid', 'host', 'runtime', 'driver', 'threads', 'harness']
-                .map(key => [key, result.environment[key]])),
-              packages: Object.fromEntries(Object.entries(result.environment.packages)
-                .filter(([id]) => id !== '5056661c-942a-472c-b3bc-01507f717a60')),
-              parameters: result.parameters
-            });
-            if (stable(measurementContext(base)) !== stable(measurementContext(target)))
-              throw new Error('Measurement environments differ');
-            const names = Object.keys(target.benchmarks).sort();
-            if (!names.length || stable(names) !== stable(Object.keys(base.benchmarks).sort()))
-              throw new Error('Benchmark case sets differ');
-            const valid = value => Number.isFinite(value) && value > 0;
-            const rows = names.map(name => {
-              if (!/^[a-z0-9_]{1,100}$/.test(name)) throw new Error('Invalid case name');
-              const b = base.benchmarks[name], t = target.benchmarks[name];
-              for (const value of [b, t]) {
-                if (!Array.isArray(value.samples_ns) || value.samples_ns.length !== value.samples ||
-                    !value.samples_ns.length || !value.samples_ns.every(valid) || !valid(value.minimum_ns) ||
-                    Math.min(...value.samples_ns) !== value.minimum_ns) throw new Error('Invalid raw samples');
-              }
-              for (const key of ['shape', 'seed', 'dofs_per_field']) {
-                if (stable(b[key]) !== stable(t[key])) throw new Error('Benchmark inputs differ');
-              }
-              return {name, speedup: b.minimum_ns / t.minimum_ns, change: 100 * (t.minimum_ns / b.minimum_ns - 1)};
-            });
-            const speedup = Math.exp(rows.reduce((sum, r) => sum + Math.log(r.speedup), 0) / rows.length);
-            if (!valid(speedup) || !rows.every(r => valid(r.speedup) && Number.isFinite(r.change)))
-              throw new Error('Invalid speedup');
-            const marker = '<!-- trixicuda-gpu-rhs-benchmarks -->';
-            // TODO: Agree on the final summary format; keep all cases in the job summary.
-            const body = [marker, '### GPU RHS benchmarks', '',
-              `\`${sha.slice(0, 7)}\` vs merge base \`${baseline.slice(0, 7)}\`; ${rows.length} cases, minimum synchronized wall time.`,
-              `Geometric mean speedup: **${speedup.toFixed(3)}x**.`, '',
-              '| Largest time changes | Time change | Speedup |', '|:--|--:|--:|',
-              ...rows.sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 3).map(r =>
-                `| \`${r.name}\` | ${r.change >= 0 ? '+' : ''}${r.change.toFixed(2)}% | ${r.speedup.toFixed(3)}x |`), '',
-              `[Full report](${runURL}) · [JSON and Markdown](${process.env.RESULTS_URL}) · [Julia TOML environments](${process.env.ENVIRONMENT_URL})`,
-              'Informational; differences may be measurement noise.'].join('\n');
-            const comments = await github.paginate(github.rest.issues.listComments, {...repo, issue_number: number, per_page: 100});
-            const existing = comments.find(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker));
-            if (!eligible(await getPR())) return;
-            if (existing) {
-              if (existing.body !== body) await github.rest.issues.updateComment({...repo, comment_id: existing.id, body});
-            } else {
-              await github.rest.issues.createComment({...repo, issue_number: number, body});
-            }
+            await require('./.github/scripts/benchmark-comment.js')({github, context});

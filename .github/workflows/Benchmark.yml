@@ -1,6 +1,7 @@
 name: GPU RHS benchmarks
 
 on:
+  # Only trusted repository branches or an explicit manual run can use the GPU runner.
   push:
     branches: [main, benchmark-rhs-ci]
   workflow_dispatch:

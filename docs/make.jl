@@ -15,9 +15,6 @@ makedocs(modules = [TrixiCUDA],
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   assets = ["assets/favicon.ico"]))
 
-# Buildkite builds PR documentation; GitHub Actions handles publishing.
-if get(ENV, "BUILDKITE", "false") != "true"
-    deploydocs(repo = "github.com/trixi-gpu/TrixiCUDA.jl",
-               devbranch = "main",
-               push_preview = true)
-end
+deploydocs(repo = "github.com/trixi-gpu/TrixiCUDA.jl",
+           devbranch = "main",
+           push_preview = true)

@@ -155,6 +155,10 @@ end
 # shock capturing operator with non-conservative terms disabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::False, equations,
                                volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache_gpu, cache_cpu)
+    if !classic_hg(volume_integral)
+        return calc_volume_integral_generalized_hg!(du, u, mesh, nonconservative_terms,
+                                                    equations, volume_integral, dg, cache_cpu)
+    end
     RealT = eltype(du)
 
     volume_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
@@ -228,6 +232,10 @@ end
 # shock capturing operator with non-conservative terms enabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::True, equations,
                                volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache_gpu, cache_cpu)
+    if !classic_hg(volume_integral)
+        return calc_volume_integral_generalized_hg!(du, u, mesh, nonconservative_terms,
+                                                    equations, volume_integral, dg, cache_cpu)
+    end
     RealT = eltype(du)
 
     volume_flux_dg, noncons_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux

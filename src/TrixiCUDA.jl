@@ -20,7 +20,8 @@ using Trixi: AbstractEquations, AbstractContainer, AbstractMesh, AbstractSemidis
 # Basis, mortar, and volume-integral types
 using Trixi: AbstractBasisSBP, LobattoLegendreBasis, LobattoLegendreMortarL2, LobattoLegendreAnalyzer,
              AbstractSurfaceIntegral, SurfaceIntegralWeakForm,
-             VolumeIntegralWeakForm, VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHGType
+             VolumeIntegralWeakForm, VolumeIntegralFluxDifferencing, VolumeIntegralShockCapturingHGType,
+             VolumeIntegralPureLGLFiniteVolume, VolumeIntegralPureLGLFiniteVolumeO2
 
 # Tree-mesh containers
 using Trixi: TreeElementContainer1D, TreeElementContainer2D, TreeElementContainer3D,

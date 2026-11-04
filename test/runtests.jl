@@ -43,6 +43,8 @@ CUDA.allowscalar(false)
         @info "Completed tests of $dim discontinuous Galerkin spectral element method with tree mesh on GPU..."
     end
 
+    include("generalized_hg.jl")
+
     # For debugging 
     # include("../test.jl")
 

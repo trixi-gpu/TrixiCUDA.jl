@@ -1,8 +1,3 @@
-# TODO: Support Trixi's generalized HG volume integrals.
-# Current GPU kernels require identical default and blended high-order
-# flux-differencing operators, combined with first-order subcell FV.
-# Upstream: https://github.com/trixi-framework/Trixi.jl/pull/2802
-
 # Rewrite `DGSEM` in Trixi.jl to add the specialized parts of the arrays required to copy the arrays 
 # from CPU to GPU.
 
@@ -40,9 +35,9 @@ Currently, only the `LobattoLegendreBasisGPU` type is supported;
 other bases are not supported by the CUDA kernels.
 
 Supported volume integrals are `VolumeIntegralWeakForm`, `VolumeIntegralFluxDifferencing`,
-and classic `VolumeIntegralShockCapturingHG`: identical default/blended high-order
-flux-differencing operators with first-order subcell FV. Generalized HG configurations
-with a different default operator or second-order FV are not yet supported.
+and `VolumeIntegralShockCapturingHGType` with weak-form or flux-differencing default/high-order
+operators and first-order subcell FV. Conservative systems also support second-order subcell
+FV (`VolumeIntegralShockCapturingRRG`), using Trixi's reconstruction and slope limiter.
 
 !!! warning "Experimental implementation"
     This is an experimental implementation and may change or be removed in future releases due to 

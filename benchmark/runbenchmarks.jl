@@ -3,7 +3,7 @@ using Dates, JSON, Pkg, Printf, SHA, TOML
 include("cases.jl")
 
 const RESULT_SCHEMA = 3
-const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507e717a60"
+const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
 
 function measurement_context(result)
     env = result["environment"]

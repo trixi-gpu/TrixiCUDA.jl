@@ -34,7 +34,7 @@ module.exports = async ({github, context}) => {
     '| Largest time changes | Time change | Speedup |', '|:--|--:|--:|',
     ...rows.sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 3).map(r =>
       `| \`${r.name}\` | ${r.change >= 0 ? '+' : ''}${r.change.toFixed(2)}% | ${r.speedup.toFixed(3)}x |`), '',
-    `[Full report](${runURL}) · [JSON and Markdown](${process.env.RESULTS_URL}) · [Julia TOML environments](${process.env.ENVIRONMENT_URL})`,
+    `[Full benchmark report](${runURL})`,
     'Informational; differences may be measurement noise.'].join('\n');
   const comments = await github.paginate(github.rest.issues.listComments, {...repo, issue_number: number, per_page: 100});
   const existing = comments.find(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker));

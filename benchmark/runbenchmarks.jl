@@ -154,7 +154,8 @@ function measure()
     if length(ARGS) == 3
         cached = restore_baseline(cached_file, output, [case.name for case in cases])
         if cached !== nothing
-            @info "Reusing baseline benchmark" commit=ARGS[2] measured_at=cached["environment"]["measured_at"]
+            measured_at = cached["environment"]["measured_at"]
+            @info "Matching baseline measurement found; reusing it" commit=ARGS[2] measured_at
             write_result(ARGS[1], cached)
             return nothing
         end
@@ -275,7 +276,9 @@ function compare()
             end
             # The target is always measured; only an exactly matching baseline can be reused.
             script = joinpath(@__DIR__, "runbenchmarks.jl")
+            @info "Target measurement" commit = head
             run(`$(Base.julia_cmd()) --threads=1 --project=$(@__DIR__) $script $(joinpath(output, "target.json")) $head`)
+            @info "Baseline measurement" commit = baseline
             run(`$(Base.julia_cmd()) --threads=1 --project=$env $script $(joinpath(output, "baseline.json")) $baseline --reuse`)
             report = joinpath(output, "report.md")
             text = sprint() do io

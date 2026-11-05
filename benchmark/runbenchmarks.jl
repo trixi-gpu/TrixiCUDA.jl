@@ -204,10 +204,12 @@ function write_report(io, baseline, target)
         println(io, label, " measurement: ", result["reused"] ? "reused" : "fresh",
                 "; ", env["measured_at"], " UTC; ", env["build_url"], ".\n")
     end
-    println(io, "The target's benchmark definitions and seeded random inputs are used for both commits. ",
-            "PR/branch builds use the exact merge base with the fetched target/default branch. ",
-            "Default-branch builds use the first parent.\n")
-    println(io, "Raw samples and environment details are in baseline.json and target.json.")
+    println(io, "> [!NOTE]\n",
+            "> **How the comparison is made**\n",
+            "> - **Workload:** Both commits use the target's benchmark definitions, the same seeded random inputs, Float64 precision, and identical measurement settings.\n",
+            "> - **PR/branch baseline:** The exact merge base of the measured commit and the freshly fetched PR target/default branch. An older ancestor is never substituted.\n",
+            "> - **Default-branch baseline:** The first parent of the measured commit.\n",
+            "> - **Baseline cache:** Reused only when the commit, GPU UUID and runner, Julia/CUDA/driver versions, dependencies, harness, and parameters match. Otherwise, the baseline is measured on the same runner and GPU in this run.")
 end
 
 function comparison_commits(repo)
@@ -283,7 +285,8 @@ function compare()
             print(text)
             if haskey(ENV, "GITHUB_STEP_SUMMARY")
                 open(ENV["GITHUB_STEP_SUMMARY"], "a") do io
-                    write(io, text)
+                    # Downloads and the final note are appended after artifact upload.
+                    write(io, first(split(text, "> [!NOTE]"; limit = 2)))
                 end
             end
         finally

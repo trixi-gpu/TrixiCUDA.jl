@@ -132,7 +132,8 @@ jobs:
           RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
           ENVIRONMENT_URL: ${{ steps.environment.outputs.artifact-url }}
         run: |
-          printf '\n\n[Download report and measurement JSON](%s) · [Download target/baseline Project.toml and Manifest.toml](%s)\n' "$RESULTS_URL" "$ENVIRONMENT_URL" >> "$GITHUB_STEP_SUMMARY"
+          printf '\n[Download report and measurements](%s): `report.md` (full report), `baseline.json` and `target.json` (raw timing samples, parameters, and environment details).\n\n[Download target and baseline environments](%s): `target/Project.toml`, `target/Manifest.toml`, `baseline/Project.toml`, and `baseline/Manifest.toml` (the exact resolved Julia environments).\n\n' "$RESULTS_URL" "$ENVIRONMENT_URL" >> "$GITHUB_STEP_SUMMARY"
+          sed -n '/^> \[!NOTE\]/,$p' benchmark/results/report.md >> "$GITHUB_STEP_SUMMARY"
 
   comment:
     needs: [prepare, benchmark]

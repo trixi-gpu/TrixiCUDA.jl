@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   prepare:
-    name: Prepare benchmarks 
+    name: Prepare benchmarks
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.select.outputs.run }}
@@ -32,31 +32,49 @@ jobs:
         with:
           script: |
             const repo = context.repo;
+            const fullName = context.payload.repository.full_name;
             const defaultBranch = context.payload.repository.default_branch;
+            const isPush = context.eventName === 'push';
+            const onDefault = context.ref === `refs/heads/${defaultBranch}`;
             const input = process.env.INPUT_PR || '';
-            if (input && !/^[1-9][0-9]*$/.test(input)) throw new Error('Invalid PR number');
-            let number = Number(input);
-            // Associate each branch push with its open PR.
-            if (context.eventName === 'push' && context.ref !== `refs/heads/${defaultBranch}`) {
-              const prs = await github.paginate(github.rest.pulls.list, {
-                ...repo, state: 'open', head: `${repo.owner}:${context.ref.replace('refs/heads/', '')}`, per_page: 100
-              });
-              number = prs.find(pr => pr.head.repo?.full_name === context.payload.repository.full_name)?.number;
-              if (!number) return;
+            if (input && !/^[1-9][0-9]*$/.test(input)) {
+              throw new Error('Invalid PR number');
             }
+
+            // Resolve the open same-repository PR for a branch push or manual input.
+            let pr;
+            if (isPush && !onDefault) {
+              const branch = context.ref.replace('refs/heads/', '');
+              const prs = await github.paginate(github.rest.pulls.list, {
+                ...repo,
+                state: 'open',
+                head: `${repo.owner}:${branch}`,
+                per_page: 100
+              });
+              pr = prs.find(pr => pr.head.repo?.full_name === fullName);
+              if (!pr) return;
+            } else if (input) {
+              ({data: pr} = await github.rest.pulls.get({
+                ...repo, pull_number: Number(input)
+              }));
+            }
+
+            // Each push keeps its own SHA; manual PR runs use the current PR head.
             let sha = context.sha, base = defaultBranch;
-            if (number) {
-              const {data: pr} = await github.rest.pulls.get({...repo, pull_number: number});
-              if (pr.state !== 'open' || pr.draft || pr.head.repo?.full_name !== context.payload.repository.full_name) return;
-              if (context.eventName !== 'push') sha = pr.head.sha;
+            if (pr) {
+              if (pr.state !== 'open' || pr.draft ||
+                  pr.head.repo?.full_name !== fullName) return;
+              if (!isPush) sha = pr.head.sha;
               base = pr.base.ref;
-            } else if (context.ref !== `refs/heads/${defaultBranch}`) {
+            } else if (!onDefault) {
               throw new Error('Manual main builds must select the default branch');
             }
+
+            // Respect the selected commit's skip marker before using the GPU runner.
             const {data: commit} = await github.rest.repos.getCommit({...repo, ref: sha});
             if (commit.commit.message.includes('[skip benchmarks]')) return;
             core.setOutput('head', sha);
-            core.setOutput('pr', number || '');
+            core.setOutput('pr', pr?.number || '');
             core.setOutput('base', base);
             core.setOutput('run', 'true');
 
@@ -73,8 +91,6 @@ jobs:
     outputs:
       complete: ${{ steps.results.outcome == 'success' && steps.environment.outcome == 'success' }}
       baseline: ${{ steps.measure.outputs.baseline }}
-      results: ${{ steps.results.outputs.artifact-url }}
-      environment: ${{ steps.environment.outputs.artifact-url }}
     env:
       BENCHMARK_PR: ${{ needs.prepare.outputs.pr }}
       BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
@@ -132,7 +148,15 @@ jobs:
           RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
           ENVIRONMENT_URL: ${{ steps.environment.outputs.artifact-url }}
         run: |
-          printf '\n[Download report and measurements](%s): `report.md` (full report), `baseline.json` and `target.json` (raw timing samples, parameters, and environment details).  \n[Download target and baseline environments](%s): `target/Project.toml`, `target/Manifest.toml`, `baseline/Project.toml`, and `baseline/Manifest.toml` (the exact resolved Julia environments).\n\n' "$RESULTS_URL" "$ENVIRONMENT_URL" >> "$GITHUB_STEP_SUMMARY"
+          {
+            printf '\n[Download report and measurements](%s): ' "$RESULTS_URL"
+            printf '%s' '`report.md` (full report), `baseline.json` and `target.json` '
+            printf '%s\n' '(raw timing samples, parameters, and environment details).  '
+            printf '[Download target and baseline environments](%s): ' "$ENVIRONMENT_URL"
+            printf '%s' '`target/Project.toml`, `target/Manifest.toml`, '
+            printf '%s' '`baseline/Project.toml`, and `baseline/Manifest.toml` '
+            printf '%s\n\n' '(the exact resolved Julia environments).'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   comment:
     needs: [prepare, benchmark]
@@ -160,8 +184,6 @@ jobs:
           HEAD_SHA: ${{ needs.prepare.outputs.head }}
           BASELINE_SHA: ${{ needs.benchmark.outputs.baseline }}
           BASE_BRANCH: ${{ needs.prepare.outputs.base }}
-          RESULTS_URL: ${{ needs.benchmark.outputs.results }}
-          ENVIRONMENT_URL: ${{ needs.benchmark.outputs.environment }}
         with:
           script: |
             await require('./.github/scripts/benchmark-comment.js')({github, context});

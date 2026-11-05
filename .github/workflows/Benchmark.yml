@@ -86,7 +86,7 @@ jobs:
           ref: ${{ needs.prepare.outputs.head }}
           fetch-depth: 1
           persist-credentials: false
-      - name: Check Julia 1.10
+      - name: Check runner Julia 1.10
         run: |
           julia +1.10 -e 'VERSION.major == 1 && VERSION.minor == 10 || error("Julia 1.10 required")'
           julia +1.10 --version
@@ -103,7 +103,7 @@ jobs:
             Pkg.instantiate()
             include("benchmark/runbenchmarks.jl")
             main()'
-      - name: Upload results
+      - name: Upload report and raw measurements
         id: results
         if: steps.measure.outcome == 'success'
         uses: actions/upload-artifact@v7
@@ -116,7 +116,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           overwrite: true
-      - name: Upload environments
+      - name: Upload resolved Julia environments
         id: environment
         if: ${{ always() && steps.measure.outcome == 'success' }}
         uses: actions/upload-artifact@v7
@@ -126,7 +126,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           overwrite: true
-      - name: Link artifacts
+      - name: Link artifacts from the report
         if: steps.results.outcome == 'success' && steps.environment.outcome == 'success'
         env:
           RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
@@ -136,6 +136,7 @@ jobs:
 
   comment:
     needs: [prepare, benchmark]
+    name: Publish comment
     if: needs.prepare.outputs.pr != '' && needs.benchmark.outputs.complete == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -152,7 +153,7 @@ jobs:
         with:
           name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
           path: results
-      - name: Update PR comment
+      - name: Publish or update bot comment
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.prepare.outputs.pr }}

@@ -81,7 +81,8 @@ function restore_baseline(path, expected, case_names)
     end
 end
 
-function benchmark_rhs(case; seconds, samples, seed, semi = make_problem(case))
+function benchmark_rhs(case; seconds, samples, seed)
+    semi = make_problem(case)
     (; mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu) = semi
     u_host = random_input(equations, solver, cache_gpu, seed)
     u = CuArray(u_host)

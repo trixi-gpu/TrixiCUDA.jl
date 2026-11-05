@@ -183,13 +183,9 @@ function write_report(io, baseline, target)
     println(io, "## GPU RHS benchmark comparison\n")
     println(io, "Baseline: `", b_env["commit"], "`  \nTarget: `", t_env["commit"], "`\n")
     gpu = replace(t_env["gpu"], r"(?i)\s+laptop gpu$" => "")
-    println(io, "**Environment**\n")
-    println(io, "| Setting | Value |\n|:--|:--|")
-    println(io, "| GPU | ", gpu, " |")
-    println(io, "| Julia | ", t_env["julia"], " |")
-    println(io, "| CUDA runtime | ", t_env["runtime"], " |")
-    println(io, "| Driver | ", t_env["driver"], " |\n")
-    @printf(io, "Cases: %d; geometric mean speedup: **%.3fx**.\n\n", length(t), speedup)
+    println(io, "**Environment:** ", gpu, " with Julia ", t_env["julia"],
+            ", CUDA runtime ", t_env["runtime"], ", and NVIDIA driver ", t_env["driver"], ".\n")
+    @printf(io, "### Results: %d cases · geometric mean speedup **%.3fx**\n\n", length(t), speedup)
     println(io, "| RHS case | DOFs/field | Baseline min (ms) | Target min (ms) | Time change | Speedup |")
     println(io, "|:--|--:|--:|--:|--:|--:|")
     for name in sort!(collect(keys(t)))
@@ -205,14 +201,15 @@ function write_report(io, baseline, target)
     for (label, result) in (("Baseline", baseline), ("Target", target))
         env = result["environment"]
         println(io, label, " measurement: ", result["reused"] ? "reused" : "fresh",
-                "; ", env["measured_at"], " UTC; ", env["build_url"], ".\n")
+                "; ", env["measured_at"], " UTC; ", env["build_url"], ".  ")
     end
+    println(io)
     println(io, "> [!NOTE]\n",
             "> **Benchmark settings**\n>\n",
-            "> **Workload:** Hyperbolic RHS only · Float64 · Julia threads = 1.\n>\n",
-            "> **Target:** The checked-out commit shown above. Its benchmark definitions and seeded random inputs are used for both measurements.\n>\n",
-            "> **Baseline:** For PR/branch runs, the exact merge base with the fetched target/default branch. For default-branch runs, the measured commit's first parent.\n>\n",
-            "> **Baseline cache:** The target may change. Reuse requires the same baseline commit and matching GPU UUID/runner, Julia/CUDA/driver, dependencies, harness, and parameters; otherwise, the baseline is measured again.")
+            "> **Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time is reported. Both commits use the target's benchmark definitions and the same seeded random inputs.\n>\n",
+            "> **Target:** Push runs measure that push's head commit. Manual runs select the specified PR's current head, or the selected default-branch commit when no PR is specified.\n>\n",
+            "> **Baseline:** PR/branch runs use the exact merge base of the target commit and the fetched PR target branch (or the default branch for other branch runs). Default-branch runs use the target commit's first parent.\n>\n",
+            "> **Cache reuse:** The target is always measured. A valid stored result can be reused for the baseline only when its commit equals the selected baseline commit and the GPU UUID/runner, Julia/CUDA/driver versions, dependencies, harness, and parameters all match. Otherwise, the baseline is measured again.")
 end
 
 function comparison_commits(repo)

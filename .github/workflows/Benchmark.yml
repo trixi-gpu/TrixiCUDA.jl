@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   prepare:
-    name: Prepare
+    name: Prepare benchmarks 
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.select.outputs.run }}
@@ -63,7 +63,7 @@ jobs:
   benchmark:
     needs: prepare
     if: needs.prepare.outputs.run == 'true'
-    name: RHS benchmarks
+    name: Run benchmarks
     runs-on: [self-hosted, linux, x64, gpu]
     concurrency:
       group: gpu-rhs-${{ github.repository }}

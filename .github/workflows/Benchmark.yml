@@ -15,13 +15,9 @@ permissions:
   contents: read
   pull-requests: read
 
-concurrency:
-  group: gpu-rhs-${{ github.repository }}-${{ inputs.pull_request || github.ref_name }}
-  cancel-in-progress: true
-
 jobs:
   prepare:
-    name: Prepare benchmark run
+    name: Prepare
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.select.outputs.run }}
@@ -40,20 +36,19 @@ jobs:
             const input = process.env.INPUT_PR || '';
             if (input && !/^[1-9][0-9]*$/.test(input)) throw new Error('Invalid PR number');
             let number = Number(input);
-            // Branch pushes run only for the current open same-repository PR.
+            // Associate each branch push with its open PR.
             if (context.eventName === 'push' && context.ref !== `refs/heads/${defaultBranch}`) {
               const prs = await github.paginate(github.rest.pulls.list, {
                 ...repo, state: 'open', head: `${repo.owner}:${context.ref.replace('refs/heads/', '')}`, per_page: 100
               });
-              number = prs.find(pr => pr.head.sha === context.sha)?.number;
+              number = prs.find(pr => pr.head.repo?.full_name === context.payload.repository.full_name)?.number;
               if (!number) return;
             }
             let sha = context.sha, base = defaultBranch;
             if (number) {
               const {data: pr} = await github.rest.pulls.get({...repo, pull_number: number});
               if (pr.state !== 'open' || pr.draft || pr.head.repo?.full_name !== context.payload.repository.full_name) return;
-              if (context.eventName === 'push' && pr.head.sha !== context.sha) return;
-              sha = pr.head.sha;
+              if (context.eventName !== 'push') sha = pr.head.sha;
               base = pr.base.ref;
             } else if (context.ref !== `refs/heads/${defaultBranch}`) {
               throw new Error('Manual main builds must select the default branch');
@@ -68,7 +63,7 @@ jobs:
   benchmark:
     needs: prepare
     if: needs.prepare.outputs.run == 'true'
-    name: Run benchmarks
+    name: RHS benchmarks
     runs-on: [self-hosted, linux, x64, gpu]
     timeout-minutes: 60
     continue-on-error: true
@@ -78,43 +73,24 @@ jobs:
       results: ${{ steps.results.outputs.artifact-url }}
       environment: ${{ steps.environment.outputs.artifact-url }}
     env:
-      TRIXICUDA_BENCHMARK_PR: ${{ needs.prepare.outputs.pr }}
-      TRIXICUDA_BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
-      TRIXICUDA_BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-      TRIXICUDA_BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      BENCHMARK_PR: ${{ needs.prepare.outputs.pr }}
+      BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
+      BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.head }}
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
-      - name: Check that this is still the current head
-        id: current
-        uses: actions/github-script@v8
-        env:
-          PR_NUMBER: ${{ needs.prepare.outputs.pr }}
-          HEAD_SHA: ${{ needs.prepare.outputs.head }}
-        with:
-          script: |
-            const number = Number(process.env.PR_NUMBER);
-            if (number) {
-              const {data: pr} = await github.rest.pulls.get({...context.repo, pull_number: number});
-              return pr.state === 'open' && !pr.draft && pr.head.sha === process.env.HEAD_SHA &&
-                pr.head.repo?.full_name === context.payload.repository.full_name &&
-                pr.base.ref === process.env.TRIXICUDA_BENCHMARK_BASE_BRANCH;
-            }
-            const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: process.env.TRIXICUDA_BENCHMARK_DEFAULT_BRANCH});
-            return branch.commit.sha === process.env.HEAD_SHA;
-      - name: Check runner Julia 1.10
-        if: steps.current.outputs.result == 'true'
+      - name: Check Julia 1.10
         run: |
           julia +1.10 -e 'VERSION.major == 1 && VERSION.minor == 10 || error("Julia 1.10 required")'
           julia +1.10 --version
-      - name: Measure the checked-out head and exact baseline
+      - name: Measure RHS
         id: measure
-        if: steps.current.outputs.result == 'true'
         env:
-          TRIXICUDA_BENCHMARK_ENVIRONMENT: ${{ runner.temp }}/gpu-rhs-environment-${{ github.run_id }}-${{ github.run_attempt }}
+          BENCHMARK_ENV_DIR: ${{ runner.temp }}/gpu-rhs-environment-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           julia +1.10 --version
           nvidia-smi
@@ -124,7 +100,7 @@ jobs:
             Pkg.instantiate()
             include("benchmark/runbenchmarks.jl")
             main()'
-      - name: Upload full report and raw measurements
+      - name: Upload results
         id: results
         if: steps.measure.outcome == 'success'
         uses: actions/upload-artifact@v7
@@ -137,7 +113,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           overwrite: true
-      - name: Upload resolved Julia environments
+      - name: Upload environments
         id: environment
         if: ${{ always() && steps.measure.outcome == 'success' }}
         uses: actions/upload-artifact@v7
@@ -147,7 +123,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           overwrite: true
-      - name: Link downloadable files from the full report
+      - name: Link artifacts
         if: steps.results.outcome == 'success' && steps.environment.outcome == 'success'
         env:
           RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
@@ -173,7 +149,7 @@ jobs:
         with:
           name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
           path: results
-      - name: Publish or update the benchmark bot comment
+      - name: Update PR comment
         uses: actions/github-script@v8
         env:
           PR_NUMBER: ${{ needs.prepare.outputs.pr }}

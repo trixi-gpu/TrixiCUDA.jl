@@ -117,10 +117,10 @@ function measure()
     (length(ARGS) == 2 || (length(ARGS) == 3 && ARGS[3] == "--reuse")) ||
         error("Usage: runbenchmarks.jl OUTPUT.json COMMIT_SHA [--reuse]")
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
-    seconds = parse(Float64, get(ENV, "TRIXICUDA_BENCHMARK_SECONDS", "2"))
-    samples = parse(Int, get(ENV, "TRIXICUDA_BENCHMARK_SAMPLES", "100"))
+    seconds = parse(Float64, get(ENV, "BENCHMARK_SECONDS", "2"))
+    samples = parse(Int, get(ENV, "BENCHMARK_SAMPLES", "100"))
     seconds > 0 && samples > 0 || error("Benchmark duration and samples must be positive")
-    filter = get(ENV, "TRIXICUDA_BENCHMARK_FILTER", "")
+    filter = get(ENV, "BENCHMARK_FILTER", "")
     cases = [c for c in rhs_cases() if occursin(filter, c.name)]
     isempty(cases) && error("No benchmark cases match '$filter'")
     # This setting is also used by the shock-capturing path, which copies to CPU.
@@ -134,21 +134,21 @@ function measure()
     harness = bytes2hex(sha256(sprint(io -> TOML.print(io, files; sorted = true))))
     environment = Dict("commit" => ARGS[2], "julia" => string(VERSION),
                        "gpu" => CUDA.name(CUDA.device()), "gpu_uuid" => string(CUDA.uuid(CUDA.device())),
-                       "host" => gethostname(), "harness" => harness,
+                       "host" => get(ENV, "RUNNER_NAME", "unknown-runner"), "harness" => harness,
                        "runtime" => string(CUDA.runtime_version()),
                        "driver" => CUDA.has_nvml() ? string(CUDA.NVML.driver_version()) : string(CUDA.driver_version()),
                        "threads" => Threads.nthreads(), "packages" => packages,
                        "cuda_versioninfo" => sprint(CUDA.versioninfo),
                        "agent" => get(ENV, "RUNNER_NAME", "local"),
                        "measured_at" => string(now(UTC)),
-                       "build_url" => get(ENV, "TRIXICUDA_BENCHMARK_RUN_URL", "local"))
+                       "build_url" => get(ENV, "BENCHMARK_RUN_URL", "local"))
     output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                                        "precision" => "Float32", "evals" => 1,
                                        "filter" => filter), "reused" => false)
     # Keep scratchspaces local to this runner. Cache
     # entries include the device UUID, host, exact source SHA and full context.
-    directory = get(ENV, "TRIXICUDA_BENCHMARK_CACHE",
+    directory = get(ENV, "BENCHMARK_CACHE",
                     joinpath(first(DEPOT_PATH), "scratchspaces", TRIXICUDA_UUID, "rhs-benchmarks"))
     cached_file = cache_path(directory, output)
     if length(ARGS) == 3
@@ -218,16 +218,16 @@ end
 function comparison_commits(repo)
     git(args...) = Cmd(String["git", "-C", repo, args...])
     head = readchomp(git("rev-parse", "HEAD"))
-    default = get(ENV, "TRIXICUDA_BENCHMARK_DEFAULT_BRANCH", "main")
+    default = get(ENV, "BENCHMARK_DEFAULT_BRANCH", "main")
     branch = get(ENV, "GITHUB_REF_NAME", readchomp(git("branch", "--show-current")))
-    is_pr = !isempty(get(ENV, "TRIXICUDA_BENCHMARK_PR", get(ENV, "GITHUB_HEAD_REF", "")))
+    is_pr = !isempty(get(ENV, "BENCHMARK_PR", get(ENV, "GITHUB_HEAD_REF", "")))
     if readchomp(git("rev-parse", "--is-shallow-repository")) == "true"
-        run(git("fetch", "--unshallow", "origin"))
+        run(git("fetch", "--unshallow", "--no-tags", "origin", head))
     end
     if branch == default && !is_pr
         baseline = readchomp(git("rev-parse", "$(head)^1"))
     else
-        base_branch = get(ENV, "TRIXICUDA_BENCHMARK_BASE_BRANCH", get(ENV, "GITHUB_BASE_REF", default))
+        base_branch = get(ENV, "BENCHMARK_BASE_BRANCH", get(ENV, "GITHUB_BASE_REF", default))
         run(git("fetch", "--no-tags", "origin", base_branch))
         baseline = readchomp(git("merge-base", head, "FETCH_HEAD"))
     end
@@ -266,8 +266,8 @@ function compare()
                 Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
             end
             # Save the exact resolved projects separately from the three report files.
-            if haskey(ENV, "TRIXICUDA_BENCHMARK_ENVIRONMENT")
-                directory = ENV["TRIXICUDA_BENCHMARK_ENVIRONMENT"]
+            if haskey(ENV, "BENCHMARK_ENV_DIR")
+                directory = ENV["BENCHMARK_ENV_DIR"]
                 for (label, project) in (("target", @__DIR__), ("baseline", env))
                     mkpath(joinpath(directory, label))
                     for file in ("Project.toml", "Manifest.toml")

@@ -3,7 +3,7 @@ using Dates, JSON, Pkg, Printf, SHA, TOML
 include("cases.jl")
 
 const RESULT_SCHEMA = 3
-const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
+const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507e717a60"
 
 function measurement_context(result)
     env = result["environment"]
@@ -86,13 +86,13 @@ function benchmark_rhs(case; seconds, samples, seed)
     (; mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu) = semi
     u_host = random_input(case, equations, solver, cache_gpu, seed)
     u = CuArray(u_host)
-    du = CUDA.zeros(Float32, size(u))
-    t = 0.0f0
+    du = CUDA.zeros(Float64, size(u))
+    t = 0.0
 
     # Compile and populate caches before measuring. Fail on invalid random states
     # instead of publishing plausible timings for NaN-producing computations.
     for _ in 1:2
-        fill!(du, 0.0f0)
+        fill!(du, 0.0)
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
                                              source_terms, solver, cache_gpu, cache_cpu)
     end
@@ -105,7 +105,7 @@ function benchmark_rhs(case; seconds, samples, seed)
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $t, $mesh, $equations,
                                              $boundary_conditions, $source_terms,
                                              $solver, $cache_gpu, $cache_cpu)
-    end setup=(CUDA.@sync fill!($du, 0.0f0)) evals=1 seconds=seconds samples=samples
+    end setup=(CUDA.@sync fill!($du, 0.0)) evals=1 seconds=seconds samples=samples
     return Dict("minimum_ns" => minimum(trial).time,
                 "samples_ns" => trial.times,
                 "samples" => length(trial),
@@ -144,7 +144,7 @@ function measure()
                        "build_url" => get(ENV, "BENCHMARK_RUN_URL", "local"))
     output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
-                                       "precision" => "Float32", "evals" => 1,
+                                       "precision" => "Float64", "evals" => 1,
                                        "filter" => filter), "reused" => false)
     # Keep scratchspaces local to this runner. Cache
     # entries include the device UUID, host, exact source SHA and full context.
@@ -182,13 +182,12 @@ function write_report(io, baseline, target)
     speedup = exp(sum(log(b[name]["minimum_ns"] / t[name]["minimum_ns"]) for name in keys(t)) / length(t))
     println(io, "## GPU RHS benchmark comparison\n")
     println(io, "Baseline: `", b_env["commit"], "`  \nTarget: `", t_env["commit"], "`\n")
-    println(io, "GPU: ", t_env["gpu"], "; Julia ", t_env["julia"],
+    gpu = replace(t_env["gpu"], r"(?i)\s+laptop gpu$" => "")
+    println(io, "GPU: ", gpu, "; Julia ", t_env["julia"],
             "; CUDA runtime ", t_env["runtime"], "; driver ", t_env["driver"], ".\n")
-    println(io, "Minimum wall time with GPU synchronization; Float32, one Julia thread. ",
-            "Compilation, input generation, initial input transfers, and resetting du are excluded. ",
-            "CPU work and transfers inside the RHS are included.\n")
+    println(io, "Hyperbolic RHS only · Float64 · Julia threads = 1.\n")
     @printf(io, "Cases: %d; geometric mean speedup: **%.3fx**.\n\n", length(t), speedup)
-    println(io, "| RHS case | DOFs/field | Baseline (ms) | Target (ms) | Time change | Speedup |")
+    println(io, "| RHS case | DOFs/field | Baseline min (ms) | Target min (ms) | Time change | Speedup |")
     println(io, "|:--|--:|--:|--:|--:|--:|")
     for name in sort!(collect(keys(t)))
         base, head = b[name], t[name]
@@ -207,12 +206,8 @@ function write_report(io, baseline, target)
     end
     println(io, "The target's benchmark definitions and seeded random inputs are used for both commits. ",
             "PR/branch builds use the exact merge base with the fetched target/default branch. ",
-            "Default-branch builds use the first parent. A cached baseline is reused only ",
-            "for the same commit, GPU UUID, host, Julia/CUDA versions, resolved dependencies, ",
-            "benchmark harness and parameters.\n")
-    println(io, "GPU UUID: `", t_env["gpu_uuid"], "`; host: `", t_env["host"],
-            "`; harness SHA-256: `", t_env["harness"], "`. ",
-            "Raw samples and environment details are attached in baseline.json and target.json, alongside this report.")
+            "Default-branch builds use the first parent.\n")
+    println(io, "Raw samples and environment details are in baseline.json and target.json.")
 end
 
 function comparison_commits(repo)

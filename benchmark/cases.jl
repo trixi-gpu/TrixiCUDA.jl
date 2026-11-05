@@ -28,27 +28,25 @@ function make_equations(family, variant, dim)
     if family == :advection
         constructors = (LinearScalarAdvectionEquation1D, LinearScalarAdvectionEquation2D,
                         LinearScalarAdvectionEquation3D)
-        velocities = (1.0f0, (0.2f0, -0.7f0), (0.2f0, -0.7f0, 0.5f0))
+        velocities = (1.0, (0.2, -0.7), (0.2, -0.7, 0.5))
         return constructors[dim](velocities[dim])
     elseif family == :euler
         return (CompressibleEulerEquations1D, CompressibleEulerEquations2D,
-                CompressibleEulerEquations3D)[dim](1.4f0)
+                CompressibleEulerEquations3D)[dim](1.4)
     elseif family == :hypdiff
         return (HyperbolicDiffusionEquations1D, HyperbolicDiffusionEquations2D,
-                HyperbolicDiffusionEquations3D)[dim](nu = 1.0f0, Lr = inv(2 * Float32(pi)))
+                HyperbolicDiffusionEquations3D)[dim](nu = 1.0, Lr = inv(2 * Float64(pi)))
     elseif family == :mhd
-        gamma = variant == :ec ? (dim == 1 ? 2.0f0 : 1.4f0) : 5.0f0 / 3
+        gamma = variant == :ec ? (dim == 1 ? 2.0 : 1.4) : 5.0 / 3
         if dim == 1
             return IdealGlmMhdEquations1D(gamma)
         end
         return (IdealGlmMhdEquations2D, IdealGlmMhdEquations3D)[dim - 1](gamma;
-                                                                         initial_c_h = 1.0f0)
+                                                                         initial_c_h = 1.0)
     else
-        # TrixiShallowWater requires explicit non-Float64 thresholds. All random
-        # inputs below are fully wet; these match its Float64 default values.
-        return (ShallowWaterEquations1D, ShallowWaterEquations2D)[dim](gravity = 9.81f0,
-                                                                       threshold_partially_wet = 1.0f-4,
-                                                                       threshold_desingularization = 1.0f-10)
+        return (ShallowWaterEquations1D, ShallowWaterEquations2D)[dim](gravity = 9.81,
+                                                                       threshold_partially_wet = 1.0e-4,
+                                                                       threshold_desingularization = 1.0e-10)
     end
 end
 
@@ -64,9 +62,9 @@ function make_solver(case, equations)
         else
             surface_flux = dim == 3 ? flux_ranocha : flux_lax_friedrichs
             volume_flux = dim == 3 ? flux_ranocha : flux_shima_etal
-            basis = LobattoLegendreBasis(Float32, polydeg)
+            basis = LobattoLegendreBasis(Float64, polydeg)
             indicator = IndicatorHennemannGassner(equations, basis;
-                                                  alpha_max = 0.5f0, alpha_min = 0.001f0,
+                                                  alpha_max = 0.5, alpha_min = 0.001,
                                                   alpha_smooth = true, variable = density_pressure)
             volume_integral = VolumeIntegralShockCapturingHG(indicator;
                                                              volume_flux_dg = volume_flux,
@@ -90,20 +88,20 @@ function make_solver(case, equations)
         volume_integral = VolumeIntegralFluxDifferencing((flux_wintermeyer_etal,
                                                           flux_nonconservative_wintermeyer_etal))
     end
-    return DGSEMGPU(; polydeg, surface_flux, volume_integral, RealT = Float32)
+    return DGSEMGPU(; polydeg, surface_flux, volume_integral, RealT = Float64)
 end
 
 function make_mesh(case)
     (; family, variant, dim) = case
-    lower, upper = -1.0f0, 1.0f0
+    lower, upper = -1.0, 1.0
     level = family == :mhd || variant == :mortar ||
             (family == :shallowwater && variant == :ec) ? 2 : 3
     if family == :euler || (family == :mhd && variant == :ec && dim > 1)
-        lower, upper = -2.0f0, 2.0f0
+        lower, upper = -2.0, 2.0
     elseif family == :hypdiff || (family == :mhd && dim == 1)
-        lower, upper = 0.0f0, 1.0f0
+        lower, upper = 0.0, 1.0
     elseif (family == :mhd && dim == 2) || (family == :shallowwater && variant == :source)
-        lower, upper = 0.0f0, sqrt(2.0f0)
+        lower, upper = 0.0, sqrt(2.0)
     end
     if family == :shallowwater && variant == :source
         level = 4
@@ -112,22 +110,22 @@ function make_mesh(case)
     patches = ()
     if variant == :mortar
         if family == :advection
-            patches = ((type = "box", coordinates_min = ntuple(i -> i == 1 ? 0.0f0 : -1.0f0, dim),
+            patches = ((type = "box", coordinates_min = ntuple(i -> i == 1 ? 0.0 : -1.0, dim),
                         coordinates_max),)
             if dim == 3
                 patches = (patches...,
-                           (type = "box", coordinates_min = (0.0f0, -0.5f0, -0.5f0),
-                            coordinates_max = (0.5f0, 0.5f0, 0.5f0)))
+                           (type = "box", coordinates_min = (0.0, -0.5, -0.5),
+                            coordinates_max = (0.5, 0.5, 0.5)))
             end
         else
-            patches = ((type = "box", coordinates_min = dim == 2 ? 0.25f0 .* coordinates_max : (-0.5f0, -0.5f0, -0.5f0),
-                        coordinates_max = dim == 2 ? 0.75f0 .* coordinates_max : (0.5f0, 0.5f0, 0.5f0)),)
+            patches = ((type = "box", coordinates_min = dim == 2 ? 0.25 .* coordinates_max : (-0.5, -0.5, -0.5),
+                        coordinates_max = dim == 2 ? 0.75 .* coordinates_max : (0.5, 0.5, 0.5)),)
         end
     end
     periodicity = family == :hypdiff ? ntuple(i -> i != 1, dim) : true
     return TreeMesh(coordinates_min, coordinates_max;
                     initial_refinement_level = level, refinement_patches = patches,
-                    periodicity, RealT = Float32)
+                    periodicity, RealT = Float64)
 end
 
 function make_problem(case)
@@ -150,16 +148,16 @@ function make_problem(case)
 end
 
 function random_state(rng, equations, family)
-    values = rand(rng, Float32, Trixi.nvariables(equations))
+    values = rand(rng, Float64, Trixi.nvariables(equations))
     if family == :euler || family == :mhd
         # Random primitive variables avoid negative density/pressure in random
         # conservative vectors. MHD always has three velocity components.
-        values[1] += 1.0f0
-        values[family == :euler ? ndims(equations) + 2 : 5] += 1.0f0
+        values[1] += 1.0
+        values[family == :euler ? ndims(equations) + 2 : 5] += 1.0
         return prim2cons(SVector{length(values)}(values), equations)
     elseif family == :shallowwater
         # Shallow-water primitives use total height H = h + bottom topography.
-        values[1] += 1.0f0 + values[end]
+        values[1] += 1.0 + values[end]
         return prim2cons(SVector{length(values)}(values), equations)
     end
     return SVector{length(values)}(values)
@@ -169,7 +167,7 @@ function random_input(case, equations, solver, cache, seed)
     nv = Trixi.nvariables(equations)
     nn = Trixi.nnodes(solver)
     ne = Trixi.nelements(solver, cache)
-    u = Array{Float32}(undef, nv, ntuple(_ -> nn, case.dim)..., ne)
+    u = Array{Float64}(undef, nv, ntuple(_ -> nn, case.dim)..., ne)
     nodes = reshape(u, nv, :)
     rng = StableRNG(seed)
     for j in axes(nodes, 2)

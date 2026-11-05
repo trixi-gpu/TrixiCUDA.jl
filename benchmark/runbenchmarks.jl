@@ -186,10 +186,20 @@ function write_report(io, baseline, target)
     println(io, "Baseline: `", b_env["commit"], "`  \nTarget: `", t_env["commit"], "`\n")
     println(io, "> [!NOTE]\n",
             "> **Benchmark settings**\n>\n",
-            "> **Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time is reported. Both commits use the target's benchmark definitions and the same seeded random inputs.\n>\n",
-            "> **Target:** Push runs measure that push's head commit. Manual runs select the specified PR's current head, or the selected default-branch commit when no PR is specified.\n>\n",
-            "> **Baseline:** PR/branch runs use the exact merge base of the target commit and the fetched PR target branch (or the default branch for other branch runs). Default-branch runs use the target commit's first parent.\n>\n",
-            "> **Cache reuse:** The target is always measured. A valid stored result can be reused for the baseline only when its commit equals the selected baseline commit and the GPU UUID/runner, Julia/CUDA/driver versions, dependencies, harness, and parameters all match. Otherwise, the baseline is measured again.")
+            "> **Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
+            "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
+            "is reported. Both commits use the target's benchmark definitions and the same ",
+            "seeded random inputs.\n>\n",
+            "> **Target:** Push runs measure that push's head commit. Manual runs select the ",
+            "specified PR's current head, or the selected default-branch commit when no PR ",
+            "is specified.\n>\n",
+            "> **Baseline:** PR/branch runs use the exact merge base of the target commit and ",
+            "the fetched PR target branch (or the default branch for other branch runs). ",
+            "Default-branch runs use the target commit's first parent.\n>\n",
+            "> **Cache reuse:** The target is always measured. A valid stored result can be ",
+            "reused for the baseline only when its commit equals the selected baseline commit ",
+            "and the GPU UUID/runner, Julia/CUDA/driver versions, dependencies, harness, and ",
+            "parameters all match. Otherwise, the baseline is measured again.")
     println(io)
     gpu = replace(t_env["gpu"], r"(?i)\s+laptop gpu$" => "")
     println(io, "**Environment:** ", gpu, " with Julia ", t_env["julia"],

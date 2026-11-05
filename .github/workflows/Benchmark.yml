@@ -65,6 +65,9 @@ jobs:
     if: needs.prepare.outputs.run == 'true'
     name: RHS benchmarks
     runs-on: [self-hosted, linux, x64, gpu]
+    concurrency:
+      group: gpu-rhs-${{ github.repository }}
+      queue: max
     timeout-minutes: 60
     continue-on-error: true
     outputs:

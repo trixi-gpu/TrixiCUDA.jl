@@ -283,7 +283,7 @@ function compare()
                              read_result(joinpath(output, "target.json")))
             end
             write(report, text)
-            print(text)
+            @info "Benchmark report saved" report
             if haskey(ENV, "GITHUB_STEP_SUMMARY")
                 open(ENV["GITHUB_STEP_SUMMARY"], "a") do io
                     write(io, text)

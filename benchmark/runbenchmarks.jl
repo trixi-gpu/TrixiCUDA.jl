@@ -81,10 +81,9 @@ function restore_baseline(path, expected, case_names)
     end
 end
 
-function benchmark_rhs(case; seconds, samples, seed)
-    semi = make_problem(case)
+function benchmark_rhs(case; seconds, samples, seed, semi = make_problem(case))
     (; mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu) = semi
-    u_host = random_input(case, equations, solver, cache_gpu, seed)
+    u_host = random_input(equations, solver, cache_gpu, seed)
     u = CuArray(u_host)
     du = CUDA.zeros(Float64, size(u))
     t = 0.0
@@ -129,8 +128,9 @@ function measure()
                                        "tree" => string(info.tree_hash))
                     for (id, info) in Pkg.dependencies() if info.version !== nothing)
     # Include all code and project settings that can change the measured workload.
-    files = Dict(file => read(joinpath(@__DIR__, file), String)
-                 for file in ("cases.jl", "runbenchmarks.jl", "Project.toml"))
+    harness_files = vcat(["cases.jl", "runbenchmarks.jl", "Project.toml"],
+                         relpath.(rhs_case_files(), @__DIR__))
+    files = Dict(file => read(joinpath(@__DIR__, file), String) for file in harness_files)
     harness = bytes2hex(sha256(sprint(io -> TOML.print(io, files; sorted = true))))
     environment = Dict("commit" => ARGS[2], "julia" => string(VERSION),
                        "gpu" => CUDA.name(CUDA.device()), "gpu_uuid" => string(CUDA.uuid(CUDA.device())),

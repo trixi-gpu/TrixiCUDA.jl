@@ -1,0 +1,14 @@
+() -> (;
+       equations = LinearScalarAdvectionEquation3D((0.2, -0.7, 0.5)),
+
+       coordinates_min = (-1.0, -1.0, -1.0),
+       coordinates_max = (1.0, 1.0, 1.0),
+       initial_refinement_level = 3,
+       periodicity = true,
+
+       polydeg = 3,
+       surface_flux = flux_lax_friedrichs,
+       volume_integral = VolumeIntegralWeakForm(),
+
+       boundary_conditions = boundary_condition_periodic,
+       source_terms = nothing,)

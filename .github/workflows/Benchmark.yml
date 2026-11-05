@@ -105,19 +105,20 @@ jobs:
             }
             const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: process.env.TRIXICUDA_BENCHMARK_DEFAULT_BRANCH});
             return branch.commit.sha === process.env.HEAD_SHA;
-      - uses: julia-actions/setup-julia@v3
+      - name: Check runner Julia 1.10
         if: steps.current.outputs.result == 'true'
-        with:
-          version: '1.10'
+        run: |
+          julia +1.10 -e 'VERSION.major == 1 && VERSION.minor == 10 || error("Julia 1.10 required")'
+          julia +1.10 --version
       - name: Measure the checked-out head and exact baseline
         id: measure
         if: steps.current.outputs.result == 'true'
         env:
           TRIXICUDA_BENCHMARK_ENVIRONMENT: ${{ runner.temp }}/gpu-rhs-environment-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
-          julia --version
+          julia +1.10 --version
           nvidia-smi
-          julia --threads=1 --project=benchmark -e '
+          julia +1.10 --threads=1 --project=benchmark -e '
             using Pkg
             Pkg.develop(path=pwd())
             Pkg.instantiate()

@@ -41,7 +41,7 @@ module.exports = async ({github, context}) => {
 
   // Keep the PR summary short; the linked report contains all cases.
   const marker = '<!-- trixicuda-gpu-rhs-benchmarks -->';
-  const body = [marker, '### GPU RHS benchmarks', '',
+  const body = [marker, '### GPU RHS Benchmarks', '',
     `\`${sha.slice(0, 7)}\` vs merge base \`${baseline.slice(0, 7)}\`; ` +
       `${rows.length} cases, minimum synchronized wall time.`,
     `Geometric mean speedup: **${speedup.toFixed(3)}x**.`, '',
@@ -50,7 +50,7 @@ module.exports = async ({github, context}) => {
       `| \`${r.name}\` | ${r.change >= 0 ? '+' : ''}${r.change.toFixed(2)}% | ` +
       `${r.speedup.toFixed(3)}x |`), '',
     `[Full benchmark report](${runURL})`,
-    'Informational; differences may be measurement noise.'].join('\n');
+    'Results are informational only; differences may be measurement noise.'].join('\n');
 
   // Find this bot's marked comment so repeated runs update the same discussion.
   const comments = await github.paginate(github.rest.issues.listComments, {

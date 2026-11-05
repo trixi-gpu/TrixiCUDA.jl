@@ -185,7 +185,7 @@ function write_report(io, baseline, target)
     gpu = replace(t_env["gpu"], r"(?i)\s+laptop gpu$" => "")
     println(io, "**Environment:** ", gpu, " with Julia ", t_env["julia"],
             ", CUDA runtime ", t_env["runtime"], ", and NVIDIA driver ", t_env["driver"], ".\n")
-    @printf(io, "### Results: %d cases · geometric mean speedup **%.3fx**\n\n", length(t), speedup)
+    @printf(io, "**Results:** %d cases used; geometric mean speedup **%.3fx**\n\n", length(t), speedup)
     println(io, "| RHS case | DOFs/field | Baseline min (ms) | Target min (ms) | Time change | Speedup |")
     println(io, "|:--|--:|--:|--:|--:|--:|")
     for name in sort!(collect(keys(t)))

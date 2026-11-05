@@ -180,7 +180,7 @@ function write_report(io, baseline, target)
     b_env, t_env = baseline["environment"], target["environment"]
     b, t = baseline["benchmarks"], target["benchmarks"]
     speedup = exp(sum(log(b[name]["minimum_ns"] / t[name]["minimum_ns"]) for name in keys(t)) / length(t))
-    println(io, "## GPU RHS benchmark comparison\n")
+    println(io, "## GPU RHS Benchmarks\n")
     println(io, "Baseline: `", b_env["commit"], "`  \nTarget: `", t_env["commit"], "`\n")
     println(io, "> [!NOTE]\n",
             "> **Benchmark settings**\n>\n",

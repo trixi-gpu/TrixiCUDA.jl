@@ -90,7 +90,7 @@ jobs:
         run: |
           julia +1.10 -e 'VERSION.major == 1 && VERSION.minor == 10 || error("Julia 1.10 required")'
           julia +1.10 --version
-      - name: Measure RHS
+      - name: Measure the baseline and target performance
         id: measure
         env:
           BENCHMARK_ENV_DIR: ${{ runner.temp }}/gpu-rhs-environment-${{ github.run_id }}-${{ github.run_attempt }}

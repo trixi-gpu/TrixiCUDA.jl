@@ -129,7 +129,7 @@ Each run measures two commits on the same GPU with the same resolved dependencie
 - **Target:** the pushed commit, or the current PR head for manual runs.
 - **Baseline:** the exact merge base with the PR's target branch, or the first parent for `main`.
 
-The cases in [`benchmark/cases/`](benchmark/cases) are adapted from classical Trixi.jl and TrixiShallowWater.jl examples and use Float64 arrays on one Julia thread. Each sample is one GPU-synchronized RHS call, and the minimum wall time is reported. The target is always measured; a cached baseline is reused only when its commit, GPU, Julia/CUDA/driver versions, dependencies, harness, and parameters all match.
+The cases in [`benchmark/cases/`](benchmark/cases) are adapted from classical Trixi.jl and TrixiShallowWater.jl examples and use Float64 arrays on one Julia thread. Each sample is one GPU-synchronized RHS call, and the minimum wall time is reported.
 
 Results are published in three places (runs on `main` skip the PR comment):
 

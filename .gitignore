@@ -6,4 +6,3 @@ docs/build
 .outdated/
 
 *.png
-benchmark/results/

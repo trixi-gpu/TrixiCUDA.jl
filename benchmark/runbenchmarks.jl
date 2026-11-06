@@ -175,32 +175,10 @@ function write_report(io, baseline, target)
     speedup = exp(sum(log(b[name]["minimum_ns"] / t[name]["minimum_ns"]) for name in keys(t)) / length(t))
     println(io, "## GPU RHS Benchmarks\n")
     println(io, "Baseline: `", b_env["commit"], "`  \nTarget: `", t_env["commit"], "`\n")
-    println(io, "> [!NOTE]\n",
-            "> **Benchmark settings**\n>\n",
-            "> **Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
-            "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
-            "is reported. Both commits use the target's case definitions, with classical ",
-            "initial conditions, polynomial degrees, meshes, and fluxes adapted from ",
-            "Trixi/TrixiShallowWater examples. Inputs are initialized at t = 0.\n>\n",
-            "> **Sampling:** After one warm-up RHS call per case, each sample measures one ",
-            "synchronized RHS call. Sampling stops after ", parameters["samples"],
-            " samples or a ", parameters["seconds"], " s sampling budget, whichever comes ",
-            "first, to limit benchmark runtime. Sample counts are shown as baseline / target.\n>\n",
-            "> **Target:** Push runs measure that push's head commit. Manual runs select the ",
-            "specified PR's current head, or the selected default-branch commit when no PR ",
-            "is specified.\n>\n",
-            "> **Baseline:** PR/branch runs use the exact merge base of the target commit and ",
-            "the fetched PR target branch (or the default branch for other branch runs). ",
-            "Default-branch runs use the target commit's first parent.\n>\n",
-            "> **Cache reuse:** The target is always measured. A valid stored result can be ",
-            "reused for the baseline only when its commit equals the selected baseline commit ",
-            "and the GPU UUID/runner, Julia/CUDA/driver versions, dependencies, harness, and ",
-            "parameters all match. Otherwise, the baseline is measured again.")
-    println(io)
     gpu = replace(t_env["gpu"], r"(?i)\s+laptop gpu$" => "")
     println(io, "**Environment:** ", gpu, " with Julia ", t_env["julia"],
             ", CUDA runtime ", t_env["runtime"], ", and NVIDIA driver ", t_env["driver"], ".\n")
-    @printf(io, "**Results:** %d cases used; geometric mean speedup **%.3fx**\n\n", length(t), speedup)
+    @printf(io, "**Results:** %d cases; geometric mean speedup **%.3fx**\n\n", length(t), speedup)
     println(io, "| RHS case | DOFs/field | Samples (base/target) | ",
             "Baseline min (ms) | Target min (ms) | Speedup |")
     println(io, "|:--|--:|--:|--:|--:|--:|")
@@ -219,7 +197,27 @@ function write_report(io, baseline, target)
         println(io, label, " measurement: ", result["reused"] ? "reused" : "fresh",
                 "; ", env["measured_at"], " UTC; ", env["build_url"], ".  ")
     end
-    println(io)
+    # Keep the numbers first; the settings stay one click away.
+    println(io, "\n<details>\n<summary><b>Benchmark settings</b></summary>\n\n",
+            "**Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
+            "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
+            "is reported. Both commits use the target's case definitions, with classical ",
+            "initial conditions, polynomial degrees, meshes, and fluxes adapted from ",
+            "Trixi/TrixiShallowWater examples. Inputs are initialized at t = 0.\n\n",
+            "**Sampling:** After one warm-up RHS call per case, each sample measures one ",
+            "synchronized RHS call. Sampling stops after ", parameters["samples"],
+            " samples or a ", parameters["seconds"], " s sampling budget, whichever comes ",
+            "first, to limit benchmark runtime. Sample counts are shown as baseline / target.\n\n",
+            "**Target:** Push runs measure that push's head commit. Manual runs select the ",
+            "specified PR's current head, or the selected default-branch commit when no PR ",
+            "is specified.\n\n",
+            "**Baseline:** PR runs use the exact merge base of the target commit and ",
+            "the fetched PR target branch (or the default branch for local branch runs). ",
+            "Default-branch runs use the target commit's first parent.\n\n",
+            "**Cache reuse:** The target is always measured. A valid stored result can be ",
+            "reused for the baseline only when its commit equals the selected baseline commit ",
+            "and the GPU UUID/runner, Julia/CUDA/driver versions, dependencies, harness, and ",
+            "parameters all match. Otherwise, the baseline is measured again.\n\n</details>\n")
 end
 
 # Default-branch runs compare with the first parent; PR and other branch runs compare

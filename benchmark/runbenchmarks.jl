@@ -184,6 +184,7 @@ function write_report(io, baseline, target)
     validate_comparison(baseline, target)
     b_env, t_env = baseline["environment"], target["environment"]
     b, t = baseline["benchmarks"], target["benchmarks"]
+    parameters = target["parameters"]
     speedup = exp(sum(log(b[name]["minimum_ns"] / t[name]["minimum_ns"]) for name in keys(t)) / length(t))
     println(io, "## GPU RHS Benchmarks\n")
     println(io, "Baseline: `", b_env["commit"], "`  \nTarget: `", t_env["commit"], "`\n")
@@ -191,8 +192,13 @@ function write_report(io, baseline, target)
             "> **Benchmark settings**\n>\n",
             "> **Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
             "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
-            "is reported. Both commits use the target's benchmark definitions and initialize ",
-            "the input from each case's classical initial condition at t = 0.\n>\n",
+            "is reported. Both commits use the target's case definitions, with classical ",
+            "initial conditions, polynomial degrees, meshes, and fluxes adapted from ",
+            "Trixi/TrixiShallowWater examples. Inputs are initialized at t = 0.\n>\n",
+            "> **Sampling:** After two warm-up RHS calls per case, each sample measures one ",
+            "synchronized RHS call. Sampling stops after ", parameters["samples"],
+            " samples or a ", parameters["seconds"], " s sampling budget, whichever comes ",
+            "first, to limit benchmark runtime. Sample counts are shown as baseline / target.\n>\n",
             "> **Target:** Push runs measure that push's head commit. Manual runs select the ",
             "specified PR's current head, or the selected default-branch commit when no PR ",
             "is specified.\n>\n",
@@ -208,16 +214,17 @@ function write_report(io, baseline, target)
     println(io, "**Environment:** ", gpu, " with Julia ", t_env["julia"],
             ", CUDA runtime ", t_env["runtime"], ", and NVIDIA driver ", t_env["driver"], ".\n")
     @printf(io, "**Results:** %d cases used; geometric mean speedup **%.3fx**\n\n", length(t), speedup)
-    println(io, "| RHS case | DOFs/field | Baseline min (ms) | Target min (ms) | Time change | Speedup |")
+    println(io, "| RHS case | DOFs/field | Samples (base/target) | ",
+            "Baseline min (ms) | Target min (ms) | Speedup |")
     println(io, "|:--|--:|--:|--:|--:|--:|")
     for name in sort!(collect(keys(t)))
         base, head = b[name], t[name]
         bt, tt = base["minimum_ns"], head["minimum_ns"]
-        @printf(io, "| %s | %d | %.4f | %.4f | %+.2f%% | %.3fx |\n",
-                name, head["dofs_per_field"], bt / 1e6, tt / 1e6,
-                100 * (tt / bt - 1), bt / tt)
+        @printf(io, "| %s | %d | %d / %d | %.4f | %.4f | %.3fx |\n",
+                name, head["dofs_per_field"], base["samples"], head["samples"],
+                bt / 1e6, tt / 1e6, bt / tt)
     end
-    println(io, "\nNegative time change and speedup > 1 indicate improvement. ",
+    println(io, "\nSpeedup > 1 indicates improvement. ",
             "Informational only: no regression threshold is applied. ",
             "Small differences may be measurement noise.\n")
     for (label, result) in (("Baseline", baseline), ("Target", target))

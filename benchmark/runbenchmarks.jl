@@ -92,11 +92,8 @@ function benchmark_rhs(case; seconds, samples)
 
     # Compile and populate caches before measuring. Fail on invalid initialized states
     # instead of publishing plausible timings for NaN-producing computations.
-    for _ in 1:2
-        fill!(du, 0.0)
-        CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
-                                             source_terms, solver, cache_gpu, cache_cpu)
-    end
+    CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
+                                         source_terms, solver, cache_gpu, cache_cpu)
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
 
     # Synchronize the reset outside the timed expression. evals=1 guarantees each
@@ -119,7 +116,7 @@ function measure()
     (length(ARGS) == 2 || (length(ARGS) == 3 && ARGS[3] == "--reuse")) ||
         error("Usage: runbenchmarks.jl OUTPUT.json COMMIT_SHA [--reuse]")
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
-    seconds = parse(Float64, get(ENV, "BENCHMARK_SECONDS", "2"))
+    seconds = parse(Float64, get(ENV, "BENCHMARK_SECONDS", "1"))
     samples = parse(Int, get(ENV, "BENCHMARK_SAMPLES", "100"))
     seconds > 0 && samples > 0 || error("Benchmark duration and samples must be positive")
     filter = get(ENV, "BENCHMARK_FILTER", "")
@@ -195,7 +192,7 @@ function write_report(io, baseline, target)
             "is reported. Both commits use the target's case definitions, with classical ",
             "initial conditions, polynomial degrees, meshes, and fluxes adapted from ",
             "Trixi/TrixiShallowWater examples. Inputs are initialized at t = 0.\n>\n",
-            "> **Sampling:** After two warm-up RHS calls per case, each sample measures one ",
+            "> **Sampling:** After one warm-up RHS call per case, each sample measures one ",
             "synchronized RHS call. Sampling stops after ", parameters["samples"],
             " samples or a ", parameters["seconds"], " s sampling budget, whichever comes ",
             "first, to limit benchmark runtime. Sample counts are shown as baseline / target.\n>\n",

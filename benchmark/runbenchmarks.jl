@@ -2,7 +2,7 @@ using TrixiCUDA, CUDA, BenchmarkTools
 using Dates, JSON, Pkg, Printf, SHA, TOML
 include("cases.jl")
 
-const RESULT_SCHEMA = 3
+const RESULT_SCHEMA = 4
 const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
 
 function measurement_context(result)
@@ -35,7 +35,7 @@ function validate_comparison(baseline, target)
         error("Benchmark environments, dependencies, harnesses, or parameters differ")
     b, t = baseline["benchmarks"], target["benchmarks"]
     keys(b) == keys(t) || error("Benchmark case sets differ")
-    for name in keys(t), field in ("shape", "seed", "dofs_per_field")
+    for name in keys(t), field in ("shape", "initial_time", "input_hash", "dofs_per_field")
         b[name][field] == t[name][field] || error("Input mismatch in $name: $field")
     end
     return nothing
@@ -81,15 +81,16 @@ function restore_baseline(path, expected, case_names)
     end
 end
 
-function benchmark_rhs(case; seconds, samples, seed)
+function benchmark_rhs(case; seconds, samples)
     semi = make_problem(case)
     (; mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu) = semi
-    u_host = random_input(equations, solver, cache_gpu, seed)
+    t = 0.0
+    u_host = initial_input(semi, t)
+    all(isfinite, u_host) || error("Non-finite initial state in $(case.name)")
     u = CuArray(u_host)
     du = CUDA.zeros(Float64, size(u))
-    t = 0.0
 
-    # Compile and populate caches before measuring. Fail on invalid random states
+    # Compile and populate caches before measuring. Fail on invalid initialized states
     # instead of publishing plausible timings for NaN-producing computations.
     for _ in 1:2
         fill!(du, 0.0)
@@ -110,7 +111,8 @@ function benchmark_rhs(case; seconds, samples, seed)
                 "samples_ns" => trial.times,
                 "samples" => length(trial),
                 "dofs_per_field" => length(u) ÷ Trixi.nvariables(equations),
-                "shape" => collect(size(u)), "seed" => seed)
+                "shape" => collect(size(u)), "initial_time" => t,
+                "input_hash" => bytes2hex(sha256(reinterpret(UInt8, vec(u_host)))))
 end
 
 function measure()
@@ -146,6 +148,7 @@ function measure()
     output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                                        "precision" => "Float64", "evals" => 1,
+                                       "initialization" => "classical initial condition", "initial_time" => 0.0,
                                        "filter" => filter), "reused" => false)
     # Keep scratchspaces local to this runner. Cache
     # entries include the device UUID, host, exact source SHA and full context.
@@ -165,7 +168,7 @@ function measure()
     results = Dict{String, Any}()
     for case in cases
         @info "Benchmarking $(case.name)"
-        results[case.name] = benchmark_rhs(case; seconds, samples, seed = 123)
+        results[case.name] = benchmark_rhs(case; seconds, samples)
         # Avoid retaining all case allocations on small benchmark GPUs.
         GC.gc(true)
         CUDA.reclaim()
@@ -188,8 +191,8 @@ function write_report(io, baseline, target)
             "> **Benchmark settings**\n>\n",
             "> **Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
             "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
-            "is reported. Both commits use the target's benchmark definitions and the same ",
-            "seeded random inputs.\n>\n",
+            "is reported. Both commits use the target's benchmark definitions and initialize ",
+            "the input from each case's classical initial condition at t = 0.\n>\n",
             "> **Target:** Push runs measure that push's head commit. Manual runs select the ",
             "specified PR's current head, or the selected default-branch commit when no PR ",
             "is specified.\n>\n",

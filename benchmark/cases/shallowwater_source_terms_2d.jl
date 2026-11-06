@@ -1,17 +1,19 @@
-() -> (;
-       equations = ShallowWaterEquations2D(gravity = 9.81,
-                                           threshold_partially_wet = 1.0e-4,
-                                           threshold_desingularization = 1.0e-10),
+# https://github.com/trixi-framework/TrixiShallowWater.jl/blob/v0.3.3/examples/tree_2d_dgsem/elixir_shallowwater_source_terms.jl
+function (; polydeg = 3, initial_refinement_level = 3)
+    return (;
+            equations = ShallowWaterEquations2D(gravity = 9.81),
+            initial_condition = initial_condition_convergence_test,
 
-       coordinates_min = (0.0, 0.0),
-       coordinates_max = (sqrt(2.0), sqrt(2.0)),
-       initial_refinement_level = 4,
-       periodicity = true,
+            coordinates_min = (0.0, 0.0),
+            coordinates_max = (sqrt(2.0), sqrt(2.0)),
+            initial_refinement_level,
+            periodicity = true,
 
-       polydeg = 3,
-       surface_flux = (flux_lax_friedrichs, flux_nonconservative_fjordholm_etal),
-       volume_integral = VolumeIntegralFluxDifferencing((flux_wintermeyer_etal,
-                                                         flux_nonconservative_wintermeyer_etal)),
+            polydeg,
+            surface_flux = (FluxLaxFriedrichs(max_abs_speed_naive), flux_nonconservative_fjordholm_etal),
+            volume_integral = VolumeIntegralFluxDifferencing((flux_wintermeyer_etal,
+                                                              flux_nonconservative_wintermeyer_etal)),
 
-       boundary_conditions = boundary_condition_periodic,
-       source_terms = source_terms_convergence_test,)
+            boundary_conditions = boundary_condition_periodic,
+            source_terms = source_terms_convergence_test,)
+end

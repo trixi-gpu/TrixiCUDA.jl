@@ -17,7 +17,7 @@ module.exports = async ({github, context}) => {
   const target = JSON.parse(fs.readFileSync('results/target.json', 'utf8'));
   const report = fs.readFileSync('results/report.md', 'utf8');
   if (!/^[a-f0-9]{40}$/.test(sha) || !/^[a-f0-9]{40}$/.test(baseline) ||
-      base.schema !== 3 || target.schema !== 3 || target.reused !== false ||
+      base.schema !== 4 || target.schema !== 4 || target.reused !== false ||
       base.environment?.commit !== baseline || target.environment?.commit !== sha ||
       target.environment.build_url !== runURL ||
       !report.includes(sha) || !report.includes(baseline))

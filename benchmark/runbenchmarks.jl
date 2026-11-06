@@ -147,9 +147,9 @@ function measure()
                        "build_url" => get(ENV, "BENCHMARK_RUN_URL", "local"))
     output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
-                                       "precision" => "Float64", "evals" => 1,
-                                       "initialization" => "classical initial condition", "initial_time" => 0.0,
-                                       "filter" => filter), "reused" => false)
+                       "precision" => "Float64", "evals" => 1,
+                       "initialization" => "classical initial condition", "initial_time" => 0.0,
+                       "filter" => filter), "reused" => false)
     # Keep scratchspaces local to this runner. Cache
     # entries include the device UUID, host, exact source SHA and full context.
     directory = get(ENV, "BENCHMARK_CACHE",

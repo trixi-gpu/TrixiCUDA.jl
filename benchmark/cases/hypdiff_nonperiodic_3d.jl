@@ -1,4 +1,4 @@
-# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.16/examples/tree_3d_dgsem/elixir_hypdiff_nonperiodic.jl
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_3d_dgsem/elixir_hypdiff_nonperiodic.jl
 function (; polydeg = 4, initial_refinement_level = 2)
     return (;
             equations = HyperbolicDiffusionEquations3D(),

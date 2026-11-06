@@ -3,6 +3,8 @@ module TestMHDShock2D
 using Trixi, TrixiCUDA
 using Test
 
+# 2D extension of the Trixi 0.17.19 setup, with the same fluxes, indicator, degree, and refinement level:
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_3d_dgsem/elixir_mhd_ec_shockcapturing.jl
 include("../test_macros.jl")
 
 @testset "MHD Shock 2D" begin

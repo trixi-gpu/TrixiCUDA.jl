@@ -1,4 +1,4 @@
-# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.16/examples/tree_1d_dgsem/elixir_mhd_alfven_wave.jl
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_mhd_alfven_wave.jl
 function (; polydeg = 4, initial_refinement_level = 2)
     return (;
             equations = IdealGlmMhdEquations1D(5.0 / 3),

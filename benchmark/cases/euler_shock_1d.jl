@@ -1,4 +1,4 @@
-# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.16/examples/tree_1d_dgsem/elixir_euler_shockcapturing.jl
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_euler_shockcapturing.jl
 function (; polydeg = 3, initial_refinement_level = 5)
     equations = CompressibleEulerEquations1D(1.4)
     basis = LobattoLegendreBasis(Float64, polydeg)

@@ -1,4 +1,4 @@
-# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.16/examples/tree_1d_dgsem/elixir_advection_basic.jl
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_advection_basic.jl
 function (; polydeg = 3, initial_refinement_level = 4)
     return (;
             equations = LinearScalarAdvectionEquation1D(1.0),

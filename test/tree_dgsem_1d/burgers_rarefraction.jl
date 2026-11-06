@@ -3,6 +3,7 @@ module BurgersRarefaction1D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_burgers_rarefaction.jl
 include("../test_macros.jl")
 
 @testset "Burgers Rarefaction 1D" begin
@@ -45,11 +46,11 @@ include("../test_macros.jl")
 
     boundary_condition_inflow = BoundaryConditionDirichlet(initial_condition_rarefaction)
 
-    function boundary_condition_outflow(u_inner, orientation, normal_direction, x, t,
+    function boundary_condition_outflow(u_inner, orientation, direction, x, t,
                                         surface_flux_function,
                                         equations::InviscidBurgersEquation1D)
         # Calculate the boundary flux entirely from the internal solution state
-        flux = Trixi.flux(u_inner, normal_direction, equations)
+        flux = Trixi.flux(u_inner, orientation, equations)
 
         return flux
     end

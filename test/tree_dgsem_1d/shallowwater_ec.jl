@@ -76,6 +76,23 @@ include("../test_macros.jl")
 
     # Tests for semidiscretization process
     @test_approx (u_gpu, u)
+
+    # Trixi 0.17.19 samples interface endpoints from inside each cell.
+    # The discontinuity at x = 0.125 must therefore have distinct left/right states.
+    coordinates = cache.elements.node_coordinates
+    left_element = findfirst(e -> coordinates[1, end, e] == 0.125, Trixi.eachelement(solver, cache))
+    right_element = findfirst(e -> coordinates[1, 1, e] == 0.125, Trixi.eachelement(solver, cache))
+    @test left_element !== nothing
+    @test right_element !== nothing
+    for initial_state in (u, Array(u_gpu))
+        left = cons2prim(SVector{3}(initial_state[:, end, left_element]), equations)
+        right = cons2prim(SVector{3}(initial_state[:, 1, right_element]), equations)
+        @test left[1] ≈ 4.25
+        @test left[2] ≈ 0.0
+        @test right[1] ≈ 5.0
+        @test right[2] ≈ 0.1882
+    end
+
     Trixi.set_zero!(du, solver, cache)
 
     TrixiCUDA.calc_volume_integral!(du_gpu, u_gpu, mesh_gpu, equations_gpu,

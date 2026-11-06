@@ -3,6 +3,7 @@ module EulerBlastWave1D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_euler_blast_wave.jl
 include("../test_macros.jl")
 
 @testset "Euler Blast Wave 1D" begin
@@ -24,7 +25,7 @@ include("../test_macros.jl")
     end
     initial_condition = initial_condition_blast_wave
 
-    surface_flux = flux_lax_friedrichs
+    surface_flux = FluxLaxFriedrichs(max_abs_speed_naive)
     volume_flux = flux_ranocha
     polydeg = 3
     basis = LobattoLegendreBasis(polydeg)

@@ -3,6 +3,7 @@ module TestMHDAlfvenWave3D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_3d_dgsem/elixir_mhd_alfven_wave.jl
 include("../test_macros.jl")
 
 @testset "MHD Alfven Wave 3D" begin
@@ -12,10 +13,10 @@ include("../test_macros.jl")
 
     volume_flux = (flux_hindenlang_gassner, flux_nonconservative_powell)
     solver = DGSEM(polydeg = 3,
-                   surface_flux = (flux_lax_friedrichs, flux_nonconservative_powell),
+                   surface_flux = (FluxLaxFriedrichs(max_abs_speed_naive), flux_nonconservative_powell),
                    volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
     solver_gpu = DGSEMGPU(polydeg = 3,
-                          surface_flux = (flux_lax_friedrichs, flux_nonconservative_powell),
+                          surface_flux = (FluxLaxFriedrichs(max_abs_speed_naive), flux_nonconservative_powell),
                           volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
     coordinates_min = (-1.0, -1.0, -1.0)

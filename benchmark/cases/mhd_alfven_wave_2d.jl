@@ -1,4 +1,4 @@
-# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.16/examples/tree_2d_dgsem/elixir_mhd_alfven_wave.jl
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_2d_dgsem/elixir_mhd_alfven_wave.jl
 # Fix the GLM speed explicitly; RHS benchmarks do not run GlmSpeedCallback.
 function (; polydeg = 3, initial_refinement_level = 4)
     return (;

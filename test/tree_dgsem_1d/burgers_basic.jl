@@ -3,6 +3,7 @@ module MainBurgersBasic1D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_burgers_basic.jl
 include("../test_macros.jl")
 
 @testset "Burgers Basic 1D" begin

@@ -3,6 +3,7 @@ module TestEulerQuasiSourceTerms1D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_euler_quasi_1d_source_terms.jl
 include("../test_macros.jl")
 
 @testset "Euler Quasi Source Terms 1D" begin

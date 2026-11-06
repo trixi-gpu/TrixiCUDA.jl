@@ -3,6 +3,7 @@ module TestMHDEC1D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_mhd_ec.jl
 include("../test_macros.jl")
 
 @testset "MHD EC 1D" begin

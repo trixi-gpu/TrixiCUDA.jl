@@ -3,11 +3,12 @@ module TestEulerMultiEC2D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_2d_dgsem/elixir_eulermulti_ec.jl
 include("../test_macros.jl")
 
 @testset "Euler Multi EC 2D" begin
-    equations = CompressibleEulerMulticomponentEquations2D(gammas = (1.4, 1.4, 1.4),
-                                                           gas_constants = (0.4, 0.4, 0.4))
+    equations = CompressibleEulerMulticomponentEquations2D(gammas = 1.4,
+                                                           gas_constants = 0.4)
 
     initial_condition = initial_condition_weak_blast_wave
 

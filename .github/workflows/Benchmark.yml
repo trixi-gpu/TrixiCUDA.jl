@@ -1,0 +1,164 @@
+name: GPU Benchmarks
+
+on:
+  # Pushes to main and to branches of open PRs from this repository are benchmarked.
+  # Fork PRs never trigger this workflow, so untrusted code cannot reach the GPU runner.
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: PR number (leave empty to benchmark main)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  prepare:
+    name: Prepare benchmarks
+    runs-on: ubuntu-latest
+    outputs:
+      head: ${{ steps.select.outputs.head }}
+      pr: ${{ steps.select.outputs.pr }}
+      base: ${{ steps.select.outputs.base }}
+    steps:
+      - uses: actions/github-script@v8
+        id: select
+        env:
+          INPUT_PR: ${{ inputs.pull_request }}
+        with:
+          script: |
+            const repo = context.repo;
+            const {full_name: fullName, default_branch: defaultBranch} = context.payload.repository;
+            const input = process.env.INPUT_PR;
+            if (input && !/^[1-9][0-9]*$/.test(input)) {
+              throw new Error('Invalid PR number');
+            }
+
+            // Manual PR runs use the current PR head; each push keeps its own SHA and
+            // benchmarks either main or the open same-repository PR of the pushed branch.
+            let pr, sha = context.sha;
+            if (input) {
+              ({data: pr} = await github.rest.pulls.get({...repo, pull_number: Number(input)}));
+              sha = pr.head.sha;
+            } else if (context.ref !== `refs/heads/${defaultBranch}`) {
+              if (context.eventName !== 'push') {
+                throw new Error('Manual main builds must select the default branch');
+              }
+              const prs = await github.paginate(github.rest.pulls.list, {
+                ...repo,
+                state: 'open',
+                head: `${repo.owner}:${context.ref.replace('refs/heads/', '')}`,
+                per_page: 100
+              });
+              pr = prs.find(pr => pr.head.repo?.full_name === fullName);
+              if (!pr) return;
+            }
+            if (pr && (pr.state !== 'open' || pr.draft || pr.head.repo?.full_name !== fullName)) return;
+
+            // Respect a skip marker in the selected commit's title (not its description).
+            const {data: commit} = await github.rest.repos.getCommit({...repo, ref: sha});
+            if (commit.commit.message.split('\n', 1)[0].includes('[skip benchmarks]')) return;
+            core.setOutput('head', sha);
+            core.setOutput('pr', pr?.number ?? '');
+            core.setOutput('base', pr?.base.ref ?? defaultBranch);
+
+  benchmark:
+    needs: prepare
+    if: needs.prepare.outputs.head != ''
+    name: Run benchmarks
+    runs-on: [self-hosted, linux, x64, gpu]
+    concurrency:
+      group: gpu-rhs-${{ github.repository }}
+      queue: max
+    timeout-minutes: 60
+    continue-on-error: true
+    outputs:
+      complete: ${{ steps.environment.outcome == 'success' }}
+      baseline: ${{ steps.measure.outputs.baseline }}
+    env:
+      BENCHMARK_PR: ${{ needs.prepare.outputs.pr }}
+      BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
+      BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.head }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Measure the baseline and target performance
+        id: measure
+        run: |
+          julia +1.10 --version
+          nvidia-smi
+          julia +1.10 --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+          julia +1.10 --threads=1 --project=benchmark benchmark/runbenchmarks.jl
+      - name: Upload report and raw measurements
+        id: results
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
+          path: |
+            benchmark/results/baseline.json
+            benchmark/results/target.json
+            benchmark/results/report.md
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: true
+      - name: Upload resolved Julia environments
+        id: environment
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-rhs-environment-${{ needs.prepare.outputs.head }}
+          path: benchmark/results/environments/
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: true
+      - name: Link artifacts from the report
+        env:
+          RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
+          ENVIRONMENT_URL: ${{ steps.environment.outputs.artifact-url }}
+        run: |
+          {
+            printf '\n[Download report and measurements](%s): ' "$RESULTS_URL"
+            printf '%s' '`report.md` (full report), `baseline.json` and `target.json` '
+            printf '%s\n' '(raw timing samples, parameters, and environment details).  '
+            printf '[Download target and baseline environments](%s): ' "$ENVIRONMENT_URL"
+            printf '%s' '`target/Project.toml`, `target/Manifest.toml`, '
+            printf '%s' '`baseline/Project.toml`, and `baseline/Manifest.toml` '
+            printf '%s\n\n' '(the exact resolved Julia environments).'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  comment:
+    needs: [prepare, benchmark]
+    name: Publish comment
+    if: needs.prepare.outputs.pr != '' && needs.benchmark.outputs.complete == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Load the publisher from this workflow revision, not the measured PR.
+          ref: ${{ github.workflow_sha }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
+          path: results
+      - name: Publish or update bot comment
+        uses: actions/github-script@v8
+        env:
+          PR_NUMBER: ${{ needs.prepare.outputs.pr }}
+          HEAD_SHA: ${{ needs.prepare.outputs.head }}
+          BASELINE_SHA: ${{ needs.benchmark.outputs.baseline }}
+          BASE_BRANCH: ${{ needs.prepare.outputs.base }}
+        with:
+          script: |
+            await require('./.github/scripts/benchmark-comment.js')({github, context});

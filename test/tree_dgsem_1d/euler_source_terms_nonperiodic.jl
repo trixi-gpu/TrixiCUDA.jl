@@ -3,6 +3,7 @@ module EulerSourceTermsNonperiodic1D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_euler_source_terms_nonperiodic.jl
 include("../test_macros.jl")
 
 @testset "Euler Source Terms Nonperiodic 1D" begin
@@ -14,8 +15,8 @@ include("../test_macros.jl")
     boundary_conditions = (x_neg = boundary_condition,
                            x_pos = boundary_condition)
 
-    solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
-    solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs)
+    solver = DGSEM(polydeg = 3, surface_flux = FluxLaxFriedrichs(max_abs_speed_naive))
+    solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = FluxLaxFriedrichs(max_abs_speed_naive))
 
     coordinates_min = (0.0,)
     coordinates_max = (2.0,)

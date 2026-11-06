@@ -3,6 +3,7 @@ module TestEulerSourceTerms3D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_3d_dgsem/elixir_euler_source_terms.jl
 include("../test_macros.jl")
 
 @testset "Euler Source Terms 3D" begin
@@ -10,9 +11,9 @@ include("../test_macros.jl")
 
     initial_condition = initial_condition_convergence_test
 
-    solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs,
+    solver = DGSEM(polydeg = 3, surface_flux = FluxLaxFriedrichs(max_abs_speed_naive),
                    volume_integral = VolumeIntegralWeakForm())
-    solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs,
+    solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = FluxLaxFriedrichs(max_abs_speed_naive),
                           volume_integral = VolumeIntegralWeakForm())
 
     coordinates_min = (0.0, 0.0, 0.0)

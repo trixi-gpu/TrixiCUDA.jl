@@ -3,14 +3,15 @@ module TestEulerSourceTerms2D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_2d_dgsem/elixir_euler_source_terms.jl
 include("../test_macros.jl")
 
 @testset "Euler Source Terms 2D" begin
     equations = CompressibleEulerEquations2D(1.4)
 
     initial_condition = initial_condition_convergence_test
-    solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs)
-    solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs)
+    solver = DGSEM(polydeg = 3, surface_flux = FluxLaxFriedrichs(max_abs_speed_naive))
+    solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = FluxLaxFriedrichs(max_abs_speed_naive))
 
     coordinates_min = (0.0, 0.0)
     coordinates_max = (2.0, 2.0)

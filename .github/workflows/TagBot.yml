@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   TagBot:
-    name: Automate Tag Process
+    name: Automate tag process
     if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
     runs-on: ubuntu-latest
     steps:

@@ -3,18 +3,19 @@ module TestEulerMultiES1D
 using Trixi, TrixiCUDA
 using Test
 
+# https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_1d_dgsem/elixir_eulermulti_es.jl
 include("../test_macros.jl")
 
 @testset "Euler Multi ES 1D" begin
-    equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4, 1.4, 1.4),
-                                                           gas_constants = (0.4, 0.4, 0.4, 0.4))
+    equations = CompressibleEulerMulticomponentEquations1D(gammas = (1.4, 1.4),
+                                                           gas_constants = (0.4, 0.4))
 
     initial_condition = initial_condition_weak_blast_wave
 
     volume_flux = flux_ranocha
-    solver = DGSEM(polydeg = 3, surface_flux = flux_lax_friedrichs,
+    solver = DGSEM(polydeg = 3, surface_flux = FluxLaxFriedrichs(max_abs_speed_naive),
                    volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
-    solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = flux_lax_friedrichs,
+    solver_gpu = DGSEMGPU(polydeg = 3, surface_flux = FluxLaxFriedrichs(max_abs_speed_naive),
                           volume_integral = VolumeIntegralFluxDifferencing(volume_flux))
 
     coordinates_min = (-2.0,)

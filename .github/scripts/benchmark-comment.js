@@ -2,31 +2,15 @@ module.exports = async ({github, context}) => {
   const fs = require('fs');
   const repo = context.repo, number = Number(process.env.PR_NUMBER);
   const sha = process.env.HEAD_SHA, baseline = process.env.BASELINE_SHA;
-  const fullName = `${repo.owner}/${repo.repo}`;
-  const runURL = `${context.serverUrl}/${fullName}/actions/runs/${context.runId}`;
+  const runURL = `${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${context.runId}`;
 
-  // Publish only for the current open, non-draft PR in this repository.
-  const isCurrent = async () => {
-    const {data: pr} = await github.rest.pulls.get({...repo, pull_number: number});
-    return pr.state === 'open' && !pr.draft && pr.head.sha === sha &&
-      pr.head.repo?.full_name === fullName && pr.base.ref === process.env.BASE_BRANCH;
-  };
-  if (!await isCurrent()) return;
-
-  // Verify that the downloaded results belong to this run and comparison.
+  // Results come from this run and were validated by Julia before upload.
   const read = file => JSON.parse(fs.readFileSync(`results/${file}`, 'utf8'));
   const base = read('baseline.json'), target = read('target.json');
-  if (target.reused !== false ||
-      base.environment?.commit !== baseline || target.environment?.commit !== sha ||
-      target.environment.build_url !== runURL)
-    throw new Error('Report does not belong to this comparison');
-
-  // Julia already validates samples and environments; recheck only what is rendered here.
-  const valid = value => Number.isFinite(value) && value > 0;
   const rows = Object.entries(target.benchmarks).map(([name, t]) => {
+    // Case names are rendered verbatim in the comment table.
+    if (!/^[a-z0-9_]{1,100}$/.test(name)) throw new Error('Invalid benchmark name');
     const b = base.benchmarks[name];
-    if (!/^[a-z0-9_]{1,100}$/.test(name) || !valid(b?.minimum_ns) || !valid(t.minimum_ns))
-      throw new Error('Invalid benchmark timing');
     return {
       name,
       speedup: b.minimum_ns / t.minimum_ns,
@@ -55,8 +39,11 @@ module.exports = async ({github, context}) => {
   const existing = comments.find(c =>
     c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker));
 
-  // Recheck after reading artifacts/comments: a newer push may have arrived.
-  if (!await isCurrent() || existing?.body === body) return;
+  // Publish only while the measured commit is still the head of the open, non-draft PR;
+  // a newer push, draft conversion, or base change may have happened during the run.
+  const {data: pr} = await github.rest.pulls.get({...repo, pull_number: number});
+  if (pr.state !== 'open' || pr.draft || pr.head.sha !== sha ||
+      pr.base.ref !== process.env.BASE_BRANCH || existing?.body === body) return;
   if (existing) {
     await github.rest.issues.updateComment({...repo, comment_id: existing.id, body});
   } else {

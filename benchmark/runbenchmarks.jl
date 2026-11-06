@@ -2,14 +2,18 @@ using TrixiCUDA, CUDA, BenchmarkTools
 using Dates, JSON, Pkg, Printf, SHA, TOML
 include("cases.jl")
 
+# Version of the result JSON for external readers. Cache matching does not need it: the
+# harness hash covers this file, so any format change already invalidates old entries.
 const RESULT_SCHEMA = 4
 const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
 
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
+# Everything besides the commit that can change the timings; baseline and target must
+# match here, and a cached baseline is reused only for an identical context.
 function measurement_context(result)
     env = result["environment"]
-    fields = ("julia", "gpu", "gpu_uuid", "host", "runtime", "driver", "threads", "harness")
+    fields = ("julia", "julia_flags", "gpu", "gpu_uuid", "host", "runtime", "driver", "threads", "harness")
     context = Dict{String, Any}(field => env[field] for field in fields)
     context["packages"] = filter(p -> first(p) != TRIXICUDA_UUID, env["packages"])
     context["parameters"] = result["parameters"]
@@ -17,7 +21,6 @@ function measurement_context(result)
 end
 
 function validate_result(result)
-    result["schema"] == RESULT_SCHEMA || error("Unknown result schema")
     isempty(result["benchmarks"]) && error("No benchmark results")
     for (name, case) in result["benchmarks"]
         times = case["samples_ns"]
@@ -57,7 +60,6 @@ read_result(path) = JSON.parsefile(path; dicttype = Dict{String, Any})
 # The key covers the commit and the full measurement context, so a cache hit matches both.
 function cache_path(directory, result)
     identity = measurement_context(result)
-    identity["schema"] = RESULT_SCHEMA
     identity["commit"] = result["environment"]["commit"]
     key = bytes2hex(sha256(sprint(io -> TOML.print(io, identity; sorted = true))))
     return joinpath(directory, key * ".json")
@@ -125,7 +127,10 @@ function measure()
                          relpath.(RHS_CASE_FILES, @__DIR__))
     files = Dict(file => read(joinpath(@__DIR__, file), String) for file in harness_files)
     harness = bytes2hex(sha256(sprint(io -> TOML.print(io, files; sorted = true))))
-    environment = Dict("commit" => commit, "julia" => string(VERSION),
+    # Command-line code generation flags are not part of the harness files or VERSION.
+    flags = Base.JLOptions()
+    julia_flags = Dict("opt_level" => Int(flags.opt_level), "check_bounds" => Int(flags.check_bounds))
+    environment = Dict("commit" => commit, "julia" => string(VERSION), "julia_flags" => julia_flags,
                        "gpu" => CUDA.name(CUDA.device()), "gpu_uuid" => string(CUDA.uuid(CUDA.device())),
                        "host" => get(ENV, "RUNNER_NAME", "unknown-runner"), "harness" => harness,
                        "runtime" => string(CUDA.runtime_version()),

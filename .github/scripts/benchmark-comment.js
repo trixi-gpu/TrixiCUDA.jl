@@ -16,7 +16,7 @@ module.exports = async ({github, context}) => {
   // Verify that the downloaded results belong to this run and comparison.
   const read = file => JSON.parse(fs.readFileSync(`results/${file}`, 'utf8'));
   const base = read('baseline.json'), target = read('target.json');
-  if (base.schema !== 4 || target.schema !== 4 || target.reused !== false ||
+  if (target.reused !== false ||
       base.environment?.commit !== baseline || target.environment?.commit !== sha ||
       target.environment.build_url !== runURL)
     throw new Error('Report does not belong to this comparison');

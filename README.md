@@ -122,7 +122,7 @@ Please also try the examples in the tests directory, as they are always the most
 We currently focus on optimizing semidiscretization, using benchmarks of `rhs_hyperbolic!` (the function that computes the solution's time derivative after spatial discretization) to assess performance and track changes during development.
 
 ## Continuous Benchmarking
-GPU RHS benchmarks run in GitHub Actions on a dedicated self-hosted GPU runner with Julia 1.10. Every push to `main` and to a non-draft PR from this repository is benchmarked, unless the commit message contains `[skip benchmarks]`. Maintainers can also start a run manually for a given PR or for `main`. PRs from forks are not benchmarked, so untrusted code never runs on the GPU runner. Runs are queued so that only one benchmark uses the GPU at a time.
+GPU RHS benchmarks run in GitHub Actions on a dedicated self-hosted GPU runner with Julia 1.10. Every push to `main` and to a non-draft PR from this repository is benchmarked, unless the commit title (the first line of its message) contains `[skip benchmarks]`. Maintainers can also start a run manually for a given PR or for `main`. PRs from forks are not benchmarked, so untrusted code never runs on the GPU runner. Runs are queued so that only one benchmark uses the GPU at a time.
 
 Each run measures two commits on the same GPU with the same resolved dependencies:
 

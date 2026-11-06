@@ -59,9 +59,9 @@ jobs:
             }
             if (pr && (pr.state !== 'open' || pr.draft || pr.head.repo?.full_name !== fullName)) return;
 
-            // Respect the selected commit's skip marker before using the GPU runner.
+            // Respect a skip marker in the selected commit's title (not its description).
             const {data: commit} = await github.rest.repos.getCommit({...repo, ref: sha});
-            if (commit.commit.message.includes('[skip benchmarks]')) return;
+            if (commit.commit.message.split('\n', 1)[0].includes('[skip benchmarks]')) return;
             core.setOutput('head', sha);
             core.setOutput('pr', pr?.number ?? '');
             core.setOutput('base', pr?.base.ref ?? defaultBranch);

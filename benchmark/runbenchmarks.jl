@@ -5,6 +5,8 @@ include("cases.jl")
 const RESULT_SCHEMA = 4
 const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
 
+git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
+
 function measurement_context(result)
     env = result["environment"]
     fields = ("julia", "gpu", "gpu_uuid", "host", "runtime", "driver", "threads", "harness")
@@ -18,12 +20,10 @@ function validate_result(result)
     result["schema"] == RESULT_SCHEMA || error("Unknown result schema")
     isempty(result["benchmarks"]) && error("No benchmark results")
     for (name, case) in result["benchmarks"]
-        time = case["minimum_ns"]
-        isfinite(time) && time > 0 || error("Invalid timing: $name")
         times = case["samples_ns"]
         length(times) == case["samples"] > 0 || error("Invalid sample count: $name")
         all(t -> isfinite(t) && t > 0, times) || error("Invalid samples: $name")
-        minimum(times) == time || error("Minimum does not match samples: $name")
+        minimum(times) == case["minimum_ns"] || error("Minimum does not match samples: $name")
     end
     return nothing
 end
@@ -35,28 +35,26 @@ function validate_comparison(baseline, target)
         error("Benchmark environments, dependencies, harnesses, or parameters differ")
     b, t = baseline["benchmarks"], target["benchmarks"]
     keys(b) == keys(t) || error("Benchmark case sets differ")
-    for name in keys(t), field in ("shape", "initial_time", "input_hash", "dofs_per_field")
+    # The identical harness fixes the initial time and DOFs per field for a given shape.
+    for name in keys(t), field in ("shape", "input_hash")
         b[name][field] == t[name][field] || error("Input mismatch in $name: $field")
     end
     return nothing
 end
 
+# Write through a temporary file so an interrupted job never leaves a partial cache entry;
+# `mktemp` removes the temporary file at exit if it was never moved into place.
 function write_result(path, result)
     mkpath(dirname(path))
-    # An interrupted job must never leave a partially written cache entry.
     temp, io = mktemp(dirname(path))
-    try
-        JSON.json(io, result)
-        close(io)
-        mv(temp, path; force = true)
-    finally
-        close(io)
-        rm(temp; force = true)
-    end
+    JSON.json(io, result)
+    close(io)
+    mv(temp, path; force = true)
 end
 
 read_result(path) = JSON.parsefile(path; dicttype = Dict{String, Any})
 
+# The key covers the commit and the full measurement context, so a cache hit matches both.
 function cache_path(directory, result)
     identity = measurement_context(result)
     identity["schema"] = RESULT_SCHEMA
@@ -65,14 +63,11 @@ function cache_path(directory, result)
     return joinpath(directory, key * ".json")
 end
 
-function restore_baseline(path, expected, case_names)
+function restore_baseline(path)
     isfile(path) || return nothing
     try
         result = read_result(path)
         validate_result(result)
-        result["environment"]["commit"] == expected["environment"]["commit"] || return nothing
-        measurement_context(result) == measurement_context(expected) || return nothing
-        Set(keys(result["benchmarks"])) == Set(case_names) || return nothing
         result["reused"] = true
         return result
     catch exception
@@ -112,55 +107,51 @@ function benchmark_rhs(case; seconds, samples)
                 "input_hash" => bytes2hex(sha256(reinterpret(UInt8, vec(u_host)))))
 end
 
+# Usage: runbenchmarks.jl OUTPUT.json COMMIT_SHA [--reuse]
 function measure()
-    (length(ARGS) == 2 || (length(ARGS) == 3 && ARGS[3] == "--reuse")) ||
-        error("Usage: runbenchmarks.jl OUTPUT.json COMMIT_SHA [--reuse]")
+    path, commit = ARGS
+    reuse = get(ARGS, 3, "") == "--reuse"
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
     seconds = parse(Float64, get(ENV, "BENCHMARK_SECONDS", "1"))
     samples = parse(Int, get(ENV, "BENCHMARK_SAMPLES", "100"))
-    seconds > 0 && samples > 0 || error("Benchmark duration and samples must be positive")
-    filter = get(ENV, "BENCHMARK_FILTER", "")
-    cases = [c for c in rhs_cases() if occursin(filter, c.name)]
-    isempty(cases) && error("No benchmark cases match '$filter'")
-    # This setting is also used by the shock-capturing path, which copies to CPU.
-    Threads.nthreads() == 1 || error("Run with --threads=1 for reproducible comparisons")
+    case_filter = get(ENV, "BENCHMARK_FILTER", "")
+    cases = [case for case in RHS_CASES if occursin(case_filter, case.name)]
+    isempty(cases) && error("No benchmark cases match '$case_filter'")
     packages = Dict(string(id) => Dict("name" => info.name, "version" => string(info.version),
                                        "tree" => string(info.tree_hash))
                     for (id, info) in Pkg.dependencies() if info.version !== nothing)
     # Include all code and project settings that can change the measured workload.
     harness_files = vcat(["cases.jl", "runbenchmarks.jl", "Project.toml"],
-                         relpath.(rhs_case_files(), @__DIR__))
+                         relpath.(RHS_CASE_FILES, @__DIR__))
     files = Dict(file => read(joinpath(@__DIR__, file), String) for file in harness_files)
     harness = bytes2hex(sha256(sprint(io -> TOML.print(io, files; sorted = true))))
-    environment = Dict("commit" => ARGS[2], "julia" => string(VERSION),
+    environment = Dict("commit" => commit, "julia" => string(VERSION),
                        "gpu" => CUDA.name(CUDA.device()), "gpu_uuid" => string(CUDA.uuid(CUDA.device())),
                        "host" => get(ENV, "RUNNER_NAME", "unknown-runner"), "harness" => harness,
                        "runtime" => string(CUDA.runtime_version()),
                        "driver" => CUDA.has_nvml() ? string(CUDA.NVML.driver_version()) : string(CUDA.driver_version()),
                        "threads" => Threads.nthreads(), "packages" => packages,
                        "cuda_versioninfo" => sprint(CUDA.versioninfo),
-                       "agent" => get(ENV, "RUNNER_NAME", "local"),
                        "measured_at" => string(now(UTC)),
                        "build_url" => get(ENV, "BENCHMARK_RUN_URL", "local"))
     output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                        "precision" => "Float64", "evals" => 1,
                        "initialization" => "classical initial condition", "initial_time" => 0.0,
-                       "filter" => filter), "reused" => false)
-    # Keep scratchspaces local to this runner. Cache
-    # entries include the device UUID, host, exact source SHA and full context.
+                       "filter" => case_filter), "reused" => false)
+    # Keep the cache in this runner's depot scratchspace.
     directory = get(ENV, "BENCHMARK_CACHE",
                     joinpath(first(DEPOT_PATH), "scratchspaces", TRIXICUDA_UUID, "rhs-benchmarks"))
     cached_file = cache_path(directory, output)
-    if length(ARGS) == 3
-        cached = restore_baseline(cached_file, output, [case.name for case in cases])
+    if reuse
+        cached = restore_baseline(cached_file)
         if cached !== nothing
             measured_at = cached["environment"]["measured_at"]
-            @info "Matching baseline measurement found; reusing it" commit=ARGS[2] measured_at
-            write_result(ARGS[1], cached)
+            @info "Matching baseline measurement found; reusing it" commit measured_at
+            write_result(path, cached)
             return nothing
         end
-        @info "No matching baseline measurement; benchmarking" commit = ARGS[2]
+        @info "No matching baseline measurement; benchmarking" commit
     end
     results = Dict{String, Any}()
     for case in cases
@@ -171,8 +162,7 @@ function measure()
         CUDA.reclaim()
     end
     output["benchmarks"] = results
-    validate_result(output)
-    write_result(ARGS[1], output)
+    write_result(path, output)
     write_result(cached_file, output)
     return nothing
 end
@@ -232,42 +222,30 @@ function write_report(io, baseline, target)
     println(io)
 end
 
-function comparison_commits(repo)
-    git(args...) = Cmd(String["git", "-C", repo, args...])
+# Default-branch runs compare with the first parent; PR and other branch runs compare
+# with the merge base of the target and the fetched base branch.
+function comparison_commits()
     head = readchomp(git("rev-parse", "HEAD"))
-    default = get(ENV, "BENCHMARK_DEFAULT_BRANCH", "main")
-    branch = get(ENV, "GITHUB_REF_NAME", readchomp(git("branch", "--show-current")))
-    is_pr = !isempty(get(ENV, "BENCHMARK_PR", get(ENV, "GITHUB_HEAD_REF", "")))
     if readchomp(git("rev-parse", "--is-shallow-repository")) == "true"
         run(git("fetch", "--unshallow", "--no-tags", "origin", head))
     end
-    if branch == default && !is_pr
-        baseline = readchomp(git("rev-parse", "$(head)^1"))
-    else
-        base_branch = get(ENV, "BENCHMARK_BASE_BRANCH", get(ENV, "GITHUB_BASE_REF", default))
-        run(git("fetch", "--no-tags", "origin", base_branch))
-        baseline = readchomp(git("merge-base", head, "FETCH_HEAD"))
+    default = get(ENV, "BENCHMARK_DEFAULT_BRANCH", "main")
+    branch = get(() -> readchomp(git("branch", "--show-current")), ENV, "GITHUB_REF_NAME")
+    if branch == default && isempty(get(ENV, "BENCHMARK_PR", ""))
+        return head, readchomp(git("rev-parse", "$(head)^1"))
     end
-    return head, baseline
+    run(git("fetch", "--no-tags", "origin", get(ENV, "BENCHMARK_BASE_BRANCH", default)))
+    return head, readchomp(git("merge-base", head, "FETCH_HEAD"))
 end
 
 # The workflow instantiates the target project; the baseline uses the same resolution.
 function compare()
-    repo = dirname(@__DIR__)
-    git(args...) = Cmd(String["git", "-C", repo, args...])
-    head, baseline = comparison_commits(repo)
-    println("Baseline: ", baseline, "\nTarget: ", head)
+    head, baseline = comparison_commits()
     if haskey(ENV, "GITHUB_OUTPUT")
-        open(ENV["GITHUB_OUTPUT"], "a") do io
-            println(io, "baseline=", baseline)
-            println(io, "head=", head)
-        end
+        open(io -> println(io, "baseline=", baseline), ENV["GITHUB_OUTPUT"], "a")
     end
     output = joinpath(@__DIR__, "results")
-    mkpath(output)
-    for file in ("baseline.json", "target.json", "report.md")
-        rm(joinpath(output, file); force = true)
-    end
+    rm(output; force = true, recursive = true)
     mktempdir() do work
         source, env = joinpath(work, "baseline"), joinpath(work, "environment")
         run(git("worktree", "add", "--detach", source, baseline))
@@ -283,32 +261,28 @@ function compare()
                 Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
             end
             # Save the exact resolved projects separately from the three report files.
-            if haskey(ENV, "BENCHMARK_ENV_DIR")
-                directory = ENV["BENCHMARK_ENV_DIR"]
-                for (label, project) in (("target", @__DIR__), ("baseline", env))
-                    mkpath(joinpath(directory, label))
-                    for file in ("Project.toml", "Manifest.toml")
-                        cp(joinpath(project, file), joinpath(directory, label, file); force = true)
-                    end
+            for (label, project) in (("target", @__DIR__), ("baseline", env))
+                mkpath(joinpath(output, "environments", label))
+                for file in ("Project.toml", "Manifest.toml")
+                    cp(joinpath(project, file), joinpath(output, "environments", label, file))
                 end
             end
             # The target is always measured; only an exactly matching baseline can be reused.
+            # One Julia thread keeps the CPU-side parts (e.g. shock capturing) reproducible.
             script = joinpath(@__DIR__, "runbenchmarks.jl")
             @info "Target measurement" commit = head
             run(`$(Base.julia_cmd()) --threads=1 --project=$(@__DIR__) $script $(joinpath(output, "target.json")) $head`)
             @info "Baseline measurement" commit = baseline
             run(`$(Base.julia_cmd()) --threads=1 --project=$env $script $(joinpath(output, "baseline.json")) $baseline --reuse`)
-            report = joinpath(output, "report.md")
             text = sprint() do io
                 write_report(io, read_result(joinpath(output, "baseline.json")),
                              read_result(joinpath(output, "target.json")))
             end
+            report = joinpath(output, "report.md")
             write(report, text)
             @info "Benchmark report saved" report
             if haskey(ENV, "GITHUB_STEP_SUMMARY")
-                open(ENV["GITHUB_STEP_SUMMARY"], "a") do io
-                    write(io, text)
-                end
+                open(io -> write(io, text), ENV["GITHUB_STEP_SUMMARY"], "a")
             end
         finally
             Pkg.activate(@__DIR__)

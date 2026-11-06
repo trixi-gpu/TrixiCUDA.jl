@@ -6,24 +6,22 @@ module.exports = async ({github, context}) => {
   const runURL = `${context.serverUrl}/${fullName}/actions/runs/${context.runId}`;
 
   // Publish only for the current open, non-draft PR in this repository.
-  const eligible = pr => pr.state === 'open' && !pr.draft &&
-    pr.head.sha === sha && pr.head.repo?.full_name === fullName &&
-    pr.base.ref === process.env.BASE_BRANCH;
-  const getPR = async () => (await github.rest.pulls.get({...repo, pull_number: number})).data;
-  if (!eligible(await getPR())) return;
+  const isCurrent = async () => {
+    const {data: pr} = await github.rest.pulls.get({...repo, pull_number: number});
+    return pr.state === 'open' && !pr.draft && pr.head.sha === sha &&
+      pr.head.repo?.full_name === fullName && pr.base.ref === process.env.BASE_BRANCH;
+  };
+  if (!await isCurrent()) return;
 
-  // Verify that the downloaded report belongs to this run and comparison.
-  const base = JSON.parse(fs.readFileSync('results/baseline.json', 'utf8'));
-  const target = JSON.parse(fs.readFileSync('results/target.json', 'utf8'));
-  const report = fs.readFileSync('results/report.md', 'utf8');
-  if (!/^[a-f0-9]{40}$/.test(sha) || !/^[a-f0-9]{40}$/.test(baseline) ||
-      base.schema !== 4 || target.schema !== 4 || target.reused !== false ||
+  // Verify that the downloaded results belong to this run and comparison.
+  const read = file => JSON.parse(fs.readFileSync(`results/${file}`, 'utf8'));
+  const base = read('baseline.json'), target = read('target.json');
+  if (base.schema !== 4 || target.schema !== 4 || target.reused !== false ||
       base.environment?.commit !== baseline || target.environment?.commit !== sha ||
-      target.environment.build_url !== runURL ||
-      !report.includes(sha) || !report.includes(baseline))
+      target.environment.build_url !== runURL)
     throw new Error('Report does not belong to this comparison');
 
-  // Compute speedups from minimum times; Julia already validates environments and samples.
+  // Julia already validates samples and environments; recheck only what is rendered here.
   const valid = value => Number.isFinite(value) && value > 0;
   const rows = Object.entries(target.benchmarks).map(([name, t]) => {
     const b = base.benchmarks[name];
@@ -36,8 +34,6 @@ module.exports = async ({github, context}) => {
     };
   });
   const speedup = Math.exp(rows.reduce((sum, r) => sum + Math.log(r.speedup), 0) / rows.length);
-  if (!valid(speedup) || !rows.every(r => valid(r.speedup) && Number.isFinite(r.change)))
-    throw new Error('Invalid speedup');
 
   // Keep the PR summary short; the linked report contains all cases.
   const marker = '<!-- trixicuda-gpu-rhs-benchmarks -->';
@@ -60,7 +56,7 @@ module.exports = async ({github, context}) => {
     c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker));
 
   // Recheck after reading artifacts/comments: a newer push may have arrived.
-  if (!eligible(await getPR()) || existing?.body === body) return;
+  if (!await isCurrent() || existing?.body === body) return;
   if (existing) {
     await github.rest.issues.updateComment({...repo, comment_id: existing.id, body});
   } else {

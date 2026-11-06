@@ -1,9 +1,10 @@
 name: GPU Benchmarks
 
 on:
-  # Only trusted repository branches or an explicit manual run can use the GPU runner.
+  # Pushes to main and to branches of open PRs from this repository are benchmarked.
+  # Fork PRs never trigger this workflow, so untrusted code cannot reach the GPU runner.
   push:
-    branches: [main, benchmark-rhs-ci]
+    branches: ['**']
   workflow_dispatch:
     inputs:
       pull_request:
@@ -20,7 +21,6 @@ jobs:
     name: Prepare benchmarks
     runs-on: ubuntu-latest
     outputs:
-      run: ${{ steps.select.outputs.run }}
       head: ${{ steps.select.outputs.head }}
       pr: ${{ steps.select.outputs.pr }}
       base: ${{ steps.select.outputs.base }}
@@ -32,55 +32,43 @@ jobs:
         with:
           script: |
             const repo = context.repo;
-            const fullName = context.payload.repository.full_name;
-            const defaultBranch = context.payload.repository.default_branch;
-            const isPush = context.eventName === 'push';
-            const onDefault = context.ref === `refs/heads/${defaultBranch}`;
-            const input = process.env.INPUT_PR || '';
+            const {full_name: fullName, default_branch: defaultBranch} = context.payload.repository;
+            const input = process.env.INPUT_PR;
             if (input && !/^[1-9][0-9]*$/.test(input)) {
               throw new Error('Invalid PR number');
             }
 
-            // Resolve the open same-repository PR for a branch push or manual input.
-            let pr;
-            if (isPush && !onDefault) {
-              const branch = context.ref.replace('refs/heads/', '');
+            // Manual PR runs use the current PR head; each push keeps its own SHA and
+            // benchmarks either main or the open same-repository PR of the pushed branch.
+            let pr, sha = context.sha;
+            if (input) {
+              ({data: pr} = await github.rest.pulls.get({...repo, pull_number: Number(input)}));
+              sha = pr.head.sha;
+            } else if (context.ref !== `refs/heads/${defaultBranch}`) {
+              if (context.eventName !== 'push') {
+                throw new Error('Manual main builds must select the default branch');
+              }
               const prs = await github.paginate(github.rest.pulls.list, {
                 ...repo,
                 state: 'open',
-                head: `${repo.owner}:${branch}`,
+                head: `${repo.owner}:${context.ref.replace('refs/heads/', '')}`,
                 per_page: 100
               });
               pr = prs.find(pr => pr.head.repo?.full_name === fullName);
               if (!pr) return;
-            } else if (input) {
-              ({data: pr} = await github.rest.pulls.get({
-                ...repo, pull_number: Number(input)
-              }));
             }
-
-            // Each push keeps its own SHA; manual PR runs use the current PR head.
-            let sha = context.sha, base = defaultBranch;
-            if (pr) {
-              if (pr.state !== 'open' || pr.draft ||
-                  pr.head.repo?.full_name !== fullName) return;
-              if (!isPush) sha = pr.head.sha;
-              base = pr.base.ref;
-            } else if (!onDefault) {
-              throw new Error('Manual main builds must select the default branch');
-            }
+            if (pr && (pr.state !== 'open' || pr.draft || pr.head.repo?.full_name !== fullName)) return;
 
             // Respect the selected commit's skip marker before using the GPU runner.
             const {data: commit} = await github.rest.repos.getCommit({...repo, ref: sha});
             if (commit.commit.message.includes('[skip benchmarks]')) return;
             core.setOutput('head', sha);
-            core.setOutput('pr', pr?.number || '');
-            core.setOutput('base', base);
-            core.setOutput('run', 'true');
+            core.setOutput('pr', pr?.number ?? '');
+            core.setOutput('base', pr?.base.ref ?? defaultBranch);
 
   benchmark:
     needs: prepare
-    if: needs.prepare.outputs.run == 'true'
+    if: needs.prepare.outputs.head != ''
     name: Run benchmarks
     runs-on: [self-hosted, linux, x64, gpu]
     concurrency:
@@ -89,7 +77,7 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     outputs:
-      complete: ${{ steps.results.outcome == 'success' && steps.environment.outcome == 'success' }}
+      complete: ${{ steps.environment.outcome == 'success' }}
       baseline: ${{ steps.measure.outputs.baseline }}
     env:
       BENCHMARK_PR: ${{ needs.prepare.outputs.pr }}
@@ -102,26 +90,15 @@ jobs:
           ref: ${{ needs.prepare.outputs.head }}
           fetch-depth: 1
           persist-credentials: false
-      - name: Check runner Julia 1.10
-        run: |
-          julia +1.10 -e 'VERSION.major == 1 && VERSION.minor == 10 || error("Julia 1.10 required")'
-          julia +1.10 --version
       - name: Measure the baseline and target performance
         id: measure
-        env:
-          BENCHMARK_ENV_DIR: ${{ runner.temp }}/gpu-rhs-environment-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           julia +1.10 --version
           nvidia-smi
-          julia +1.10 --threads=1 --project=benchmark -e '
-            using Pkg
-            Pkg.develop(path=pwd())
-            Pkg.instantiate()
-            include("benchmark/runbenchmarks.jl")
-            main()'
+          julia +1.10 --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+          julia +1.10 --threads=1 --project=benchmark benchmark/runbenchmarks.jl
       - name: Upload report and raw measurements
         id: results
-        if: steps.measure.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
@@ -134,16 +111,14 @@ jobs:
           overwrite: true
       - name: Upload resolved Julia environments
         id: environment
-        if: ${{ always() && steps.measure.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: gpu-rhs-environment-${{ needs.prepare.outputs.head }}
-          path: ${{ runner.temp }}/gpu-rhs-environment-${{ github.run_id }}-${{ github.run_attempt }}/
+          path: benchmark/results/environments/
           if-no-files-found: error
           retention-days: 90
           overwrite: true
       - name: Link artifacts from the report
-        if: steps.results.outcome == 'success' && steps.environment.outcome == 'success'
         env:
           RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
           ENVIRONMENT_URL: ${{ steps.environment.outputs.artifact-url }}

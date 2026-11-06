@@ -1,5 +1,5 @@
 using TrixiCUDA, CUDA, BenchmarkTools
-using Dates, JSON, Pkg, Printf, SHA, TOML
+using Dates, JSON, Pkg, Printf, SHA
 include("cases.jl")
 
 # Version of the result JSON format for external readers.
@@ -8,74 +8,21 @@ const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
 
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
-# Everything besides the commit that can change the timings; baseline and target must match.
-function measurement_context(result)
-    env = result["environment"]
-    fields = ("julia", "gpu", "gpu_uuid", "host", "runtime", "driver", "threads", "harness")
-    context = Dict{String, Any}(field => env[field] for field in fields)
-    context["packages"] = filter(p -> first(p) != TRIXICUDA_UUID, env["packages"])
-    context["parameters"] = result["parameters"]
-    return context
-end
-
-function validate_result(result)
-    isempty(result["benchmarks"]) && error("No benchmark results")
-    for (name, case) in result["benchmarks"]
-        times = case["samples_ns"]
-        length(times) == case["samples"] > 0 || error("Invalid sample count: $name")
-        all(t -> isfinite(t) && t > 0, times) || error("Invalid samples: $name")
-        minimum(times) == case["minimum_ns"] || error("Minimum does not match samples: $name")
-    end
-    return nothing
-end
-
+# Both commits are measured in one job with the target's scripts and settings. Developing
+# the baseline can still resolve other dependencies, and its code builds the inputs.
 function validate_comparison(baseline, target)
-    validate_result(baseline)
-    validate_result(target)
-    measurement_context(baseline) == measurement_context(target) ||
-        error("Benchmark environments, dependencies, harnesses, or parameters differ")
+    dependencies(result) = filter(p -> first(p) != TRIXICUDA_UUID, result["environment"]["packages"])
+    dependencies(baseline) == dependencies(target) || error("Baseline and target dependencies differ")
     b, t = baseline["benchmarks"], target["benchmarks"]
     keys(b) == keys(t) || error("Benchmark case sets differ")
-    # The identical harness fixes the initial time and DOFs per field for a given shape.
+    # The case definitions fix the initial time, and the shape fixes the DOFs per field.
     for name in keys(t), field in ("shape", "input_hash")
         b[name][field] == t[name][field] || error("Input mismatch in $name: $field")
     end
     return nothing
 end
 
-# Write through a temporary file so an interrupted job never leaves a partial result;
-# `mktemp` removes the temporary file at exit if it was never moved into place.
-function write_result(path, result)
-    mkpath(dirname(path))
-    temp, io = mktemp(dirname(path))
-    JSON.json(io, result)
-    close(io)
-    mv(temp, path; force = true)
-end
-
 read_result(path) = JSON.parsefile(path; dicttype = Dict{String, Any})
-
-# Optional baseline cache. The key covers the commit and the full measurement context,
-# so a cache hit matches both.
-function cache_path(directory, result)
-    identity = measurement_context(result)
-    identity["commit"] = result["environment"]["commit"]
-    key = bytes2hex(sha256(sprint(io -> TOML.print(io, identity; sorted = true))))
-    return joinpath(directory, key * ".json")
-end
-
-function restore_baseline(path)
-    isfile(path) || return nothing
-    try
-        result = read_result(path)
-        validate_result(result)
-        result["reused"] = true
-        return result
-    catch exception
-        @warn "Ignoring invalid baseline cache" path exception
-        return nothing
-    end
-end
 
 function benchmark_rhs(case; seconds, samples)
     semi = make_problem(case)
@@ -108,9 +55,7 @@ function benchmark_rhs(case; seconds, samples)
                 "input_hash" => bytes2hex(sha256(reinterpret(UInt8, vec(u_host)))))
 end
 
-# Usage: runbenchmarks.jl OUTPUT.json COMMIT_SHA [--reuse]
-# The cache is disabled unless BENCHMARK_CACHE names a directory; `--reuse` then loads a
-# matching stored result instead of measuring.
+# Usage: runbenchmarks.jl OUTPUT.json COMMIT_SHA
 function measure()
     path, commit = ARGS
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
@@ -122,14 +67,9 @@ function measure()
     packages = Dict(string(id) => Dict("name" => info.name, "version" => string(info.version),
                                        "tree" => string(info.tree_hash))
                     for (id, info) in Pkg.dependencies() if info.version !== nothing)
-    # Include all code and project settings that can change the measured workload.
-    harness_files = vcat(["cases.jl", "runbenchmarks.jl", "Project.toml"],
-                         relpath.(RHS_CASE_FILES, @__DIR__))
-    files = Dict(file => read(joinpath(@__DIR__, file), String) for file in harness_files)
-    harness = bytes2hex(sha256(sprint(io -> TOML.print(io, files; sorted = true))))
     environment = Dict("commit" => commit, "julia" => string(VERSION),
                        "gpu" => CUDA.name(CUDA.device()), "gpu_uuid" => string(CUDA.uuid(CUDA.device())),
-                       "host" => get(ENV, "RUNNER_NAME", "unknown-runner"), "harness" => harness,
+                       "host" => get(ENV, "RUNNER_NAME", "unknown-runner"),
                        "runtime" => string(CUDA.runtime_version()),
                        "driver" => CUDA.has_nvml() ? string(CUDA.NVML.driver_version()) : string(CUDA.driver_version()),
                        "threads" => Threads.nthreads(), "packages" => packages,
@@ -140,19 +80,7 @@ function measure()
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                        "precision" => "Float64", "evals" => 1,
                        "initialization" => "classical initial condition", "initial_time" => 0.0,
-                       "filter" => case_filter), "reused" => false)
-    directory = get(ENV, "BENCHMARK_CACHE", "")
-    cached_file = isempty(directory) ? nothing : cache_path(directory, output)
-    if cached_file !== nothing && get(ARGS, 3, "") == "--reuse"
-        cached = restore_baseline(cached_file)
-        if cached !== nothing
-            measured_at = cached["environment"]["measured_at"]
-            @info "Matching baseline measurement found; reusing it" commit measured_at
-            write_result(path, cached)
-            return nothing
-        end
-        @info "No matching baseline measurement; benchmarking" commit
-    end
+                       "filter" => case_filter))
     results = Dict{String, Any}()
     for case in cases
         @info "Benchmarking $(case.name)"
@@ -162,8 +90,8 @@ function measure()
         CUDA.reclaim()
     end
     output["benchmarks"] = results
-    write_result(path, output)
-    cached_file === nothing || write_result(cached_file, output)
+    mkpath(dirname(path))
+    write(path, JSON.json(output))
     return nothing
 end
 
@@ -194,8 +122,7 @@ function write_report(io, baseline, target)
             "Small differences may be measurement noise.\n")
     for (label, result) in (("Baseline", baseline), ("Target", target))
         env = result["environment"]
-        println(io, label, " measurement: ", result["reused"] ? "reused" : "fresh",
-                "; ", env["measured_at"], " UTC; ", env["build_url"], ".  ")
+        println(io, label, " measurement: ", env["measured_at"], " UTC; ", env["build_url"], ".  ")
     end
     # Keep the numbers first; the settings stay one click away.
     println(io, "\n<details>\n<summary><b>Benchmark settings</b></summary>\n\n",
@@ -213,13 +140,7 @@ function write_report(io, baseline, target)
             "is specified.\n\n",
             "**Baseline:** PR runs use the exact merge base of the target commit and ",
             "the fetched PR target branch (or the default branch for local branch runs). ",
-            "Default-branch runs use the target commit's first parent.\n\n",
-            "**Cache reuse (optional):** Disabled by default, so both commits are measured on ",
-            "every run. When enabled with `BENCHMARK_CACHE`, the target is still always measured, ",
-            "and a valid stored result can be reused for the baseline only when its commit equals ",
-            "the selected baseline commit ",
-            "and the GPU UUID/runner, Julia/CUDA/driver versions, dependencies, harness, and ",
-            "parameters all match. Otherwise, the baseline is measured again.\n\n</details>\n")
+            "Default-branch runs use the target commit's first parent.\n\n</details>\n")
 end
 
 # Default-branch runs compare with the first parent; PR and other branch runs compare
@@ -267,13 +188,12 @@ function compare()
                     cp(joinpath(project, file), joinpath(output, "environments", label, file))
                 end
             end
-            # The target is always measured; the baseline is reused only with the optional cache.
             # One Julia thread keeps the CPU-side parts (e.g. shock capturing) reproducible.
             script = joinpath(@__DIR__, "runbenchmarks.jl")
             @info "Target measurement" commit = head
             run(`$(Base.julia_cmd()) --threads=1 --project=$(@__DIR__) $script $(joinpath(output, "target.json")) $head`)
             @info "Baseline measurement" commit = baseline
-            run(`$(Base.julia_cmd()) --threads=1 --project=$env $script $(joinpath(output, "baseline.json")) $baseline --reuse`)
+            run(`$(Base.julia_cmd()) --threads=1 --project=$env $script $(joinpath(output, "baseline.json")) $baseline`)
             text = sprint() do io
                 write_report(io, read_result(joinpath(output, "baseline.json")),
                              read_result(joinpath(output, "target.json")))

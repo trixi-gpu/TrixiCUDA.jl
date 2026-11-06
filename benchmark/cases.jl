@@ -1,10 +1,9 @@
 using Trixi, TrixiShallowWater
 using StaticArrays: SVector
 
-const RHS_CASE_FILES = filter(endswith(".jl"), readdir(joinpath(@__DIR__, "cases"); join = true))
-
 # Include only configuration factories at load time; allocate each problem when measured.
-const RHS_CASES = [(; name = splitext(basename(file))[1], build = include(file)) for file in RHS_CASE_FILES]
+const RHS_CASES = [(; name = splitext(basename(file))[1], build = include(file))
+                   for file in filter(endswith(".jl"), readdir(joinpath(@__DIR__, "cases"); join = true))]
 
 make_problem(case; kwargs...) = rhs_problem(; case.build(; kwargs...)...)
 

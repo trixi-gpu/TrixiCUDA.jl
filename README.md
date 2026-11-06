@@ -122,22 +122,22 @@ Please also try the examples in the tests directory, as they are always the most
 We currently focus on optimizing semidiscretization, using benchmarks of `rhs_hyperbolic!` (the function that computes the solution's time derivative after spatial discretization) to assess performance and track changes during development.
 
 ## Continuous Benchmarking
-GPU RHS benchmarks run in GitHub Actions on a dedicated self-hosted GPU runner with Julia 1.10. Every push to `main` and to a non-draft PR from this repository is benchmarked, unless the commit title (the first line of its message) contains `[skip benchmarks]`. Maintainers can also start a run manually for a given PR or for `main`. PRs from forks are not benchmarked, so untrusted code never runs on the GPU runner. Runs are queued so that only one benchmark uses the GPU at a time.
+GPU benchmarks run in GitHub Actions on a dedicated self-hosted GPU runner. Every push to this repository is benchmarked, unless the commit title contains `[skip benchmarks]`. Runs are queued so that only one benchmark uses the entire GPU at a time.
 
 Each run measures two commits on the same GPU with the same resolved dependencies:
 
 - **Target:** the pushed commit, or the current PR head for manual runs.
 - **Baseline:** the exact merge base with the PR's target branch, or the first parent for `main`.
 
-The cases in [`benchmark/cases/`](benchmark/cases) are adapted from classical Trixi.jl and TrixiShallowWater.jl examples and use Float64 arrays on one Julia thread. Each sample is one GPU-synchronized RHS call, and the minimum wall time is reported.
+The benchmark cases are adapted from classical Trixi.jl and TrixiShallowWater.jl examples and use Float64 arrays on one Julia thread. Each sample is one GPU-synchronized RHS call, and the minimum wall time is reported.
 
 Results are published in three places (runs on `main` skip the PR comment):
 
 - **PR comment:** the geometric mean speedup, the three largest time changes, and a link to the full report. Later pushes update the same comment.
 - **Actions job summary:** the full report with timings, sample counts, and speedups for every case, plus environment and measurement details.
-- **Actions artifacts:** the report, raw results with all timing samples (`baseline.json`, `target.json`), and the exact resolved Julia environments of both commits, kept for 90 days.
+- **Actions artifacts:** the report, raw results with all timing samples, and the exact resolved Julia environments of both commits.
 
-**Speedup = baseline time / target time**, so values above 1 indicate an improvement. Reports are informational only: no regression threshold is enforced, and small differences may be measurement noise.
+Reports are informational only: no regression threshold is enforced, and small differences may be measurement noise.
 
 ## Running Locally
 The same comparison can be run on any machine with a working CUDA GPU:
@@ -147,7 +147,7 @@ julia --project=benchmark -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); P
 julia --threads=1 --project=benchmark benchmark/runbenchmarks.jl
 ```
 
-The runner compares the current checkout with its merge base with `main` (or with the previous commit when run on `main`) and writes the report, raw results, and resolved environments to `benchmark/results/`. Set `BENCHMARK_FILTER` to run only the cases whose names contain a given string, and `BENCHMARK_SECONDS` or `BENCHMARK_SAMPLES` to change the per-case sampling budget (1 s or 100 samples by default). New configuration files added to `benchmark/cases/` are picked up automatically.
+The runner compares the current checkout with its merge base with `main` (or with the previous commit when run on `main`) and writes the report, raw results, and resolved environments to `benchmark/results/`. New configuration files added to `benchmark/cases/` are picked up automatically.
 
 ## Reference Benchmarks (2025)
 For a comprehensive CPU/GPU comparison of semidiscretization performance, see the [2025 benchmark report](https://trixi-gpu.github.io/benchmark/). These results reflect the package versions and test environment used at the time; ongoing performance changes are tracked by the CI benchmarks above.

@@ -38,9 +38,6 @@ jobs:
             const branch = context.ref.replace('refs/heads/', '');
             const input = process.env.INPUT_PR;
 
-            // Always measure this workflow's own commit, so the workflow and benchmark
-            // scripts come from the target: the pushed commit, or the latest commit of the
-            // branch selected for a manual run.
             let pr;
             if (context.eventName === 'workflow_dispatch') {
               // Manual runs benchmark main without a PR number, or a PR from its head branch.

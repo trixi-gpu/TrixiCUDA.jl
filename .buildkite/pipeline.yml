@@ -12,7 +12,6 @@ steps:
         println("--- :julia: Instantiating environment")
         Pkg.update()
         Pkg.status()
-
         println("+++ :julia: Running tests")
         Pkg.test()'
     agents:

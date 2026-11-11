@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - main
-    tags: "*"
+    tags:
+      - "*"
   pull_request:
   workflow_dispatch:
 
@@ -15,21 +16,20 @@ concurrency:
 jobs:
   build:
     name: Build and deploy docs
+    runs-on: ubuntu-latest
     permissions:
       actions: write
       contents: write
       pull-requests: read
       statuses: write
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v7
-
       # Skip documentation builds when the commit message contains [skip docs].
       - name: Check whether to skip docs
         id: docs
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           message=$(gh api "repos/$GITHUB_REPOSITORY/commits/$COMMIT_SHA" \
@@ -40,23 +40,19 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Set up Julia 1.10
         if: steps.docs.outputs.skip != 'true'
         uses: julia-actions/setup-julia@v3
         with:
           version: "1.10"
-
       - name: Restore Julia cache
         if: steps.docs.outputs.skip != 'true'
         uses: julia-actions/cache@v3
-
       - name: Instantiate docs environment
         if: steps.docs.outputs.skip != 'true'
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
-
+        run: julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Build and deploy documentation
         if: steps.docs.outputs.skip != 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}      # for Documenter via GitHub Actions
-        run: julia --project=docs/ --color=yes docs/make.jl
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # For Documenter via GitHub Actions
+        run: julia --project=docs --color=yes docs/make.jl

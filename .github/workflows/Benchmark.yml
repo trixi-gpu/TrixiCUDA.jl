@@ -25,7 +25,7 @@ jobs:
       pr: ${{ steps.select.outputs.pr }}
       base: ${{ steps.select.outputs.base }}
     steps:
-      - uses: actions/github-script@v8
+      - uses: actions/github-script@v9
         id: select
         env:
           INPUT_PR: ${{ inputs.pull_request }}
@@ -153,7 +153,7 @@ jobs:
           name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
           path: results
       - name: Publish or update bot comment
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ needs.prepare.outputs.pr }}
           HEAD_SHA: ${{ needs.prepare.outputs.head }}

@@ -119,37 +119,22 @@ sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
 Please also try the examples in the tests directory, as they are always the most up-to-date.
 
 # Benchmarks
-We currently focus on optimizing semidiscretization, using benchmarks of `rhs_hyperbolic!` (the function that computes the solution's time derivative after spatial discretization) to assess performance and track changes during development.
+We benchmark `rhs_hyperbolic!` to guide semidiscretization optimization and track performance changes. This function evaluates the time derivative of the spatially discretized solution.
 
-## Continuous Benchmarking
-GPU benchmarks run in GitHub Actions on a dedicated self-hosted GPU runner. Every push to this repository is benchmarked, unless the commit title contains `[skip benchmarks]`. Runs are queued so that only one benchmark uses the entire GPU at a time.
+GitHub Actions runs GPU benchmarks on pushes to branches of open, non-draft pull requests in this repository. Benchmark runs are queued to ensure exclusive access to the self-hosted GPU (the GPU model may change over time as optimization priorities evolve). Both commits in each comparison are benchmarked on the same GPU with the same resolved dependencies.
 
-Each run measures two commits on the same GPU with the same resolved dependencies:
+Each benchmark run compares two commits:
+- **Target:** the commit at the head of the push.
+- **Baseline:** the merge base of the target commit and the PR’s base branch.
 
-- **Target:** the pushed commit, or the current PR head for manual runs.
-- **Baseline:** the exact merge base with the PR's target branch, or the first parent for `main`.
+Results are available in three places:
+- **PR comment:** the geometric mean speedup, the three largest timing changes, and a link to the full report. Subsequent runs update the same comment.
+- **Actions job summary:** per-case timings, sample counts, and speedups, along with the measurement settings and environment details.
+- **Actions artifacts:** the full report, all raw timing samples, and the resolved Julia environments for both commits.
 
-The benchmark cases are adapted from classical Trixi.jl and TrixiShallowWater.jl examples and use Float64 arrays on one Julia thread. Each sample is one GPU-synchronized RHS call, and the minimum wall time is reported.
+Benchmarks are informational. Small timing differences may reflect measurement noise, and no regression threshold is enforced.
 
-Results are published in three places (runs on `main` skip the PR comment):
-
-- **PR comment:** the geometric mean speedup, the three largest time changes, and a link to the full report. Later pushes update the same comment.
-- **Actions job summary:** the full report with timings, sample counts, and speedups for every case, plus environment and measurement details.
-- **Actions artifacts:** the report, raw results with all timing samples, and the exact resolved Julia environments of both commits.
-
-Reports are informational only: no regression threshold is enforced, and small differences may be measurement noise.
-
-## Running Locally
-The same comparison can be run on any machine with a working CUDA GPU:
-
-```bash
-julia --project=benchmark -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
-julia --threads=1 --project=benchmark benchmark/runbenchmarks.jl
-```
-
-The runner compares the current checkout with its merge base with `main` (or with the previous commit when run on `main`) and writes the report, raw results, and resolved environments to `benchmark/results/`. New configuration files added to `benchmark/cases/` are picked up automatically.
-
-## Reference Benchmarks (2025)
+### Reference Benchmarks (2025)
 For a comprehensive CPU/GPU comparison of semidiscretization performance, see the [2025 benchmark report](https://trixi-gpu.github.io/benchmark/). These results reflect the package versions and test environment used at the time; ongoing performance changes are tracked by the CI benchmarks above.
 
 The benchmarks presented at JuliaCon 2025 can be reproduced with the

@@ -4,7 +4,8 @@ on:
   # Pushes to main and to branches of open PRs from this repository are benchmarked.
   # Fork PRs never trigger this workflow, so untrusted code cannot reach the GPU runner.
   push:
-    branches: ['**']
+    branches:
+      - "**"
   workflow_dispatch:
     inputs:
       pull_request:
@@ -25,8 +26,9 @@ jobs:
       pr: ${{ steps.select.outputs.pr }}
       base: ${{ steps.select.outputs.base }}
     steps:
-      - uses: actions/github-script@v9
+      - name: Select the commit to benchmark
         id: select
+        uses: actions/github-script@v9
         env:
           INPUT_PR: ${{ inputs.pull_request }}
         with:
@@ -67,9 +69,9 @@ jobs:
             core.setOutput('base', pr?.base.ref ?? defaultBranch);
 
   benchmark:
+    name: Run benchmarks
     needs: prepare
     if: needs.prepare.outputs.head != ''
-    name: Run benchmarks
     runs-on: [self-hosted, linux, x64, gpu]
     concurrency:
       group: gpu-rhs-${{ github.repository }}
@@ -85,7 +87,8 @@ jobs:
       BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out the measured commit
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.head }}
           fetch-depth: 1
@@ -134,21 +137,23 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   comment:
-    needs: [prepare, benchmark]
     name: Publish comment
+    needs: [prepare, benchmark]
     if: needs.prepare.outputs.pr != '' && needs.benchmark.outputs.complete == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out the comment publisher
+        uses: actions/checkout@v7
         with:
           # Load the publisher from this workflow revision, not the measured PR.
           ref: ${{ github.workflow_sha }}
           sparse-checkout: .github/scripts
           persist-credentials: false
-      - uses: actions/download-artifact@v8
+      - name: Download benchmark results
+        uses: actions/download-artifact@v8
         with:
           name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
           path: results

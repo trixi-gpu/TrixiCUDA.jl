@@ -1,13 +1,14 @@
 name: Style
 
 on:
-  pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
+  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -15,7 +16,8 @@ jobs:
     name: Check formatting and spelling
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out repository
+        uses: actions/checkout@v7
       - name: Check spelling
         uses: crate-ci/typos@v1.52.0
         with:
@@ -23,4 +25,4 @@ jobs:
       - name: Check formatting
         uses: julia-actions/julia-format@v4
         with:
-          version: '2.14.0'
+          version: "2.14.0"

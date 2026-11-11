@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    directory: "/" # Location of package manifests
+    directory: "/"  # Location of package manifests
     schedule:
       interval: "monthly"
     groups:
@@ -9,7 +9,7 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: "julia"
-    directories: # Location of Julia projects
+    directories:  # Location of Julia projects
       - "/"
       - "/benchmark"
       - "/docs"

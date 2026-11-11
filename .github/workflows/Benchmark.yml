@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       pull_request:
-        description: PR number (leave empty to benchmark main)
+        description: PR number of the selected branch (leave empty on main)
         required: false
         type: string
 
@@ -35,25 +35,27 @@ jobs:
           script: |
             const repo = context.repo;
             const {full_name: fullName, default_branch: defaultBranch} = context.payload.repository;
+            const branch = context.ref.replace('refs/heads/', '');
             const input = process.env.INPUT_PR;
-            if (input && !/^[1-9][0-9]*$/.test(input)) {
-              throw new Error('Invalid PR number');
-            }
 
-            // Manual PR runs use the current PR head; each push keeps its own SHA and
-            // benchmarks either main or the open same-repository PR of the pushed branch.
-            let pr, sha = context.sha;
-            if (input) {
-              ({data: pr} = await github.rest.pulls.get({...repo, pull_number: Number(input)}));
-              sha = pr.head.sha;
-            } else if (context.ref !== `refs/heads/${defaultBranch}`) {
-              if (context.eventName !== 'push') {
-                throw new Error('Manual main builds must select the default branch');
+            let pr;
+            if (context.eventName === 'workflow_dispatch') {
+              // Manual runs benchmark main without a PR number, or a PR from its head branch.
+              if (branch === defaultBranch) {
+                if (input) throw new Error('Leave the PR number empty when running on the default branch');
+              } else {
+                if (!/^[1-9][0-9]*$/.test(input)) throw new Error('Enter the PR number of the selected branch');
+                ({data: pr} = await github.rest.pulls.get({...repo, pull_number: Number(input)}));
+                if (pr.head.ref !== branch || pr.head.sha !== context.sha) {
+                  throw new Error(`The selected branch must be the current head of PR #${input}`);
+                }
               }
+            } else if (branch !== defaultBranch) {
+              // Pushes to other branches benchmark their open same-repository PR.
               const prs = await github.paginate(github.rest.pulls.list, {
                 ...repo,
                 state: 'open',
-                head: `${repo.owner}:${context.ref.replace('refs/heads/', '')}`,
+                head: `${repo.owner}:${branch}`,
                 per_page: 100
               });
               pr = prs.find(pr => pr.head.repo?.full_name === fullName);
@@ -61,10 +63,10 @@ jobs:
             }
             if (pr && (pr.state !== 'open' || pr.draft || pr.head.repo?.full_name !== fullName)) return;
 
-            // Respect a skip marker in the selected commit's title (not its description).
-            const {data: commit} = await github.rest.repos.getCommit({...repo, ref: sha});
+            // Respect a skip marker in the commit's title (not its description).
+            const {data: commit} = await github.rest.repos.getCommit({...repo, ref: context.sha});
             if (commit.commit.message.split('\n', 1)[0].includes('[skip benchmarks]')) return;
-            core.setOutput('head', sha);
+            core.setOutput('head', context.sha);
             core.setOutput('pr', pr?.number ?? '');
             core.setOutput('base', pr?.base.ref ?? defaultBranch);
 
@@ -87,11 +89,13 @@ jobs:
       BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      # The measured commit is this workflow's own commit, so the workflow, benchmark
+      # scripts, and target source all come from the target. Full history is needed
+      # to find the baseline commit.
       - name: Check out the measured commit
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.prepare.outputs.head }}
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
       - name: Measure the baseline and target performance
         id: measure
@@ -99,7 +103,7 @@ jobs:
           julia +1.10 --version
           nvidia-smi
           julia +1.10 --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
-          julia +1.10 --threads=1 --project=benchmark benchmark/runbenchmarks.jl
+          julia +1.10 --project=benchmark benchmark/runbenchmarks.jl
       - name: Upload report and raw measurements
         id: results
         uses: actions/upload-artifact@v7
@@ -148,8 +152,6 @@ jobs:
       - name: Check out the comment publisher
         uses: actions/checkout@v7
         with:
-          # Load the publisher from this workflow revision, not the measured PR.
-          ref: ${{ github.workflow_sha }}
           sparse-checkout: .github/scripts
           persist-credentials: false
       - name: Download benchmark results

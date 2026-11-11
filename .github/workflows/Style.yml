@@ -15,9 +15,9 @@ jobs:
     name: Check formatting and spelling
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Check spelling
-        uses: crate-ci/typos@v1.39.0
+        uses: crate-ci/typos@v1.52.0
         with:
           config: .typos.toml
       - name: Check formatting

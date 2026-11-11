@@ -24,10 +24,9 @@ end
 
 read_result(path) = JSON.parsefile(path; dicttype = Dict{String, Any})
 
-function benchmark_rhs(case; seconds, samples)
+function benchmark_rhs(case; t, seconds, samples)
     semi = make_problem(case)
     (; mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu) = semi
-    t = 0.0
     u_host = initial_input(semi, t)
     all(isfinite, u_host) || error("Non-finite initial state in $(case.name)")
     u = CuArray(u_host)
@@ -59,6 +58,8 @@ end
 function measure()
     path, commit = ARGS
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
+    # Initial time for every case; the results and report record this same value.
+    t = 0.0
     seconds = parse(Float64, get(ENV, "BENCHMARK_SECONDS", "1"))
     samples = parse(Int, get(ENV, "BENCHMARK_SAMPLES", "100"))
     case_filter = get(ENV, "BENCHMARK_FILTER", "")
@@ -79,12 +80,12 @@ function measure()
     output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                        "precision" => "Float64", "evals" => 1,
-                       "initialization" => "classical initial condition", "initial_time" => 0.0,
+                       "initialization" => "classical initial condition", "initial_time" => t,
                        "filter" => case_filter))
     results = Dict{String, Any}()
     for case in cases
         @info "Benchmarking $(case.name)"
-        results[case.name] = benchmark_rhs(case; seconds, samples)
+        results[case.name] = benchmark_rhs(case; t, seconds, samples)
         # Avoid retaining all case allocations on small benchmark GPUs.
         GC.gc(true)
         CUDA.reclaim()
@@ -130,14 +131,15 @@ function write_report(io, baseline, target)
             "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
             "is reported. Both commits use the target's case definitions, with classical ",
             "initial conditions, polynomial degrees, meshes, and fluxes adapted from ",
-            "Trixi/TrixiShallowWater examples. Inputs are initialized at t = 0.\n\n",
+            "Trixi/TrixiShallowWater examples. Inputs are initialized at t = ",
+            @sprintf("%g", parameters["initial_time"]), ".\n\n",
             "**Sampling:** After one warm-up RHS call per case, each sample measures one ",
             "synchronized RHS call. Sampling stops after ", parameters["samples"],
             " samples or a ", parameters["seconds"], " s sampling budget, whichever comes ",
             "first, to limit benchmark runtime. Sample counts are shown as baseline / target.\n\n",
-            "**Target:** Push runs measure that push's head commit. Manual runs select the ",
-            "specified PR's current head, or the selected default-branch commit when no PR ",
-            "is specified.\n\n",
+            "**Target:** Push runs measure that push's head commit. Manual runs measure the ",
+            "latest commit of the selected branch: the default branch without a PR number, ",
+            "or the head branch of the specified PR.\n\n",
             "**Baseline:** PR runs use the exact merge base of the target commit and ",
             "the fetched PR target branch (or the default branch for local branch runs). ",
             "Default-branch runs use the target commit's first parent.\n\n</details>\n")
@@ -147,9 +149,6 @@ end
 # with the merge base of the target and the fetched base branch.
 function comparison_commits()
     head = readchomp(git("rev-parse", "HEAD"))
-    if readchomp(git("rev-parse", "--is-shallow-repository")) == "true"
-        run(git("fetch", "--unshallow", "--no-tags", "origin", head))
-    end
     default = get(ENV, "BENCHMARK_DEFAULT_BRANCH", "main")
     branch = get(() -> readchomp(git("branch", "--show-current")), ENV, "GITHUB_REF_NAME")
     if branch == default && isempty(get(ENV, "BENCHMARK_PR", ""))

@@ -120,6 +120,7 @@ function write_report(io, baseline, target)
     end
     # Keep the numbers first; the settings stay one click away.
     println(io, "\n<details>\n<summary><b>Benchmark settings</b></summary>\n\n",
+            "<br>\n\n",
             "**Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
             "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
             "is reported. Both commits use the target's case definitions, with classical ",

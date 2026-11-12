@@ -150,6 +150,8 @@ function comparison_commits()
     return head, readchomp(git("merge-base", head, "FETCH_HEAD"))
 end
 
+# Both runs use the target's benchmark project. Each run uses its own revision
+# of source code and resolves its dependencies independently from scratch.
 function compare()
     head, baseline = comparison_commits()
     if haskey(ENV, "GITHUB_OUTPUT")
@@ -161,8 +163,6 @@ function compare()
         source, env = joinpath(work, "baseline"), joinpath(work, "environment")
         run(git("worktree", "add", "--detach", source, baseline))
         try
-            # Use the target's harness project, but resolve the baseline package and its
-            # dependencies from scratch instead of reusing the target's Manifest.toml.
             mkpath(env)
             cp(joinpath(@__DIR__, "Project.toml"), joinpath(env, "Project.toml"))
             withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do

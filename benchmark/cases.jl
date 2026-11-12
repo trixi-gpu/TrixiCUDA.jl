@@ -23,13 +23,15 @@ function initial_input(semi, t)
     ne = Trixi.nelements(solver, cache_cpu)
     nodes = CartesianIndices(ntuple(_ -> nn, ndims(equations)))
     u = Array{Float64}(undef, Trixi.nvariables(equations), size(nodes)..., ne)
-    # The shallow-water 2D EC example also needs the element ID at shared nodes.
     elementwise = applicable(initial_condition, zero(SVector{ndims(equations), Float64}), t, 1, equations)
+    # Use Trixi's standard initialization for initial conditions that don't require
+    # an element ID. This preserves one-sided sampling in 1D.
     if !elementwise
-        # Preserve Trixi's one-sided sampling of discontinuous 1D initial data.
         Trixi.compute_coefficients!(nothing, u, initial_condition, t, mesh, equations, solver, cache_cpu)
         return u
     end
+    # Pass the element ID to initial conditions that need it, such as the 
+    # discontinuous bottom topography in the 2D shallow-water EC case.
     for element in Trixi.eachelement(solver, cache_cpu), node in nodes
         indices = Tuple(node)
         x = Trixi.get_node_coords(cache_cpu.elements.node_coordinates, equations, solver, indices..., element)

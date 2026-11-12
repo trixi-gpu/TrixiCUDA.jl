@@ -2,14 +2,11 @@ using TrixiCUDA, CUDA, BenchmarkTools
 using Dates, JSON, Pkg, Printf, SHA
 include("cases.jl")
 
-# Version of the result JSON format for external readers.
 const RESULT_SCHEMA = 4
 const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
 
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
-# Both commits are measured in one job with the target's scripts and settings. Developing
-# the baseline can still resolve other dependencies, and its code builds the inputs.
 function validate_comparison(baseline, target)
     dependencies(result) = filter(p -> first(p) != TRIXICUDA_UUID, result["environment"]["packages"])
     dependencies(baseline) == dependencies(target) || error("Baseline and target dependencies differ")
@@ -32,15 +29,16 @@ function benchmark_rhs(case; t, seconds, samples)
     u = CuArray(u_host)
     du = CUDA.zeros(Float64, size(u))
 
-    # Compile and populate caches before measuring. Fail on invalid initialized states
-    # instead of publishing plausible timings for NaN-producing computations.
+    # Warm up the RHS before timing to trigger compilation and initialization.
+    # Check that the warm-up output is finite, since NaN or Inf can trigger
+    # different execution paths and make timings harder to interpret.
     CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
                                          source_terms, solver, cache_gpu, cache_cpu)
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
 
-    # Synchronize the reset outside the timed expression. evals=1 guarantees each
-    # measurement starts with du=0, including RHS implementations that accumulate.
-    # The block keeps BenchmarkTools options outside CUDA.@sync.
+    # Time the synchronized RHS call. Reset du to zero before each sample so 
+    # every timed call starts with the same output buffer contents. Wait for 
+    # the reset to finish before starting the timer.
     trial = @benchmark begin
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $t, $mesh, $equations,
                                              $boundary_conditions, $source_terms,
@@ -54,7 +52,6 @@ function benchmark_rhs(case; t, seconds, samples)
                 "input_hash" => bytes2hex(sha256(reinterpret(UInt8, vec(u_host)))))
 end
 
-# Usage: runbenchmarks.jl OUTPUT.json COMMIT_SHA
 function measure()
     path, commit = ARGS
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
@@ -145,8 +142,6 @@ function write_report(io, baseline, target)
             "Default-branch runs use the target commit's first parent.\n\n</details>\n")
 end
 
-# Default-branch runs compare with the first parent; PR and other branch runs compare
-# with the merge base of the target and the fetched base branch.
 function comparison_commits()
     head = readchomp(git("rev-parse", "HEAD"))
     default = get(ENV, "BENCHMARK_DEFAULT_BRANCH", "main")
@@ -158,7 +153,6 @@ function comparison_commits()
     return head, readchomp(git("merge-base", head, "FETCH_HEAD"))
 end
 
-# The workflow instantiates the target project; the baseline uses the same resolution.
 function compare()
     head, baseline = comparison_commits()
     if haskey(ENV, "GITHUB_OUTPUT")
@@ -180,7 +174,6 @@ function compare()
                 Pkg.instantiate()
                 Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
             end
-            # Save the exact resolved projects separately from the three report files.
             for (label, project) in (("target", @__DIR__), ("baseline", env))
                 mkpath(joinpath(output, "environments", label))
                 for file in ("Project.toml", "Manifest.toml")

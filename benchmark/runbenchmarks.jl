@@ -115,7 +115,8 @@ function write_report(io, baseline, target)
             "Small differences may be measurement noise.\n")
     for (label, result) in (("Baseline", baseline), ("Target", target))
         env = result["environment"]
-        println(io, label, " measurement: ", env["measured_at"], " UTC; ", env["build_url"], ".  ")
+        measured_at = Dates.format(DateTime(env["measured_at"]), dateformat"yyyy-mm-dd HH:MM")
+        println(io, label, " measurement: ", measured_at, " UTC; ", env["build_url"], ".  ")
     end
     # Keep the numbers first; the settings stay one click away.
     println(io, "\n<details>\n<summary><b>Benchmark settings</b></summary>\n\n",

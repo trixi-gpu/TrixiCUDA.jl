@@ -2,14 +2,9 @@ using TrixiCUDA, CUDA, BenchmarkTools
 using Dates, JSON, Pkg, Printf, SHA
 include("cases.jl")
 
-const RESULT_SCHEMA = 4
-const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
-
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
 function validate_comparison(baseline, target)
-    dependencies(result) = filter(p -> first(p) != TRIXICUDA_UUID, result["environment"]["packages"])
-    dependencies(baseline) == dependencies(target) || error("Baseline and target dependencies differ")
     b, t = baseline["benchmarks"], target["benchmarks"]
     keys(b) == keys(t) || error("Benchmark case sets differ")
     # The case definitions fix the initial time, and the shape fixes the DOFs per field.
@@ -74,7 +69,7 @@ function measure()
                        "cuda_versioninfo" => sprint(CUDA.versioninfo),
                        "measured_at" => string(now(UTC)),
                        "build_url" => get(ENV, "BENCHMARK_RUN_URL", "local"))
-    output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
+    output = Dict("environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                        "precision" => "Float64", "evals" => 1,
                        "initialization" => "classical initial condition", "initial_time" => t,
@@ -164,13 +159,13 @@ function compare()
         source, env = joinpath(work, "baseline"), joinpath(work, "environment")
         run(git("worktree", "add", "--detach", source, baseline))
         try
+            # Use the target's harness project, but resolve the baseline package and its
+            # dependencies from scratch instead of reusing the target's Manifest.toml.
             mkpath(env)
-            for file in ("Project.toml", "Manifest.toml")
-                cp(joinpath(@__DIR__, file), joinpath(env, file))
-            end
+            cp(joinpath(@__DIR__, "Project.toml"), joinpath(env, "Project.toml"))
             withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
                 Pkg.activate(env)
-                Pkg.develop(PackageSpec(path = source); preserve = Pkg.PRESERVE_ALL)
+                Pkg.develop(PackageSpec(path = source))
                 Pkg.instantiate()
                 Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
             end

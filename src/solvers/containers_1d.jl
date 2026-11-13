@@ -3,7 +3,7 @@
 # avoid multiple data transfers between the CPU and GPU.
 
 # Container data structure for DG elements
-mutable struct TreeElementContainerGPU1D{RealT <: Real, uEltype <: Real} <: AbstractContainer
+struct TreeElementContainerGPU1D{RealT <: Real, uEltype <: Real} <: AbstractContainer
     inverse_jacobian::CuArray{RealT, 1}
     node_coordinates::CuArray{RealT, 3}
     surface_flux_values::CuArray{uEltype, 3}
@@ -52,7 +52,7 @@ function copy_elements(elements::TreeElementContainer1D)
 end
 
 # Container data structure for DG interfaces
-mutable struct TreeInterfaceContainerGPU1D{uEltype <: Real} <: AbstractContainer
+struct TreeInterfaceContainerGPU1D{uEltype <: Real} <: AbstractContainer
     u::CuArray{uEltype, 3}
     neighbor_ids::CuArray{Int, 2}
     orientations::CuArray{Int, 1}
@@ -91,7 +91,7 @@ function copy_interfaces(interfaces::TreeInterfaceContainer1D)
 end
 
 # Container data structure for DG boundaries
-mutable struct TreeBoundaryContainerGPU1D{RealT <: Real, uEltype <: Real} <: AbstractContainer
+struct TreeBoundaryContainerGPU1D{RealT <: Real, uEltype <: Real} <: AbstractContainer
     u::CuArray{uEltype, 3}
     neighbor_ids::CuArray{Int, 1}
     orientations::CuArray{Int, 1}

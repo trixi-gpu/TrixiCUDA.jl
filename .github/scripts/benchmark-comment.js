@@ -4,12 +4,9 @@ module.exports = async ({github, context}) => {
   const sha = process.env.HEAD_SHA, baseline = process.env.BASELINE_SHA;
   const runURL = `${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${context.runId}`;
 
-  // Results come from this run and were validated by Julia before upload.
   const read = file => JSON.parse(fs.readFileSync(`results/${file}`, 'utf8'));
   const base = read('baseline.json'), target = read('target.json');
   const rows = Object.entries(target.benchmarks).map(([name, t]) => {
-    // Case names are rendered verbatim in the comment table.
-    if (!/^[a-z0-9_]{1,100}$/.test(name)) throw new Error('Invalid benchmark name');
     const b = base.benchmarks[name];
     return {
       name,
@@ -19,7 +16,6 @@ module.exports = async ({github, context}) => {
   });
   const speedup = Math.exp(rows.reduce((sum, r) => sum + Math.log(r.speedup), 0) / rows.length);
 
-  // Keep the PR summary short; the linked report contains all cases.
   const marker = '<!-- trixicuda-gpu-rhs-benchmarks -->';
   const body = [marker, '### GPU RHS Benchmarks', '',
     `\`${sha.slice(0, 7)}\` vs merge base \`${baseline.slice(0, 7)}\`; ` +
@@ -39,11 +35,10 @@ module.exports = async ({github, context}) => {
   const existing = comments.find(c =>
     c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker));
 
-  // Publish only while the measured commit is still the head of the open, non-draft PR;
-  // a newer push, draft conversion, or base change may have happened during the run.
+  // Recheck the PR before posting because it may have changed during the run.
   const {data: pr} = await github.rest.pulls.get({...repo, pull_number: number});
   if (pr.state !== 'open' || pr.draft || pr.head.sha !== sha ||
-      pr.base.ref !== process.env.BASE_BRANCH || existing?.body === body) return;
+      pr.base.ref !== process.env.BASE_BRANCH) return;
   if (existing) {
     await github.rest.issues.updateComment({...repo, comment_id: existing.id, body});
   } else {

@@ -2,17 +2,9 @@ using TrixiCUDA, CUDA, BenchmarkTools
 using Dates, JSON, Pkg, Printf, SHA
 include("cases.jl")
 
-# Version of the result JSON format for external readers.
-const RESULT_SCHEMA = 4
-const TRIXICUDA_UUID = "5056661c-942a-472c-b3bc-01507f717a60"
-
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
-# Both commits are measured in one job with the target's scripts and settings. Developing
-# the baseline can still resolve other dependencies, and its code builds the inputs.
 function validate_comparison(baseline, target)
-    dependencies(result) = filter(p -> first(p) != TRIXICUDA_UUID, result["environment"]["packages"])
-    dependencies(baseline) == dependencies(target) || error("Baseline and target dependencies differ")
     b, t = baseline["benchmarks"], target["benchmarks"]
     keys(b) == keys(t) || error("Benchmark case sets differ")
     # The case definitions fix the initial time, and the shape fixes the DOFs per field.
@@ -32,15 +24,16 @@ function benchmark_rhs(case; t, seconds, samples)
     u = CuArray(u_host)
     du = CUDA.zeros(Float64, size(u))
 
-    # Compile and populate caches before measuring. Fail on invalid initialized states
-    # instead of publishing plausible timings for NaN-producing computations.
+    # Warm up the RHS before timing to trigger compilation and initialization.
+    # Check that the warm-up output is finite, since NaN or Inf can trigger
+    # different execution paths and make timings harder to interpret.
     CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
                                          source_terms, solver, cache_gpu, cache_cpu)
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
 
-    # Synchronize the reset outside the timed expression. evals=1 guarantees each
-    # measurement starts with du=0, including RHS implementations that accumulate.
-    # The block keeps BenchmarkTools options outside CUDA.@sync.
+    # Time the synchronized RHS call. Reset du to zero before each sample so 
+    # every timed call starts with the same output buffer contents. Wait for 
+    # the reset to finish before starting the timer.
     trial = @benchmark begin
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $t, $mesh, $equations,
                                              $boundary_conditions, $source_terms,
@@ -54,7 +47,6 @@ function benchmark_rhs(case; t, seconds, samples)
                 "input_hash" => bytes2hex(sha256(reinterpret(UInt8, vec(u_host)))))
 end
 
-# Usage: runbenchmarks.jl OUTPUT.json COMMIT_SHA
 function measure()
     path, commit = ARGS
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
@@ -77,7 +69,7 @@ function measure()
                        "cuda_versioninfo" => sprint(CUDA.versioninfo),
                        "measured_at" => string(now(UTC)),
                        "build_url" => get(ENV, "BENCHMARK_RUN_URL", "local"))
-    output = Dict("schema" => RESULT_SCHEMA, "environment" => environment,
+    output = Dict("environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                        "precision" => "Float64", "evals" => 1,
                        "initialization" => "classical initial condition", "initial_time" => t,
@@ -123,16 +115,23 @@ function write_report(io, baseline, target)
             "Small differences may be measurement noise.\n")
     for (label, result) in (("Baseline", baseline), ("Target", target))
         env = result["environment"]
-        println(io, label, " measurement: ", env["measured_at"], " UTC; ", env["build_url"], ".  ")
+        measured_at = Dates.format(DateTime(env["measured_at"]), dateformat"yyyy-mm-dd HH:MM")
+        println(io, label, " measurement: ", measured_at, " UTC; ", env["build_url"], ".  ")
     end
     # Keep the numbers first; the settings stay one click away.
     println(io, "\n<details>\n<summary><b>Benchmark settings</b></summary>\n\n",
+            "<br>\n\n",
             "**Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
             "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
-            "is reported. Both commits use the target's case definitions, with classical ",
-            "initial conditions, polynomial degrees, meshes, and fluxes adapted from ",
-            "Trixi/TrixiShallowWater examples. Inputs are initialized at t = ",
+            "is reported. The cases use classical initial conditions, polynomial degrees, ",
+            "meshes, and fluxes adapted from Trixi/TrixiShallowWater examples. ",
+            "Inputs are initialized at t = ",
             @sprintf("%g", parameters["initial_time"]), ".\n\n",
+            "**Comparison setup:** Both revisions are measured on the same GPU using the ",
+            "target commit's benchmark harness, with identical cases and timing settings. ",
+            "Each run loads the TrixiCUDA source from its respective commit and resolves its ",
+            "Julia dependencies independently. The comparison captures the combined performance ",
+            "impact of source code and dependency changes.\n\n",
             "**Sampling:** After one warm-up RHS call per case, each sample measures one ",
             "synchronized RHS call. Sampling stops after ", parameters["samples"],
             " samples or a ", parameters["seconds"], " s sampling budget, whichever comes ",
@@ -145,8 +144,6 @@ function write_report(io, baseline, target)
             "Default-branch runs use the target commit's first parent.\n\n</details>\n")
 end
 
-# Default-branch runs compare with the first parent; PR and other branch runs compare
-# with the merge base of the target and the fetched base branch.
 function comparison_commits()
     head = readchomp(git("rev-parse", "HEAD"))
     default = get(ENV, "BENCHMARK_DEFAULT_BRANCH", "main")
@@ -158,7 +155,8 @@ function comparison_commits()
     return head, readchomp(git("merge-base", head, "FETCH_HEAD"))
 end
 
-# The workflow instantiates the target project; the baseline uses the same resolution.
+# Both runs use the target's benchmark project. Each run uses its own revision
+# of source code and resolves its dependencies independently from scratch.
 function compare()
     head, baseline = comparison_commits()
     if haskey(ENV, "GITHUB_OUTPUT")
@@ -171,16 +169,13 @@ function compare()
         run(git("worktree", "add", "--detach", source, baseline))
         try
             mkpath(env)
-            for file in ("Project.toml", "Manifest.toml")
-                cp(joinpath(@__DIR__, file), joinpath(env, file))
-            end
+            cp(joinpath(@__DIR__, "Project.toml"), joinpath(env, "Project.toml"))
             withenv("JULIA_PKG_PRECOMPILE_AUTO" => "0") do
                 Pkg.activate(env)
-                Pkg.develop(PackageSpec(path = source); preserve = Pkg.PRESERVE_ALL)
+                Pkg.develop(PackageSpec(path = source))
                 Pkg.instantiate()
                 Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
             end
-            # Save the exact resolved projects separately from the three report files.
             for (label, project) in (("target", @__DIR__), ("baseline", env))
                 mkpath(joinpath(output, "environments", label))
                 for file in ("Project.toml", "Manifest.toml")

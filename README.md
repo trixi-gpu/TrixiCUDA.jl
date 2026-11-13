@@ -121,7 +121,7 @@ Please also try the examples in the tests directory, as they are always the most
 # Benchmarks
 We benchmark `rhs_hyperbolic!` to guide semidiscretization optimization and track performance changes. This function evaluates the time derivative of the spatially discretized solution.
 
-GitHub Actions runs GPU benchmarks on pushes to branches of open, non-draft pull requests in this repository. Benchmark runs are queued to ensure exclusive access to the self-hosted GPU (the GPU model may change over time as optimization priorities evolve). Both commits in each comparison are benchmarked on the same GPU with the same resolved dependencies.
+GitHub Actions runs GPU benchmarks on pushes to branches of open, non-draft pull requests in this repository. Benchmark runs are queued to ensure exclusive access to the self-hosted GPU (the GPU model may change over time as optimization priorities evolve). Both commits in each comparison are benchmarked on the same GPU with the same benchmark harness, each using its own source code and resolved dependencies.
 
 Each benchmark run compares two commits:
 - **Target:** the commit at the head of the push.

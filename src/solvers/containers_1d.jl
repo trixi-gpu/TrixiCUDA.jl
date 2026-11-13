@@ -43,10 +43,10 @@ function copy_elements(elements::TreeElementContainer1D)
                                                              dims_surface_flux_values,
                                                              dims_cell_ids)
 
-    elements_gpu.inverse_jacobian = CuArray(elements.inverse_jacobian)
-    elements_gpu.node_coordinates = CuArray(elements.node_coordinates)
-    elements_gpu.surface_flux_values = CuArray(elements.surface_flux_values)
-    elements_gpu.cell_ids = CuArray(elements.cell_ids)
+    copyto!(elements_gpu.inverse_jacobian, elements.inverse_jacobian)
+    copyto!(elements_gpu.node_coordinates, elements.node_coordinates)
+    copyto!(elements_gpu.surface_flux_values, elements.surface_flux_values)
+    copyto!(elements_gpu.cell_ids, elements.cell_ids)
 
     return elements_gpu
 end
@@ -83,9 +83,9 @@ function copy_interfaces(interfaces::TreeInterfaceContainer1D)
     interfaces_gpu = TreeInterfaceContainerGPU1D{uEltype}(dims_u, dims_neighbor_ids,
                                                           dims_orientations)
 
-    interfaces_gpu.u = CuArray(interfaces.u)
-    interfaces_gpu.neighbor_ids = CuArray(interfaces.neighbor_ids)
-    interfaces_gpu.orientations = CuArray(interfaces.orientations)
+    copyto!(interfaces_gpu.u, interfaces.u)
+    copyto!(interfaces_gpu.neighbor_ids, interfaces.neighbor_ids)
+    copyto!(interfaces_gpu.orientations, interfaces.orientations)
 
     return interfaces_gpu
 end
@@ -137,12 +137,12 @@ function copy_boundaries(boundaries::TreeBoundaryContainer1D)
                                                                 dims_node_coordinates,
                                                                 dims_n_boundaries_per_direction)
 
-    boundaries_gpu.u = CuArray(boundaries.u)
-    boundaries_gpu.neighbor_ids = CuArray(boundaries.neighbor_ids)
-    boundaries_gpu.orientations = CuArray(boundaries.orientations)
-    boundaries_gpu.neighbor_sides = CuArray(boundaries.neighbor_sides)
-    boundaries_gpu.node_coordinates = CuArray(boundaries.node_coordinates)
-    boundaries_gpu.n_boundaries_per_direction = CuArray(boundaries.n_boundaries_per_direction)
+    copyto!(boundaries_gpu.u, boundaries.u)
+    copyto!(boundaries_gpu.neighbor_ids, boundaries.neighbor_ids)
+    copyto!(boundaries_gpu.orientations, boundaries.orientations)
+    copyto!(boundaries_gpu.neighbor_sides, boundaries.neighbor_sides)
+    copyto!(boundaries_gpu.node_coordinates, boundaries.node_coordinates)
+    copyto!(boundaries_gpu.n_boundaries_per_direction, Vector(boundaries.n_boundaries_per_direction))
 
     return boundaries_gpu
 end

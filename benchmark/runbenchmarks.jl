@@ -129,7 +129,7 @@ function write_report(io, baseline, target)
             @sprintf("%g", parameters["initial_time"]), ".\n\n",
             "**Comparison setup:** Both revisions are measured on the same GPU using the ",
             "target commit's benchmark harness, with identical cases and timing settings. ",
-            "Each run loads the TrixiCUDA source from its respective commit and resolves its ",
+            "Each run loads the source from its respective commit and resolves its ",
             "Julia dependencies independently. The comparison captures the combined performance ",
             "impact of source code and dependency changes.\n\n",
             "**Sampling:** After one warm-up RHS call per case, each sample measures one ",

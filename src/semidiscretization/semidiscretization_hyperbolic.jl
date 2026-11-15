@@ -53,7 +53,7 @@ function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, sol
                                     typeof(initial_condition), typeof(_boundary_conditions),
                                     typeof(source_terms), typeof(solver),
                                     typeof(cache)}(mesh, equations, initial_condition,
-                                                   _boundary_conditions, source_terms, 
+                                                   _boundary_conditions, source_terms,
                                                    solver, cache)
 end
 

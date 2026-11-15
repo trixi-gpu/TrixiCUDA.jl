@@ -1,5 +1,4 @@
 # Everything about cache that stores both host data and device data.
- 
 # Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently experimental 
 # in Trixi.jl and it is not implemented here.
 

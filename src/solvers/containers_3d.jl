@@ -173,10 +173,10 @@ struct TreeL2MortarContainerGPU3D{uEltype <: Real} <: AbstractContainer
                                                  dims_orientations::NTuple{1, Int}) where {uEltype <:
                                                                                            Real}
         # Initialize the arrays on the GPU with zeros.
-        u_upper_left = CUDA.zeros(dims_u_upper_left...)
-        u_upper_right = CUDA.zeros(dims_u_upper_right...)
-        u_lower_left = CUDA.zeros(dims_u_lower_left...)
-        u_lower_right = CUDA.zeros(dims_u_lower_right...)
+        u_upper_left = CUDA.zeros(uEltype, dims_u_upper_left...)
+        u_upper_right = CUDA.zeros(uEltype, dims_u_upper_right...)
+        u_lower_left = CUDA.zeros(uEltype, dims_u_lower_left...)
+        u_lower_right = CUDA.zeros(uEltype, dims_u_lower_right...)
 
         neighbor_ids = CuArray{Int}(undef, dims_neighbor_ids...)
         large_sides = CuArray{Int}(undef, dims_large_sides...)

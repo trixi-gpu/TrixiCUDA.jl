@@ -3,7 +3,7 @@
 # Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently experimental 
 # in Trixi.jl and it is not implemented here.
 
-# TODO: Need to check the performance of `HG` seperately for 1D, 2D and 3D about design.
+# TODO: Need to check the performance of `HG` separately for 1D, 2D and 3D about design.
 
 function create_cache_gpu(mesh, equations,
                           volume_integral::VolumeIntegralWeakForm, dg::DGSEM,

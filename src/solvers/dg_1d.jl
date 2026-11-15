@@ -16,7 +16,7 @@ include("dg_1d_kernel.jl")
 # Compute the DG volume term on the GPU for 1D problems using the classical 
 # weak form volume operator.
 function calc_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms, equations,
-                               volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache_gpu, cache_cpu)
+                               volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache_gpu)
     RealT = eltype(du)
 
     derivative_hat = dg.basis.derivative_hat
@@ -50,7 +50,7 @@ end
 # Compute the DG volume term on the GPU for 1D problems using the flux differencing 
 # volume operator with non-conservative terms disabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache_gpu, cache_cpu)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache_gpu)
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
@@ -88,7 +88,7 @@ end
 # Compute the DG volume term on the GPU for 1D problems using the flux differencing 
 # volume operator with non-conservative terms enabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache_gpu, cache_cpu)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache_gpu)
     RealT = eltype(du)
 
     symmetric_flux, nonconservative_flux = volume_integral.volume_flux
@@ -135,7 +135,7 @@ end
 # Compute the DG volume term on the GPU for 1D problems using the hybrid DG 
 # finite volume shock capturing operator with non-conservative terms disabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache_gpu, cache_cpu)
+                               volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache_gpu)
     RealT = eltype(du)
 
     volume_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
@@ -195,7 +195,7 @@ end
 # Compute the DG volume term on the GPU for 1D problems using the hybrid DG finite volume 
 # shock capturing operator with non-conservative terms enabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache_gpu, cache_cpu)
+                               volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache_gpu)
     RealT = eltype(du)
 
     volume_flux_dg, noncons_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
@@ -507,13 +507,13 @@ end
 # DG volume term, interface and boundary fluxes, surface accumulation, Jacobian transformation, 
 # and source terms.
 function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions, source_terms::Source, dg::DGSEM,
-                         cache_gpu, cache_cpu) where {Source}
+                         cache_gpu) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 
     # removing the need for a separate function call.
 
     calc_volume_integral!(du, u, mesh, equations,
-                          dg.volume_integral, dg, cache_gpu, cache_cpu)
+                          dg.volume_integral, dg, cache_gpu)
 
     prolong2interfaces!(cache_gpu, u, mesh, equations, dg)
 

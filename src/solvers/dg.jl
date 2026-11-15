@@ -169,25 +169,23 @@ end
 
 # These entry points follow Trixi's names and argument order in the TrixiCUDA namespace,
 # but omit backend selectors since all kernels use native CUDA.jl launches.
-# The extra CPU cache in the volume integral/RHS supports the current host-side HG indicator.
 
 """
     calc_volume_integral!(du, u, mesh, equations,
-                          volume_integral, dg, cache_gpu, cache_cpu)
+                          volume_integral, dg, cache_gpu)
     calc_volume_integral!(du, u, mesh, nonconservative_terms, equations,
-                          volume_integral, dg, cache_gpu, cache_cpu)
+                          volume_integral, dg, cache_gpu)
 
 Compute the DG volume term on the GPU for weak form, flux differencing, or classic HG
 shock capturing. When omitted, the nonconservative trait is selected from `equations`.
-The additional `cache_cpu` argument is required by the current HG indicator implementation.
 Writes `du` in place; resetting `du` is fused into the first kernel.
 """
 function calc_volume_integral! end
 
 function calc_volume_integral!(du, u, mesh::TreeMesh, equations,
-                               volume_integral, dg::DGSEM, cache_gpu, cache_cpu)
+                               volume_integral, dg::DGSEM, cache_gpu)
     return calc_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
-                                 volume_integral, dg, cache_gpu, cache_cpu)
+                                 volume_integral, dg, cache_gpu)
 end
 
 """
@@ -298,7 +296,7 @@ function calc_sources! end
 """
     rhs_hyperbolic!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
     rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
-                    source_terms, dg, cache_gpu, cache_cpu)
+                    source_terms, dg, cache_gpu)
 
 Compute the hyperbolic right-hand side on the GPU.
 
@@ -306,7 +304,6 @@ The first method extracts the required data from `semi` and calls the second met
 
 The second method assembles the right-hand side from volume, interface, boundary,
 mortar, surface, Jacobian, and source operations. It writes `du` in place and returns
-`nothing`. The additional `cache_cpu` supports the current host-side HG indicator;
-1D problems have no mortar stages.
+`nothing`. 1D problems have no mortar stages.
 """
 function rhs_hyperbolic! end

@@ -50,11 +50,15 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations,
     fstar1_L = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
     fstar1_R = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
 
+    # Device buffers for the indicator values and their smoothing
+    alpha = CuArray{real(dg)}(undef, nelements(cache.elements))
+    alpha_tmp = similar(alpha)
+
     cache = create_cache_gpu(mesh, equations,
                              volume_integral.volume_integral_blend_high_order,
                              dg, uEltype, cache)
 
-    return (; cache..., fstar1_L, fstar1_R)
+    return (; cache..., fstar1_L, fstar1_R, alpha, alpha_tmp)
 end
 
 # Create cache specialized for 2D tree mesh
@@ -107,11 +111,15 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
     fstar2_R = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg), nnodes(dg) + 1,
                           nelements(cache.elements))
 
+    # Device buffers for the indicator values and their smoothing
+    alpha = CuArray{real(dg)}(undef, nelements(cache.elements))
+    alpha_tmp = similar(alpha)
+
     cache = create_cache_gpu(mesh, equations,
                              volume_integral.volume_integral_blend_high_order,
                              dg, uEltype, cache)
 
-    return (; cache..., fstar1_L, fstar1_R, fstar2_L, fstar2_R)
+    return (; cache..., fstar1_L, fstar1_R, fstar2_L, fstar2_R, alpha, alpha_tmp)
 end
 
 function create_cache_gpu(mesh::TreeMesh{2}, equations,
@@ -182,11 +190,15 @@ function create_cache_gpu(mesh::TreeMesh{3}, equations,
     fstar3_R = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg), nnodes(dg),
                           nnodes(dg) + 1, nelements(cache.elements))
 
+    # Device buffers for the indicator values and their smoothing
+    alpha = CuArray{real(dg)}(undef, nelements(cache.elements))
+    alpha_tmp = similar(alpha)
+
     cache = create_cache_gpu(mesh, equations,
                              volume_integral.volume_integral_blend_high_order,
                              dg, uEltype, cache)
 
-    return (; cache..., fstar1_L, fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R)
+    return (; cache..., fstar1_L, fstar1_R, fstar2_L, fstar2_R, fstar3_L, fstar3_R, alpha, alpha_tmp)
 end
 
 function create_cache_gpu(mesh::TreeMesh{3}, equations,

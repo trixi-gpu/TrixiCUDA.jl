@@ -164,8 +164,7 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     inverse_weights = dg.basis.inverse_weights
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = indicator(Array(u), mesh, equations, dg, cache_cpu)
-    alpha = CuArray(alpha)
+    alpha = calc_indicator_gpu!(indicator, u, mesh, equations, dg, cache_gpu)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
     thread_per_block = size(du, 2)^2
@@ -237,8 +236,7 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{2}, nonconservative_terms::
     inverse_weights = dg.basis.inverse_weights
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = indicator(Array(u), mesh, equations, dg, cache_cpu)
-    alpha = CuArray(alpha)
+    alpha = calc_indicator_gpu!(indicator, u, mesh, equations, dg, cache_gpu)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
     thread_per_block = size(du, 2)^2

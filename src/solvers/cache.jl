@@ -1,39 +1,38 @@
-# Rewrite `create_cache` in Trixi.jl to add the specialized parts of the arrays 
-# required to copy the arrays from CPU to GPU.
+# Everything about cache that stores both host data and device data.
+ 
+# Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently experimental 
+# in Trixi.jl and it is not implemented here.
 
-# Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently 
-# experimental in Trixi.jl and it is not implemented here.
+# TODO: Need to check the performance of `HG` seperately for 1D, 2D and 3D about design.
 
-# Create cache for general tree mesh
 function create_cache_gpu(mesh, equations,
                           volume_integral::VolumeIntegralWeakForm, dg::DGSEM,
                           uEltype, cache)
     NamedTuple()
 end
 
-# Create cache specialized for 1D tree mesh
+# Create cache specialized for 1D `TreeMesh`.
 function create_cache_gpu(mesh::TreeMesh{1}, equations, dg::DGSEM, RealT, uEltype)
-    # Get cells for which an element needs to be created (i.e., all leaf cells)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
     basis_cpu = LobattoLegendreBasis(real(dg), polydeg(dg))
     elements = init_elements(leaf_cell_ids, mesh, equations, basis_cpu, RealT, uEltype)
-
     interfaces = init_interfaces(leaf_cell_ids, mesh, elements)
-
     boundaries = init_boundaries(leaf_cell_ids, mesh, elements, basis_cpu)
 
-    # Copy cache components from CPU to GPU
+    # Copy cache components from CPU to GPU.
+    # TODO: This copy could possible by overlapping with some GPU kernels execution.
+    # And this optimizatinon could largely improve the performance if they are not 
+    # used early in RHS.
     elements = copy_elements(elements)
     interfaces = copy_interfaces(interfaces)
     boundaries = copy_boundaries(boundaries)
 
-    # GPU cache
-    cache_gpu = (; elements, interfaces, boundaries)
-
-    # Add specialized parts of the cache required to compute the volume integral etc.
-    cache = (; cache_gpu...,
-             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_gpu)...)
+    # Container cache
+    cache = (; elements, interfaces, boundaries)
+    # Add volume integral cache
+    cache = (; cache...,
+             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache)...)
 
     return cache
 end
@@ -50,7 +49,7 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations,
     fstar1_L = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
     fstar1_R = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg) + 1, nelements(cache.elements))
 
-    # Device buffers for the indicator values and their smoothing
+    # Device buffers for the indicator values and their smoothing.
     alpha = CuArray{real(dg)}(undef, nelements(cache.elements))
     alpha_tmp = similar(alpha)
 
@@ -61,34 +60,32 @@ function create_cache_gpu(mesh::TreeMesh{1}, equations,
     return (; cache..., fstar1_L, fstar1_R, alpha, alpha_tmp)
 end
 
-# Create cache specialized for 2D tree mesh
-function create_cache_gpu(mesh::TreeMesh{2}, equations,
-                          dg::DGSEM, RealT, uEltype)
-    # Get cells for which an element needs to be created (i.e., all leaf cells)
+# Create cache specialized for 2D `TreeMesh`.
+function create_cache_gpu(mesh::TreeMesh{2}, equations, dg::DGSEM, RealT, uEltype)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
     basis_cpu = LobattoLegendreBasis(real(dg), polydeg(dg))
     elements = init_elements(leaf_cell_ids, mesh, equations, basis_cpu, RealT, uEltype)
-
     interfaces = init_interfaces(leaf_cell_ids, mesh, elements)
-
     boundaries = init_boundaries(leaf_cell_ids, mesh, elements, basis_cpu)
-
     mortars = init_mortars(leaf_cell_ids, mesh, elements, dg.mortar)
 
-    # Copy cache components from CPU to GPU
+    # Copy cache components from CPU to GPU.
+    # TODO: This copy could possible by overlapping with some GPU kernels execution.
+    # And this optimizatinon could largely improve the performance if they are not 
+    # used early in RHS.
     elements = copy_elements(elements)
     interfaces = copy_interfaces(interfaces)
     boundaries = copy_boundaries(boundaries)
     mortars = copy_mortars(mortars)
 
-    # GPU cache
-    cache_gpu = (; elements, interfaces, boundaries, mortars)
-
-    # Add specialized parts of the cache required to compute the volume integral etc.
-    cache_gpu = (; cache_gpu...,
-                 create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_gpu)...)
-    cache = (; cache_gpu..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache_gpu)...)
+    # Container cache
+    cache = (; elements, interfaces, boundaries, mortars)
+    # Add volume integral cache
+    cache = (; cache...,
+             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache)...)
+    # Add mortar cache
+    cache = (; cache..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache)...)
 
     return cache
 end
@@ -111,7 +108,7 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
     fstar2_R = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg), nnodes(dg) + 1,
                           nelements(cache.elements))
 
-    # Device buffers for the indicator values and their smoothing
+    # Device buffers for the indicator values and their smoothing.
     alpha = CuArray{real(dg)}(undef, nelements(cache.elements))
     alpha_tmp = similar(alpha)
 
@@ -136,34 +133,32 @@ function create_cache_gpu(mesh::TreeMesh{2}, equations,
     (; fstar_primary_upper, fstar_primary_lower, fstar_secondary_upper, fstar_secondary_lower)
 end
 
-# Create cache specialized for 3D tree mesh
-function create_cache_gpu(mesh::TreeMesh{3}, equations,
-                          dg::DGSEM, RealT, uEltype)
-    # Get cells for which an element needs to be created (i.e., all leaf cells)
+# Create cache specialized for 3D `TreeMesh`.
+function create_cache_gpu(mesh::TreeMesh{3}, equations, dg::DGSEM, RealT, uEltype)
     leaf_cell_ids = local_leaf_cells(mesh.tree)
 
     basis_cpu = LobattoLegendreBasis(real(dg), polydeg(dg))
     elements = init_elements(leaf_cell_ids, mesh, equations, basis_cpu, RealT, uEltype)
-
     interfaces = init_interfaces(leaf_cell_ids, mesh, elements)
-
     boundaries = init_boundaries(leaf_cell_ids, mesh, elements, basis_cpu)
-
     mortars = init_mortars(leaf_cell_ids, mesh, elements, dg.mortar)
 
     # Copy cache components from CPU to GPU
+    # TODO: This copy could possible by overlapping with some GPU kernels execution.
+    # And this optimizatinon could largely improve the performance if they are not 
+    # used early in RHS.
     elements = copy_elements(elements)
     interfaces = copy_interfaces(interfaces)
     boundaries = copy_boundaries(boundaries)
     mortars = copy_mortars(mortars)
 
-    # GPU cache
-    cache_gpu = (; elements, interfaces, boundaries, mortars)
-
-    # Add specialized parts of the cache required to compute the volume integral etc.
-    cache_gpu = (; cache_gpu...,
-                 create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache_gpu)...)
-    cache = (; cache_gpu..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache_gpu)...)
+    # Container cache
+    cache = (; elements, interfaces, boundaries, mortars)
+    # Add volume integral cache
+    cache = (; cache...,
+             create_cache_gpu(mesh, equations, dg.volume_integral, dg, uEltype, cache)...)
+    # Add mortar cache
+    cache = (; cache..., create_cache_gpu(mesh, equations, dg.mortar, uEltype, cache)...)
 
     return cache
 end
@@ -190,7 +185,7 @@ function create_cache_gpu(mesh::TreeMesh{3}, equations,
     fstar3_R = CUDA.zeros(uEltype, nvariables(equations), nnodes(dg), nnodes(dg),
                           nnodes(dg) + 1, nelements(cache.elements))
 
-    # Device buffers for the indicator values and their smoothing
+    # Device buffers for the indicator values and their smoothing.
     alpha = CuArray{real(dg)}(undef, nelements(cache.elements))
     alpha_tmp = similar(alpha)
 
@@ -220,7 +215,7 @@ function create_cache_gpu(mesh::TreeMesh{3}, equations,
     fstar_secondary_lower_right = CUDA.zeros(uEltype, nvariables(equations), nnodes(mortar_l2),
                                              nnodes(mortar_l2), nmortars(cache.mortars))
 
-    # Temporary arrays can also be created here
+    # Temporary arrays can also be created here.
     (; fstar_primary_upper_left, fstar_primary_upper_right, fstar_primary_lower_left,
      fstar_primary_lower_right, fstar_secondary_upper_left, fstar_secondary_upper_right,
      fstar_secondary_lower_left, fstar_secondary_lower_right)

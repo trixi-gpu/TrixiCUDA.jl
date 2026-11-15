@@ -18,26 +18,26 @@ read_result(path) = JSON.parsefile(path; dicttype = Dict{String, Any})
 
 function benchmark_rhs(case; t, seconds, samples)
     semi = make_problem(case)
-    (; mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu) = semi
+    (; equations) = semi
     u_host = initial_input(semi, t)
     all(isfinite, u_host) || error("Non-finite initial state in $(case.name)")
     u = CuArray(u_host)
     du = CUDA.zeros(Float64, size(u))
+    # Call the `semi`-level RHS, whose signature is the same in every revision being
+    # compared. `vec` shares memory with `u` and `du`, so nothing is copied.
+    u_ode, du_ode = vec(u), vec(du)
 
     # Warm up the RHS before timing to trigger compilation and initialization.
     # Check that the warm-up output is finite, since NaN or Inf can trigger
     # different execution paths and make timings harder to interpret.
-    CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
-                                         source_terms, solver, cache_gpu, cache_cpu)
+    CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du_ode, u_ode, semi, t)
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
 
     # Time the synchronized RHS call. Reset du to zero before each sample so 
     # every timed call starts with the same output buffer contents. Wait for 
     # the reset to finish before starting the timer.
     trial = @benchmark begin
-        CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $t, $mesh, $equations,
-                                             $boundary_conditions, $source_terms,
-                                             $solver, $cache_gpu, $cache_cpu)
+        CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du_ode, $u_ode, $semi, $t)
     end setup=(CUDA.@sync fill!($du, 0.0)) evals=1 seconds=seconds samples=samples
     return Dict("minimum_ns" => minimum(trial).time,
                 "samples_ns" => trial.times,

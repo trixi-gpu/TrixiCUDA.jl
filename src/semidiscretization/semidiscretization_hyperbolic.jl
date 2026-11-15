@@ -4,7 +4,7 @@
 # No need to adapt the `SemidiscretizationHyperbolic` struct as it is already GPU compatible
 mutable struct SemidiscretizationHyperbolicGPU{Mesh, Equations, InitialCondition,
                                                BoundaryConditions,
-                                               SourceTerms, Solver, CacheGPU} <:
+                                               SourceTerms, Solver, Cache} <:
                AbstractSemidiscretization
     mesh::Mesh
     equations::Equations
@@ -16,26 +16,26 @@ mutable struct SemidiscretizationHyperbolicGPU{Mesh, Equations, InitialCondition
     boundary_conditions::BoundaryConditions
     source_terms::SourceTerms
     solver::Solver
-    cache_gpu::CacheGPU
+    cache::Cache
     performance_counter::PerformanceCounter
 
     function SemidiscretizationHyperbolicGPU{Mesh, Equations, InitialCondition,
                                              BoundaryConditions, SourceTerms, Solver,
-                                             CacheGPU}(mesh::Mesh, equations::Equations,
-                                                       initial_condition::InitialCondition,
-                                                       boundary_conditions::BoundaryConditions,
-                                                       source_terms::SourceTerms,
-                                                       solver::Solver,
-                                                       cache_gpu::CacheGPU) where {Mesh, Equations,
-                                                                                   InitialCondition,
-                                                                                   BoundaryConditions,
-                                                                                   SourceTerms,
-                                                                                   Solver,
-                                                                                   CacheGPU}
+                                             Cache}(mesh::Mesh, equations::Equations,
+                                                    initial_condition::InitialCondition,
+                                                    boundary_conditions::BoundaryConditions,
+                                                    source_terms::SourceTerms,
+                                                    solver::Solver,
+                                                    cache::Cache) where {Mesh, Equations,
+                                                                         InitialCondition,
+                                                                         BoundaryConditions,
+                                                                         SourceTerms,
+                                                                         Solver,
+                                                                         Cache}
         performance_counter = PerformanceCounter()
 
         new(mesh, equations, initial_condition, boundary_conditions, source_terms,
-            solver, cache_gpu, performance_counter)
+            solver, cache, performance_counter)
     end
 end
 
@@ -45,7 +45,7 @@ end
                                     source_terms=nothing,
                                     RealT=real(solver),
                                     uEltype=RealT,
-                                    initial_cache_gpu=NamedTuple())
+                                    initial_cache=NamedTuple())
 
 Construct a semidiscretization of a hyperbolic PDE for GPU-accelerated computations. The cache
 holds the GPU arrays used by the right-hand side and only the host data that is needed there.
@@ -60,40 +60,38 @@ function SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, sol
                                          source_terms = nothing,
                                          RealT = real(solver), # `RealT` is used as real type for node locations etc.
                                          uEltype = RealT, # `uEltype` is used as element type of solutions etc.
-                                         initial_cache_gpu = NamedTuple())
+                                         initial_cache = NamedTuple())
     @assert ndims(mesh) == ndims(equations)
 
-    cache_gpu = (; create_cache_gpu(mesh, equations, solver, RealT, uEltype)...,
-                 initial_cache_gpu...)
+    cache = (; create_cache_gpu(mesh, equations, solver, RealT, uEltype)..., initial_cache...)
 
-    _boundary_conditions = digest_boundary_conditions(boundary_conditions, mesh, solver,
-                                                      cache_gpu)
+    _boundary_conditions = digest_boundary_conditions(boundary_conditions, mesh, solver, cache)
 
     check_periodicity_mesh_boundary_conditions(mesh, _boundary_conditions)
 
     SemidiscretizationHyperbolicGPU{typeof(mesh), typeof(equations),
                                     typeof(initial_condition), typeof(_boundary_conditions),
                                     typeof(source_terms), typeof(solver),
-                                    typeof(cache_gpu)}(mesh, equations, initial_condition,
-                                                       _boundary_conditions, source_terms, solver,
-                                                       cache_gpu)
+                                    typeof(cache)}(mesh, equations, initial_condition,
+                                                   _boundary_conditions, source_terms, solver,
+                                                   cache)
 end
 
 @inline Base.ndims(semi::SemidiscretizationHyperbolicGPU) = ndims(semi.mesh)
 @inline Base.real(semi::SemidiscretizationHyperbolicGPU) = real(semi.solver)
 
 @inline function mesh_equations_solver_cache(semi::SemidiscretizationHyperbolicGPU)
-    (; mesh, equations, solver, cache_gpu) = semi
-    return mesh, equations, solver, cache_gpu
+    (; mesh, equations, solver, cache) = semi
+    return mesh, equations, solver, cache
 end
 
 function calc_error_norms(func, u_ode, t, analyzer, semi::SemidiscretizationHyperbolicGPU,
                           cache_analysis)
-    (; mesh, equations, initial_condition, solver, cache_gpu) = semi
-    u = wrap_array(u_ode, mesh, equations, solver, cache_gpu)
+    (; mesh, equations, initial_condition, solver, cache) = semi
+    u = wrap_array(u_ode, mesh, equations, solver, cache)
 
     calc_error_norms(func, u, t, analyzer, mesh, equations, initial_condition, solver,
-                     cache_gpu, cache_analysis)
+                     cache, cache_analysis)
 end
 
 # Similar to `compute_coefficients` in Trixi.jl but calls GPU kernel

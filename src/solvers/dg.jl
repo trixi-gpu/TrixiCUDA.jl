@@ -172,9 +172,9 @@ end
 
 """
     calc_volume_integral!(du, u, mesh, equations,
-                          volume_integral, dg, cache_gpu)
+                          volume_integral, dg, cache)
     calc_volume_integral!(du, u, mesh, nonconservative_terms, equations,
-                          volume_integral, dg, cache_gpu)
+                          volume_integral, dg, cache)
 
 Compute the DG volume term on the GPU for weak form, flux differencing, or classic HG
 shock capturing. When omitted, the nonconservative trait is selected from `equations`.
@@ -183,9 +183,9 @@ Writes `du` in place; resetting `du` is fused into the first kernel.
 function calc_volume_integral! end
 
 function calc_volume_integral!(du, u, mesh::TreeMesh, equations,
-                               volume_integral, dg::DGSEM, cache_gpu)
+                               volume_integral, dg::DGSEM, cache)
     return calc_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
-                                 volume_integral, dg, cache_gpu)
+                                 volume_integral, dg, cache)
 end
 
 """
@@ -296,7 +296,7 @@ function calc_sources! end
 """
     rhs_hyperbolic!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
     rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
-                    source_terms, dg, cache_gpu)
+                    source_terms, dg, cache)
 
 Compute the hyperbolic right-hand side on the GPU.
 

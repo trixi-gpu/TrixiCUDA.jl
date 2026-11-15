@@ -34,7 +34,7 @@ include("../test_macros.jl")
 
     # Semi on GPU
     equations_gpu, mesh_gpu, solver_gpu = semi_gpu.equations, semi_gpu.mesh, semi_gpu.solver
-    cache_gpu = semi_gpu.cache_gpu
+    cache_gpu = semi_gpu.cache
     boundary_conditions_gpu, source_terms_gpu = semi_gpu.boundary_conditions, semi_gpu.source_terms
 
     # ODE on CPU

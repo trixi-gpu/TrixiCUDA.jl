@@ -83,9 +83,9 @@ end
 # point to the data we want to augment
 u = Trixi.wrap_array(ode.u0, semi)
 u = Array(u)
-node_coordinates = Array(semi.cache_gpu.elements.node_coordinates)
+node_coordinates = Array(semi.cache.elements.node_coordinates)
 # reset the initial condition
-for element in eachelement(semi.solver, semi.cache_gpu)
+for element in eachelement(semi.solver, semi.cache)
     for j in eachnode(semi.solver), i in eachnode(semi.solver)
         x_node = Trixi.get_node_coords(node_coordinates, equations, semi.solver, i, j, element)
         u_node = initial_condition_ec_discontinuous_bottom(x_node, first(tspan), element,

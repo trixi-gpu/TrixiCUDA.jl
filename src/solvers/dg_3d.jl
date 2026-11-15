@@ -16,7 +16,7 @@ include("dg_3d_kernel.jl")
 # Compute the DG volume term on the GPU for 3D problems using the classical 
 # weak form volume operator.
 function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, equations,
-                               volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache_gpu)
+                               volume_integral::VolumeIntegralWeakForm, dg::DGSEM, cache)
     RealT = eltype(du)
 
     derivative_hat = dg.basis.derivative_hat
@@ -54,7 +54,7 @@ end
 # Compute the DG volume term on the GPU for 3D problems using the flux differencing 
 # volume operator with non-conservative terms disabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache_gpu)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     RealT = eltype(du)
 
     volume_flux = volume_integral.volume_flux
@@ -102,7 +102,7 @@ end
 # Compute the DG volume term on the GPU for 3D problems using the flux differencing 
 # volume operator with non-conservative terms enabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache_gpu)
+                               volume_integral::VolumeIntegralFluxDifferencing, dg::DGSEM, cache)
     RealT = eltype(du)
 
     symmetric_flux, nonconservative_flux = volume_integral.volume_flux
@@ -170,7 +170,7 @@ end
 # Compute the DG volume term on the GPU for 3D problems using the hybrid DG 
 # finite volume shock capturing operator with non-conservative terms disabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::False, equations,
-                               volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache_gpu)
+                               volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache)
     RealT = eltype(du)
 
     volume_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
@@ -180,7 +180,7 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     inverse_weights = dg.basis.inverse_weights
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = calc_indicator_gpu!(indicator, u, mesh, equations, dg, cache_gpu)
+    alpha = calc_indicator_gpu!(indicator, u, mesh, equations, dg, cache)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
     thread_per_block = size(du, 2)^3
@@ -198,12 +198,12 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                                                     volume_flux_fv)
     else
         # TODO: Remove `fstar` from cache initialization
-        fstar1_L = cache_gpu.fstar1_L
-        fstar1_R = cache_gpu.fstar1_R
-        fstar2_L = cache_gpu.fstar2_L
-        fstar2_R = cache_gpu.fstar2_R
-        fstar3_L = cache_gpu.fstar3_L
-        fstar3_R = cache_gpu.fstar3_R
+        fstar1_L = cache.fstar1_L
+        fstar1_R = cache.fstar1_R
+        fstar2_L = cache.fstar2_L
+        fstar2_R = cache.fstar2_R
+        fstar3_L = cache.fstar3_L
+        fstar3_R = cache.fstar3_R
 
         volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                           size(u, 2), size(u, 5))
@@ -252,7 +252,7 @@ end
 # Compute the DG volume term on the GPU for 3D problems using the hybrid DG finite volume 
 # shock capturing operator with non-conservative terms enabled.
 function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::True, equations,
-                               volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache_gpu)
+                               volume_integral::VolumeIntegralShockCapturingHGType, dg::DGSEM, cache)
     RealT = eltype(du)
 
     volume_flux_dg, noncons_flux_dg = volume_integral.volume_integral_blend_high_order.volume_flux
@@ -262,7 +262,7 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     inverse_weights = dg.basis.inverse_weights
 
     # TODO: Get copies of `u` and `du` on both device and host
-    alpha = calc_indicator_gpu!(indicator, u, mesh, equations, dg, cache_gpu)
+    alpha = calc_indicator_gpu!(indicator, u, mesh, equations, dg, cache)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
     thread_per_block = size(du, 2)^3
@@ -282,12 +282,12 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
                                                                                                     noncons_flux_fv)
     else
         # TODO: Remove `fstar` from cache initialization
-        fstar1_L = cache_gpu.fstar1_L
-        fstar1_R = cache_gpu.fstar1_R
-        fstar2_L = cache_gpu.fstar2_L
-        fstar2_R = cache_gpu.fstar2_R
-        fstar3_L = cache_gpu.fstar3_L
-        fstar3_R = cache_gpu.fstar3_R
+        fstar1_L = cache.fstar1_L
+        fstar1_R = cache.fstar1_R
+        fstar2_L = cache.fstar2_L
+        fstar2_R = cache.fstar2_R
+        fstar3_L = cache.fstar3_L
+        fstar3_R = cache.fstar3_R
 
         volume_flux_arr1 = CuArray{RealT}(undef, size(u, 1), size(u, 2), size(u, 2), size(u, 2),
                                           size(u, 2), size(u, 5))
@@ -873,33 +873,33 @@ end
 # interface, boundary and mortar fluxes, surface accumulation, Jacobian transformation, and 
 # source terms.
 function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{3}, equations, boundary_conditions, source_terms::Source, dg::DGSEM,
-                         cache_gpu) where {Source}
+                         cache) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 
     # removing the need for a separate function call.
 
     calc_volume_integral!(du, u, mesh, equations,
-                          dg.volume_integral, dg, cache_gpu)
+                          dg.volume_integral, dg, cache)
 
-    prolong2interfaces!(cache_gpu, u, mesh, equations, dg)
+    prolong2interfaces!(cache, u, mesh, equations, dg)
 
-    calc_interface_flux!(cache_gpu.elements.surface_flux_values, mesh, equations,
-                         dg.surface_integral, dg, cache_gpu)
+    calc_interface_flux!(cache.elements.surface_flux_values, mesh, equations,
+                         dg.surface_integral, dg, cache)
 
-    prolong2boundaries!(cache_gpu, u, mesh, equations, dg)
+    prolong2boundaries!(cache, u, mesh, equations, dg)
 
-    calc_boundary_flux!(cache_gpu, t, boundary_conditions, mesh, equations, dg.surface_integral, dg)
+    calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations, dg.surface_integral, dg)
 
-    prolong2mortars!(cache_gpu, u, mesh, equations, dg.mortar, dg)
+    prolong2mortars!(cache, u, mesh, equations, dg.mortar, dg)
 
-    calc_mortar_flux!(cache_gpu.elements.surface_flux_values, mesh, equations,
-                      dg.mortar, dg.surface_integral, dg, cache_gpu)
+    calc_mortar_flux!(cache.elements.surface_flux_values, mesh, equations,
+                      dg.mortar, dg.surface_integral, dg, cache)
 
-    calc_surface_integral!(du, u, mesh, equations, dg.surface_integral, dg, cache_gpu)
+    calc_surface_integral!(du, u, mesh, equations, dg.surface_integral, dg, cache)
 
-    apply_jacobian!(du, mesh, equations, dg, cache_gpu)
+    apply_jacobian!(du, mesh, equations, dg, cache)
 
-    calc_sources!(du, u, t, source_terms, equations, dg, cache_gpu)
+    calc_sources!(du, u, t, source_terms, equations, dg, cache)
 
     return nothing
 end

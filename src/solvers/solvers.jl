@@ -16,14 +16,14 @@ include("dg.jl")
 
 # See also `rhs_hyperbolic!` in Trixi.jl.
 function rhs_hyperbolic!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
-    (; mesh, equations, boundary_conditions, source_terms, solver, cache_gpu) = semi
+    (; mesh, equations, boundary_conditions, source_terms, solver, cache) = semi
 
     # In Trixi.jl, function `wrap_array` is called to adapt adaptive mesh refinement (AMR).
     # For more details, see https://trixi-framework.github.io/Trixi.jl/stable/conventions/#Array-types-and-wrapping
-    u = wrap_array(u_ode, mesh, equations, solver, cache_gpu)
-    du = wrap_array(du_ode, mesh, equations, solver, cache_gpu)
+    u = wrap_array(u_ode, mesh, equations, solver, cache)
+    du = wrap_array(du_ode, mesh, equations, solver, cache)
 
-    rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache_gpu)
+    rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions, source_terms, solver, cache)
 
     return nothing
 end

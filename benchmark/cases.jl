@@ -19,7 +19,7 @@ end
 
 function initial_input(semi, t)
     (; equations, initial_condition, solver, cache) = semi
-    elementwise = applicable(initial_condition, zero(SVector{ndims(equations), Float64}), 
+    elementwise = applicable(initial_condition, zero(SVector{ndims(equations), Float64}),
                              t, 1, equations)
 
     # Use Trixi's standard initialization for initial conditions that don't require

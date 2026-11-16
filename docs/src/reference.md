@@ -4,7 +4,6 @@ All APIs currently default to double precision (`Float64`). Single precision (`F
 
 ```@docs
 TrixiCUDA.DGSEMGPU
-TrixiCUDA.semidiscretizeGPU
 ```
 
 # Private APIs

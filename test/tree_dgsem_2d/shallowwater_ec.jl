@@ -97,9 +97,9 @@ include("../test_macros.jl")
     u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
-    # Apply the element-dependent initial condition to both solution buffers.
-    # This is how TrixiShallowWater.jl initializes the solution for this example, and we follow it.
+    # Apply the initial condition to get CPU data.
     initialize_ec!(u, semi)
+    # Apply the initial condition to get GPU data.
     u_host = Array(u_gpu)
     initialize_ec!(u_host, semi)
     copyto!(u_gpu, u_host)

@@ -146,22 +146,18 @@ function compute_coefficients_gpu(u, func, t, mesh::AbstractMesh{3}, equations, 
     return u
 end
 
-# Select the nonconservative trait from `equations`, as Trixi.jl does, so that callers
-# such as `rhs_hyperbolic!` do not have to pass it.
+# Helper functions to call the check to conservative terms for kernels.
 function calc_volume_integral!(du, u, mesh::TreeMesh, equations,
                                volume_integral, dg::DGSEM, cache)
     return calc_volume_integral!(du, u, mesh, have_nonconservative_terms(equations), equations,
                                  volume_integral, dg, cache)
 end
-
 function calc_interface_flux!(surface_flux_values, mesh::TreeMesh, equations,
                               surface_integral, dg::DGSEM, cache)
     return calc_interface_flux!(surface_flux_values, mesh,
                                 have_nonconservative_terms(equations), equations,
                                 surface_integral, dg, cache)
 end
-
-# 3D defines this signature directly, since it has no nonconservative boundary fluxes.
 function calc_boundary_flux!(cache, t,
                              boundary_conditions::NamedTuple,
                              mesh::Union{TreeMesh{1}, TreeMesh{2}}, equations,
@@ -170,7 +166,6 @@ function calc_boundary_flux!(cache, t,
                                have_nonconservative_terms(equations), equations,
                                surface_integral, dg)
 end
-
 function calc_mortar_flux!(surface_flux_values, mesh::Union{TreeMesh{2}, TreeMesh{3}}, equations,
                            mortar_l2, surface_integral, dg::DGSEM, cache)
     return calc_mortar_flux!(surface_flux_values, mesh,

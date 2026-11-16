@@ -22,9 +22,8 @@ function benchmark_rhs(case; t, seconds, samples)
     u_host = initial_input(semi, t)
     all(isfinite, u_host) || error("Non-finite initial state in $(case.name)")
     u = CuArray(u_host)
-    du = CUDA.zeros(Float64, size(u))
-    # Call the `semi`-level RHS, whose signature is the same in every revision being
-    # compared. Pass `u` and `du` in the DG layout, which every revision accepts.
+    du = zero(u)
+
     # Warm up the RHS before timing to trigger compilation and initialization.
     # Check that the warm-up output is finite, since NaN or Inf can trigger
     # different execution paths and make timings harder to interpret.
@@ -36,11 +35,11 @@ function benchmark_rhs(case; t, seconds, samples)
     # the reset to finish before starting the timer.
     trial = @benchmark begin
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $semi, $t)
-    end setup=(CUDA.@sync fill!($du, 0.0)) evals=1 seconds=seconds samples=samples
+    end setup=(CUDA.@sync fill!($du, 0)) evals=1 seconds=seconds samples=samples
     return Dict("minimum_ns" => minimum(trial).time,
                 "samples_ns" => trial.times,
                 "samples" => length(trial),
-                "dofs_per_field" => length(u) ÷ Trixi.nvariables(equations),
+                "dofs_per_field" => div(length(u), Trixi.nvariables(equations)),
                 "shape" => collect(size(u)), "initial_time" => t,
                 "input_hash" => bytes2hex(sha256(reinterpret(UInt8, vec(u_host)))))
 end

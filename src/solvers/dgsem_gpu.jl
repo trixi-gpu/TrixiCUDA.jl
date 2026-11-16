@@ -62,8 +62,8 @@ function DGSEMGPU(; RealT = Float64,
     return DGSEMGPU(basis, surface_integral, volume_integral)
 end
 
-# Same as `integrate` in Trixi.jl but with GPU signature
-# Is there any better way to do this?
+# Same as `integrate` in Trixi.jl but with GPU signature. Is there 
+# any better way to do this?
 function integrate(f, u, basis::LobattoLegendreBasisGPU)
     (; weights) = basis
 

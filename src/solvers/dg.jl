@@ -1,21 +1,18 @@
 # Get the polynomial degree from the solver basis.
 @inline polydeg(dg::DGSEM{<:LobattoLegendreBasisGPU}) = polydeg(dg.basis)
 
-# TrixiCUDA.jl keeps the solution in the `(nvariables, nnodes, ..., nnodes, nelements)` layout
-# used by the kernels (see `compute_coefficients_gpu`), so the RHS does not wrap its arrays.
-# This method is still needed because Trixi.jl's callbacks (e.g., `StepsizeCallback` and
-# `AnalysisCallback`) call `wrap_array` on the integrator state. For arrays that already
-# have this layout, `reshape` returns an array of the same shape without copying.
+# TODO: Keep more callback computations on the GPU and improve the interface to
+# reduce host transfers and avoid pass-through adapters like this one.
+
+# This method is still needed because Trixi.jl's callbacks (e.g., `StepsizeCallback` 
+# and `AnalysisCallback`) call `wrap_array` on the integrator state.
 @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
                             dg::DGSEM, cache)
     reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
             nelements(dg, cache))
 end
-
-# Callbacks copy the GPU state to a host Array that already has the expected layout.
+# Callbacks copy the GPU state to a host array that already has the expected layout.
 # Return it directly to support Trixi's existing callback interface.
-# TODO: Keep more callback computations on the GPU and improve the interface to
-# reduce host transfers and avoid pass-through adapters like this one.
 @inline function wrap_array_native(u_ode::Array, mesh::TreeMesh, equations,
                                    dg::DGSEM{<:LobattoLegendreBasisGPU}, cache)
     return u_ode

@@ -1,31 +1,15 @@
-# Do we really need to compute the coefficients on the GPU, and do we need to
-# initialize `du` and `u` with a 1D shape, as Trixi.jl does?
-
 # Get the polynomial degree from the solver basis.
 @inline polydeg(dg::DGSEM{<:LobattoLegendreBasisGPU}) = polydeg(dg.basis)
 
-# Based on benchmarks, using `reshape` is faster than `unsafe_wrap` for GPU arrays (why?),
-# but currently we are not sure about if reshape can be used for later `resize!` operations.
-# But now we don't take AMR into account, so we can use `reshape` for now.
-
-# Can we make `unsafe_wrap` faster on GPU arrays?
-# Should we use `CuArray` or `AbstractGPUArray`?
+# TrixiCUDA.jl keeps the solution in the `(nvariables, nnodes, ..., nnodes, nelements)` layout
+# used by the kernels (see `compute_coefficients_gpu`), so the RHS does not wrap its arrays.
+# This method is still needed because Trixi.jl's callbacks (e.g., `StepsizeCallback` and
+# `AnalysisCallback`) call `wrap_array` on the integrator state. For arrays that already
+# have this layout, `reshape` returns an array of the same shape without copying.
 @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
                             dg::DGSEM, cache)
-    # We skip bounds checking here for better performance. 
-    # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
-
     reshape(u_ode, nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
             nelements(dg, cache))
-end
-@inline function wrap_array_native(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
-                                   dg::DGSEM, cache)
-    # We skip bounds checking here for better performance. 
-    # @assert length(u_ode) == nvariables(equations) * nnodes(mesh) * nelements(dg, cache)
-
-    unsafe_wrap(CuArray{eltype(u_ode), ndims(mesh) + 2}, pointer(u_ode),
-                (nvariables(equations), ntuple(_ -> nnodes(dg), ndims(mesh))...,
-                 nelements(dg, cache)))
 end
 
 # Callbacks copy the GPU state to a host Array that already has the expected layout.
@@ -36,11 +20,6 @@ end
                                    dg::DGSEM{<:LobattoLegendreBasisGPU}, cache)
     return u_ode
 end
-
-# @inline function wrap_array(u_ode::AbstractGPUArray, mesh::AbstractMesh, equations,
-#                             dg::FDSBP, cache)
-#     @error("TrixiCUDA.jl does not support FDSBP yet.")
-# end
 
 # FIXME: This is a temporary workaround to avoid scalar indexing issue.
 function volume_jacobian_tmp(element, mesh::TreeMesh, cache)
@@ -294,13 +273,15 @@ Add source terms to the GPU residual. `source_terms = nothing` is a no-op.
 function calc_sources! end
 
 """
-    rhs_hyperbolic!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
+    rhs_hyperbolic!(du, u, semi::SemidiscretizationHyperbolicGPU, t)
     rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
                     source_terms, dg, cache)
 
 Compute the hyperbolic right-hand side on the GPU.
 
 The first method extracts the required data from `semi` and calls the second method.
+Both expect `du` and `u` in the `(nvariables, nnodes, ..., nnodes, nelements)` layout,
+which is the layout of the initial state created by `semidiscretizeGPU`.
 
 The second method assembles the right-hand side from volume, interface, boundary,
 mortar, surface, Jacobian, and source operations. It writes `du` in place and returns

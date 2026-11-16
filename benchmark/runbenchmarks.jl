@@ -24,20 +24,18 @@ function benchmark_rhs(case; t, seconds, samples)
     u = CuArray(u_host)
     du = CUDA.zeros(Float64, size(u))
     # Call the `semi`-level RHS, whose signature is the same in every revision being
-    # compared. `vec` shares memory with `u` and `du`, so nothing is copied.
-    u_ode, du_ode = vec(u), vec(du)
-
+    # compared. Pass `u` and `du` in the DG layout, which every revision accepts.
     # Warm up the RHS before timing to trigger compilation and initialization.
     # Check that the warm-up output is finite, since NaN or Inf can trigger
     # different execution paths and make timings harder to interpret.
-    CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du_ode, u_ode, semi, t)
+    CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, semi, t)
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
 
     # Time the synchronized RHS call. Reset du to zero before each sample so 
     # every timed call starts with the same output buffer contents. Wait for 
     # the reset to finish before starting the timer.
     trial = @benchmark begin
-        CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du_ode, $u_ode, $semi, $t)
+        CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $semi, $t)
     end setup=(CUDA.@sync fill!($du, 0.0)) evals=1 seconds=seconds samples=samples
     return Dict("minimum_ns" => minimum(trial).time,
                 "samples_ns" => trial.times,

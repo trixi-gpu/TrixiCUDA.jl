@@ -144,7 +144,6 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights
 
-    # TODO: Get copies of `u` and `du` on both device and host
     alpha = calc_indicator_gpu!(indicator, u, mesh, equations, dg, cache)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
@@ -204,7 +203,6 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{1}, nonconservative_terms::
     derivative_split = dg.basis.derivative_split
     inverse_weights = dg.basis.inverse_weights
 
-    # TODO: Get copies of `u` and `du` on both device and host
     alpha = calc_indicator_gpu!(indicator, u, mesh, equations, dg, cache)
     atol = max(100 * eps(RealT), eps(RealT)^convert(RealT, 0.75f0))
 
@@ -506,28 +504,20 @@ end
 # Assemble the semidiscrete right-hand side on the GPU for 1D problems by invoking the 
 # DG volume term, interface and boundary fluxes, surface accumulation, Jacobian transformation, 
 # and source terms.
-function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions, source_terms::Source, dg::DGSEM,
-                         cache) where {Source}
+function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions, source_terms::Source, 
+                         dg::DGSEM, cache) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 
     # removing the need for a separate function call.
 
-    calc_volume_integral!(du, u, mesh, equations,
-                          dg.volume_integral, dg, cache)
-
+    calc_volume_integral!(du, u, mesh, equations, dg.volume_integral, dg, cache)
     prolong2interfaces!(cache, u, mesh, equations, dg)
-
-    calc_interface_flux!(cache.elements.surface_flux_values, mesh, equations,
+    calc_interface_flux!(cache.elements.surface_flux_values, mesh, equations, 
                          dg.surface_integral, dg, cache)
-
     prolong2boundaries!(cache, u, mesh, equations, dg)
-
     calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations, dg.surface_integral, dg)
-
     calc_surface_integral!(du, u, mesh, equations, dg.surface_integral, dg, cache)
-
     apply_jacobian!(du, mesh, equations, dg, cache)
-
     calc_sources!(du, u, t, source_terms, equations, dg, cache)
 
     return nothing

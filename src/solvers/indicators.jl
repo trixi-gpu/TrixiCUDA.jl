@@ -33,12 +33,12 @@ function (indicator_hg::IndicatorHennemannGassner)(u, mesh, equations, dg::DGSEM
     return alpha
 end
 
-# Compute the indicator values on the host, copy them into the device buffer `cache.alpha`,
-# and apply the smoothing on the GPU. Returns the device array `cache.alpha`.
 function calc_indicator_gpu!(indicator_hg::IndicatorHennemannGassner, u, mesh, equations,
                              dg::DGSEM, cache)
     (; alpha, alpha_tmp) = cache
-
+    # TODO: The indicator values are computed on the host, so `u` is copied to the host
+    # (with a new allocation) on every RHS call. Compute them on the GPU instead, or at 
+    # least reuse a preallocated host buffer.
     copyto!(alpha, indicator_hg(Array(u), mesh, equations, dg, cache))
 
     if indicator_hg.alpha_smooth
@@ -48,7 +48,6 @@ function calc_indicator_gpu!(indicator_hg::IndicatorHennemannGassner, u, mesh, e
     return alpha
 end
 
-# Similar to `apply_smoothing!` in Trixi.jl but runs on the GPU. 1D meshes have no mortars.
 function apply_smoothing_gpu!(mesh::TreeMesh{1}, alpha, alpha_tmp, dg::DGSEM, cache)
     # Copy alpha values such that smoothing is independent of the element access order
     copyto!(alpha_tmp, alpha)

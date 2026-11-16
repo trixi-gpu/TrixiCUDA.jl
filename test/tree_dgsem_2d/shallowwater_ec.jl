@@ -80,7 +80,7 @@ include("../test_macros.jl")
 
     # Semi on GPU
     equations_gpu, mesh_gpu, solver_gpu = semi_gpu.equations, semi_gpu.mesh, semi_gpu.solver
-    cache_gpu, cache_cpu = semi_gpu.cache_gpu, semi_gpu.cache_cpu
+    cache_gpu = semi_gpu.cache
     boundary_conditions_gpu, source_terms_gpu = semi_gpu.boundary_conditions, semi_gpu.source_terms
 
     # ODE on CPU
@@ -97,9 +97,9 @@ include("../test_macros.jl")
     u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
 
-    # Apply the element-dependent initial condition to both solution buffers.
-    # This is how TrixiShallowWater.jl initializes the solution for this example, and we follow it.
+    # Apply the initial condition to get CPU data.
     initialize_ec!(u, semi)
+    # Apply the initial condition to get GPU data.
     u_host = Array(u_gpu)
     initialize_ec!(u_host, semi)
     copyto!(u_gpu, u_host)
@@ -109,7 +109,7 @@ include("../test_macros.jl")
     Trixi.set_zero!(du, solver, cache)
 
     TrixiCUDA.calc_volume_integral!(du_gpu, u_gpu, mesh_gpu, equations_gpu,
-                                    solver_gpu.volume_integral, solver_gpu, cache_gpu, cache_cpu)
+                                    solver_gpu.volume_integral, solver_gpu, cache_gpu)
     Trixi.calc_volume_integral!(nothing, du, u, mesh, Trixi.have_nonconservative_terms(equations),
                                 equations, solver.volume_integral, solver, cache)
     @test_approx (du_gpu, du)

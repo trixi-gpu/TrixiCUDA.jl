@@ -18,31 +18,28 @@ read_result(path) = JSON.parsefile(path; dicttype = Dict{String, Any})
 
 function benchmark_rhs(case; t, seconds, samples)
     semi = make_problem(case)
-    (; mesh, equations, boundary_conditions, source_terms, solver, cache_gpu, cache_cpu) = semi
+    (; equations) = semi
     u_host = initial_input(semi, t)
     all(isfinite, u_host) || error("Non-finite initial state in $(case.name)")
     u = CuArray(u_host)
-    du = CUDA.zeros(Float64, size(u))
+    du = zero(u)
 
     # Warm up the RHS before timing to trigger compilation and initialization.
     # Check that the warm-up output is finite, since NaN or Inf can trigger
     # different execution paths and make timings harder to interpret.
-    CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions,
-                                         source_terms, solver, cache_gpu, cache_cpu)
+    CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, semi, t)
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
 
     # Time the synchronized RHS call. Reset du to zero before each sample so 
     # every timed call starts with the same output buffer contents. Wait for 
     # the reset to finish before starting the timer.
     trial = @benchmark begin
-        CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $t, $mesh, $equations,
-                                             $boundary_conditions, $source_terms,
-                                             $solver, $cache_gpu, $cache_cpu)
-    end setup=(CUDA.@sync fill!($du, 0.0)) evals=1 seconds=seconds samples=samples
+        CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $semi, $t)
+    end setup=(CUDA.@sync fill!($du, 0)) evals=1 seconds=seconds samples=samples
     return Dict("minimum_ns" => minimum(trial).time,
                 "samples_ns" => trial.times,
                 "samples" => length(trial),
-                "dofs_per_field" => length(u) ÷ Trixi.nvariables(equations),
+                "dofs_per_field" => div(length(u), Trixi.nvariables(equations)),
                 "shape" => collect(size(u)), "initial_time" => t,
                 "input_hash" => bytes2hex(sha256(reinterpret(UInt8, vec(u_host)))))
 end
@@ -129,7 +126,7 @@ function write_report(io, baseline, target)
             @sprintf("%g", parameters["initial_time"]), ".\n\n",
             "**Comparison setup:** Both revisions are measured on the same GPU using the ",
             "target commit's benchmark harness, with identical cases and timing settings. ",
-            "Each run loads the TrixiCUDA source from its respective commit and resolves its ",
+            "Each run loads the source from its respective commit and resolves its ",
             "Julia dependencies independently. The comparison captures the combined performance ",
             "impact of source code and dependency changes.\n\n",
             "**Sampling:** After one warm-up RHS call per case, each sample measures one ",

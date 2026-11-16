@@ -23,17 +23,6 @@ struct LobattoLegendreBasisGPU{RealT <: Real, NNODES,
     derivative_hat::DerivativeMatrix
 end
 
-"""
-    LobattoLegendreBasisGPU([RealT = Float64,] polydeg::Integer)
-
-Create a nodal Lobatto-Legendre basis for polynomials of degree `polydeg`, partially storing 
-and operating on GPU arrays (`CuArray`). This basis is designed for GPU-accelerated discontinuous 
-Galerkin spectral element method (DGSEM).
-
-!!! warning "Experimental implementation"
-    This is an experimental feature and may change or be removed in future releases due to 
-    ongoing performance optimizations.
-"""
 function LobattoLegendreBasisGPU(RealT, polydeg::Integer)
     basis_cpu = LobattoLegendreBasis(RealT, polydeg)
     nnodes_ = nnodes(basis_cpu)

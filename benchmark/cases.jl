@@ -18,25 +18,24 @@ function rhs_problem(; equations, initial_condition, coordinates_min, coordinate
 end
 
 function initial_input(semi, t)
-    (; mesh, equations, initial_condition, solver, cache_cpu) = semi
-    nn = Trixi.nnodes(solver)
-    ne = Trixi.nelements(solver, cache_cpu)
-    nodes = CartesianIndices(ntuple(_ -> nn, ndims(equations)))
-    u = Array{Float64}(undef, Trixi.nvariables(equations), size(nodes)..., ne)
-    elementwise = applicable(initial_condition, zero(SVector{ndims(equations), Float64}), t, 1, equations)
+    (; equations, initial_condition, solver, cache) = semi
+    elementwise = applicable(initial_condition, zero(SVector{ndims(equations), Float64}),
+                             t, 1, equations)
+
     # Use Trixi's standard initialization for initial conditions that don't require
     # an element ID. This preserves one-sided sampling in 1D.
-    if !elementwise
-        Trixi.compute_coefficients!(nothing, u, initial_condition, t, mesh, equations, solver, cache_cpu)
-        return u
-    end
+    elementwise || return Array(TrixiCUDA.compute_coefficients_gpu(t, semi))
+
     # Pass the element ID to initial conditions that need it, such as the 
     # discontinuous bottom topography in the 2D shallow-water EC case.
-    for element in Trixi.eachelement(solver, cache_cpu), node in nodes
-        indices = Tuple(node)
-        x = Trixi.get_node_coords(cache_cpu.elements.node_coordinates, equations, solver, indices..., element)
+    node_coordinates = Array(cache.elements.node_coordinates)
+    nodes = CartesianIndices(ntuple(_ -> Trixi.nnodes(solver), ndims(equations)))
+    u = Array{eltype(cache.elements)}(undef, Trixi.nvariables(equations), size(nodes)...,
+                                      Trixi.nelements(solver, cache))
+    for element in Trixi.eachelement(solver, cache), node in nodes
+        x = Trixi.get_node_coords(node_coordinates, equations, solver, Tuple(node)..., element)
         state = initial_condition(x, t, element, equations)
-        Trixi.set_node_vars!(u, state, equations, solver, indices..., element)
+        Trixi.set_node_vars!(u, state, equations, solver, Tuple(node)..., element)
     end
     return u
 end

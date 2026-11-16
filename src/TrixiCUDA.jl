@@ -33,12 +33,12 @@ using Trixi: flux, flux_central, have_nonconservative_terms, nvariables, max_abs
              BoundaryConditionPeriodic, UnstructuredSortedBoundaryTypes, boundary_condition_periodic,
              digest_boundary_conditions, check_periodicity_mesh_boundary_conditions,
              local_leaf_cells, init_elements, init_interfaces, init_boundaries, init_mortars,
-             allocate_coefficients, eachelement, ndofs, total_volume, convert_tspan
+             eachelement, ndofs, total_volume, convert_tspan
 
 # Interpolation, indicators, and analysis
 using Trixi: gauss_lobatto_nodes_weights, polynomial_interpolation_matrix, multiply_dimensionwise!,
              calc_forward_upper, calc_forward_lower, calc_reverse_upper, calc_reverse_lower,
-             IndicatorHennemannGassner, calc_indicator_hennemann_gassner!, apply_smoothing!,
+             IndicatorHennemannGassner, calc_indicator_hennemann_gassner!,
              analyze, pretty_form_utf
 
 # Display

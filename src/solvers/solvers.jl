@@ -15,9 +15,8 @@ include("dgsem_gpu.jl")
 include("dg.jl")
 
 function rhs_hyperbolic!(du_ode, u_ode, semi::SemidiscretizationHyperbolicGPU, t)
-
     (; mesh, equations, boundary_conditions, source_terms, solver, cache) = semi
-    rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions, source_terms, 
+    rhs_hyperbolic!(du, u, t, mesh, equations, boundary_conditions, source_terms,
                     solver, cache)
     return nothing
 end

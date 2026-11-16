@@ -735,7 +735,7 @@ end
 # Assemble the semidiscrete right-hand side on the GPU for 2D problems by invoking the 
 # DG volume term, interface, boundary and mortar fluxes, surface accumulation, Jacobian transformation, 
 # and source terms.
-function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{2}, equations, boundary_conditions, source_terms::Source, 
+function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{2}, equations, boundary_conditions, source_terms::Source,
                          dg::DGSEM, cache) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 
@@ -743,12 +743,12 @@ function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{2}, equations, boundary_condit
 
     calc_volume_integral!(du, u, mesh, equations, dg.volume_integral, dg, cache)
     prolong2interfaces!(cache, u, mesh, equations, dg)
-    calc_interface_flux!(cache.elements.surface_flux_values, mesh, equations, 
+    calc_interface_flux!(cache.elements.surface_flux_values, mesh, equations,
                          dg.surface_integral, dg, cache)
     prolong2boundaries!(cache, u, mesh, equations, dg)
     calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations, dg.surface_integral, dg)
     prolong2mortars!(cache, u, mesh, equations, dg.mortar, dg)
-    calc_mortar_flux!(cache.elements.surface_flux_values, mesh, equations, 
+    calc_mortar_flux!(cache.elements.surface_flux_values, mesh, equations,
                       dg.mortar, dg.surface_integral, dg, cache)
     calc_surface_integral!(du, u, mesh, equations, dg.surface_integral, dg, cache)
     apply_jacobian!(du, mesh, equations, dg, cache)

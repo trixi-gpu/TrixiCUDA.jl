@@ -504,7 +504,7 @@ end
 # Assemble the semidiscrete right-hand side on the GPU for 1D problems by invoking the 
 # DG volume term, interface and boundary fluxes, surface accumulation, Jacobian transformation, 
 # and source terms.
-function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions, source_terms::Source, 
+function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{1}, equations, boundary_conditions, source_terms::Source,
                          dg::DGSEM, cache) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 
@@ -512,7 +512,7 @@ function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{1}, equations, boundary_condit
 
     calc_volume_integral!(du, u, mesh, equations, dg.volume_integral, dg, cache)
     prolong2interfaces!(cache, u, mesh, equations, dg)
-    calc_interface_flux!(cache.elements.surface_flux_values, mesh, equations, 
+    calc_interface_flux!(cache.elements.surface_flux_values, mesh, equations,
                          dg.surface_integral, dg, cache)
     prolong2boundaries!(cache, u, mesh, equations, dg)
     calc_boundary_flux!(cache, t, boundary_conditions, mesh, equations, dg.surface_integral, dg)

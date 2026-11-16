@@ -870,7 +870,7 @@ end
 # Assemble the semidiscrete right-hand side on the GPU for 3D problems by invoking volume, 
 # interface, boundary and mortar fluxes, surface accumulation, Jacobian transformation, and 
 # source terms.
-function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{3}, equations, boundary_conditions, source_terms::Source, 
+function rhs_hyperbolic!(du, u, t, mesh::TreeMesh{3}, equations, boundary_conditions, source_terms::Source,
                          dg::DGSEM, cache) where {Source}
     # reset_du!(du) 
     # reset_du!(du) is now fused into the next kernel, 

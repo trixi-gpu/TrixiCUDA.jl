@@ -85,7 +85,7 @@ u = Array(ode.u0)
 # reset the initial condition
 for element in eachelement(semi.solver, semi.cache)
     for j in eachnode(semi.solver), i in eachnode(semi.solver)
-        x_node = Trixi.get_node_coords(Array(semi.cache.elements.node_coordinates), equations, 
+        x_node = Trixi.get_node_coords(Array(semi.cache.elements.node_coordinates), equations,
                                        semi.solver, i, j, element)
         u_node = initial_condition_ec_discontinuous_bottom(x_node, first(tspan), element,
                                                            equations)

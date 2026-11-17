@@ -1,4 +1,5 @@
 include("configurators.jl")
+include("ptx_wrapper.jl")
 include("timer.jl")
 
 # Initialize the device properties

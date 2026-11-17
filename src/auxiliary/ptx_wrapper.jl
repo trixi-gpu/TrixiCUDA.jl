@@ -8,7 +8,7 @@
         ret double %v
         """, Float64, Tuple{UInt64}, addr)
 end
-@inline function ldg_nc(A::CUDA.CuDeviceArray{T}, i::Integer) where {T<:Float64}
+@inline function ldg_nc(A::CUDA.CuDeviceArray{T}, i::Integer) where {T <: Float64}
     @boundscheck checkbounds(A, i)
     return _ldg_nc(reinterpret(UInt64, pointer(A, i)), T)
 end

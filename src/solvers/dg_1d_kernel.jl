@@ -895,7 +895,7 @@ function jacobian_kernel!(du, inverse_jacobian, equations::AbstractEquations{1})
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        @inbounds du[i, j, k] *= -inverse_jacobian[k]
+        @inbounds du[i, j, k] *= -ldg_nc(inverse_jacobian, k)
     end
 
     return nothing

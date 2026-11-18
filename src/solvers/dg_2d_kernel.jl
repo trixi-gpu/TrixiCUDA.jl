@@ -1432,7 +1432,7 @@ function jacobian_kernel!(du, inverse_jacobian, equations::AbstractEquations{2})
         j1 = div(j - 1, size(du, 2)) + 1
         j2 = rem(j - 1, size(du, 2)) + 1
 
-        @inbounds du[i, j1, j2, k] *= -inverse_jacobian[k]
+        @inbounds du[i, j1, j2, k] *= -ldg_nc(inverse_jacobian, k)
     end
 
     return nothing

@@ -1,7 +1,7 @@
 # Everything about wrapping PTX instructions in Julia for better performance.
 
-# Read-only (non-coherent) global loads via inline PTX. `ldg_nc(A, i)` returns 
-# `A[i]`, but loads it with `ld.global.nc`, i.e. through the GPU's read-only data path.
+# Read-only (non-coherent) global loads via inline PTX. `ldg_nc(A, i)` returns `A[i]`, 
+# but loads it with `ld.global.nc`, i.e. through the GPU's read-only data path.
 @inline function _ldg_nc(addr::UInt64, ::Type{Float64})
     Base.llvmcall("""
         %v = call double asm "ld.global.nc.f64 \$0, [\$1];", "=d,l"(i64 %0)

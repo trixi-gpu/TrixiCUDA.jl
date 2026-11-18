@@ -16,10 +16,10 @@ function last_first_indices_kernel!(lasts, firsts, n_boundaries_per_direction)
 
     if (i <= length(n_boundaries_per_direction))
         for ii in 1:i
-            @inbounds lasts[i] += n_boundaries_per_direction[ii]
+            @inbounds lasts[i] += ldg_nc(n_boundaries_per_direction, ii)
         end
 
-        @inbounds firsts[i] = lasts[i] - n_boundaries_per_direction[i] + 1
+        @inbounds firsts[i] = lasts[i] - ldg_nc(n_boundaries_per_direction, i) + 1
     end
 
     return nothing

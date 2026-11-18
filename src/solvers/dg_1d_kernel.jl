@@ -4,6 +4,11 @@
 # the @cuda macro with parameters from the kernel configurator. They are purely run on 
 # the device (i.e., GPU).
 
+# TODO: We choose to enable the read-only L1/TEX cache path for some data below but some 
+# of them are fetched and read by each thread only once, the performance gain is not 
+# significant, consider enabling data persistence in L2 cache might be a better option for 
+# future optimization.
+
 # Kernel for calculating fluxes along normal direction
 function flux_kernel!(flux_arr, u, equations::AbstractEquations{1}, flux::Any)
     j = (blockIdx().x - 1) * blockDim().x + threadIdx().x
@@ -678,8 +683,8 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids)
 
     if (j <= size(interfaces_u, 2) && k <= size(interfaces_u, 3))
         @inbounds begin
-            left_element = neighbor_ids[1, k]
-            right_element = neighbor_ids[2, k]
+            left_element = ldg_nc(neighbor_ids, 1, k)
+            right_element = ldg_nc(neighbor_ids, 2, k)
 
             interfaces_u[1, j, k] = u[j, size(u, 2), left_element]
             interfaces_u[2, j, k] = u[j, 1, right_element]
@@ -739,8 +744,8 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
 
     if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2))
         @inbounds begin
-            left_id = neighbor_ids[1, j]
-            right_id = neighbor_ids[2, j]
+            left_id = ldg_nc(neighbor_ids, 1, j)
+            right_id = ldg_nc(neighbor_ids, 2, j)
 
             surface_flux_values[i, 2, left_id] = surface_flux_arr[i, j]
             surface_flux_values[i, 1, right_id] = surface_flux_arr[i, j]
@@ -758,8 +763,8 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_l
 
     if (i <= size(surface_flux_values, 1) && j <= size(surface_flux_arr, 2))
         @inbounds begin
-            left_id = neighbor_ids[1, j]
-            right_id = neighbor_ids[2, j]
+            left_id = ldg_nc(neighbor_ids, 1, j)
+            right_id = ldg_nc(neighbor_ids, 2, j)
 
             surface_flux_values[i, 2, left_id] = surface_flux_arr[i, j] +
                                                  0.5f0 * noncons_left_arr[i, j]
@@ -778,8 +783,8 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
 
     if (j <= size(boundaries_u, 2) && k <= size(boundaries_u, 3))
         @inbounds begin
-            element = neighbor_ids[k]
-            side = neighbor_sides[k]
+            element = ldg_nc(neighbor_ids, k)
+            side = ldg_nc(neighbor_sides, k)
 
             boundaries_u[1, j, k] = u[j, size(u, 2), element] * (2 - side) # set to 0 instead of NaN
             boundaries_u[2, j, k] = u[j, 1, element] * (side - 1) # set to 0 instead of NaN
@@ -801,9 +806,9 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
             boundary = boundary_arr[k]
             direction = (indices_arr[1] <= boundary) + (indices_arr[2] <= boundary)
 
-            neighbor = neighbor_ids[boundary]
-            side = neighbor_sides[boundary]
-            orientation = orientations[boundary]
+            neighbor = ldg_nc(neighbor_ids, boundary)
+            side = ldg_nc(neighbor_sides, boundary)
+            orientation = ldg_nc(orientations, boundary)
         end
 
         u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, boundary)
@@ -844,9 +849,9 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
             boundary = boundary_arr[k]
             direction = (indices_arr[1] <= boundary) + (indices_arr[2] <= boundary)
 
-            neighbor = neighbor_ids[boundary]
-            side = neighbor_sides[boundary]
-            orientation = orientations[boundary]
+            neighbor = ldg_nc(neighbor_ids, boundary)
+            side = ldg_nc(neighbor_sides, boundary)
+            orientation = ldg_nc(orientations, boundary)
         end
 
         u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, boundary)
@@ -895,7 +900,7 @@ function jacobian_kernel!(du, inverse_jacobian, equations::AbstractEquations{1})
     k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
 
     if (i <= size(du, 1) && j <= size(du, 2) && k <= size(du, 3))
-        @inbounds du[i, j, k] *= -inverse_jacobian[k]
+        @inbounds du[i, j, k] *= -ldg_nc(inverse_jacobian, k)
     end
 
     return nothing

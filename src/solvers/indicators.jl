@@ -97,8 +97,8 @@ function smoothing_interfaces_kernel!(alpha, alpha_tmp, neighbor_ids)
     k = (blockIdx().x - 1) * blockDim().x + threadIdx().x
 
     if k <= size(neighbor_ids, 2)
-        @inbounds left = neighbor_ids[1, k]
-        @inbounds right = neighbor_ids[2, k]
+        @inbounds left = ldg_nc(neighbor_ids, 1, k)
+        @inbounds right = ldg_nc(neighbor_ids, 2, k)
 
         @inbounds CUDA.@atomic alpha[left] = max(alpha[left], 0.5f0 * alpha_tmp[right])
         @inbounds CUDA.@atomic alpha[right] = max(alpha[right], 0.5f0 * alpha_tmp[left])
@@ -114,10 +114,10 @@ function smoothing_mortars_kernel!(alpha, alpha_tmp, neighbor_ids)
 
     if k <= size(neighbor_ids, 2)
         n_small = size(neighbor_ids, 1) - 1
-        @inbounds large = neighbor_ids[n_small + 1, k]
+        @inbounds large = ldg_nc(neighbor_ids, n_small + 1, k)
 
         for s in 1:n_small
-            @inbounds small = neighbor_ids[s, k]
+            @inbounds small = ldg_nc(neighbor_ids, s, k)
 
             @inbounds CUDA.@atomic alpha[small] = max(alpha[small], 0.5f0 * alpha_tmp[large])
             @inbounds CUDA.@atomic alpha[large] = max(alpha[large], 0.5f0 * alpha_tmp[small])

@@ -20,8 +20,8 @@ end
 # Julia/LLVM version: `ptr addrspace(1)` (opaque pointer) is rejected on Julia 1.10 
 # and 1.11, where `llvmcall` still parses IR in typed mode. Switch to passing `ptr` 
 # directly once the minimum supported Julia version accepts it.
-@inline function ldg_nc(A::CUDA.CuDeviceArray{T}, I::Vararg{Integer, N}) where {T <: 
-                                                                                Union{Int64, Float64}, 
+@inline function ldg_nc(A::CUDA.CuDeviceArray{T}, I::Vararg{Integer, N}) where {T <:
+                                                                                Union{Int64, Float64},
                                                                                 N}
     @boundscheck checkbounds(A, I...)
     i = @inbounds LinearIndices(A)[I...]

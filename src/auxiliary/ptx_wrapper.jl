@@ -8,6 +8,12 @@
         ret double %v
         """, Float64, Tuple{UInt64}, addr)
 end
+
+# The address is passed to the inline asm as a plain `UInt64` (via `reinterpret`)
+# rather than as a pointer, because pointer syntax in `llvmcall` IR depends on the
+# Julia/LLVM version: `ptr addrspace(1)` (opaque pointer) is rejected on Julia 1.10 
+# and 1.11, where `llvmcall` still parses IR in typed mode. Switch to passing `ptr` 
+# directly once the minimum supported Julia version accepts it.
 @inline function ldg_nc(A::CUDA.CuDeviceArray{T}, i::Integer) where {T <: Float64}
     @boundscheck checkbounds(A, i)
     return _ldg_nc(reinterpret(UInt64, pointer(A, i)), T)

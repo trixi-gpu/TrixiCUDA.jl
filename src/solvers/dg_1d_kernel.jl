@@ -6,7 +6,7 @@
 
 # TODO: We choose to enable the read-only L1/TEX cache path for some data below but some 
 # of them are fetched and read by each thread only once, the performance gain is not 
-# significant, consider enabling data persistence in L2 cache might be abetter option for 
+# significant, consider enabling data persistence in L2 cache might be a better option for 
 # future optimization.
 
 # Kernel for calculating fluxes along normal direction

@@ -4,6 +4,11 @@
 # the @cuda macro with parameters from the kernel configurator. They are purely run on 
 # the device (i.e., GPU).
 
+# TODO: We choose to enable the read-only L1/TEX cache path for some data below but some 
+# of them are fetched and read by each thread only once, the performance gain is not 
+# significant, consider enabling data persistence in L2 cache might be a better option for 
+# future optimization.
+
 # Kernel for calculating fluxes along normal directions
 function flux_kernel!(flux_arr1, flux_arr2, flux_arr3, u, equations::AbstractEquations{3},
                       flux::Any)
@@ -1131,9 +1136,9 @@ function prolong_interfaces_kernel!(interfaces_u, u, neighbor_ids, orientations,
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
         @inbounds begin
-            orientation = orientations[k]
-            left_element = neighbor_ids[1, k]
-            right_element = neighbor_ids[2, k]
+            orientation = ldg_nc(orientations, k)
+            left_element = ldg_nc(neighbor_ids, 1, k)
+            right_element = ldg_nc(neighbor_ids, 2, k)
 
             interfaces_u[1, j1, j2, j3, k] = u[j1,
                                                isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
@@ -1161,7 +1166,7 @@ function surface_flux_kernel!(surface_flux_arr, interfaces_u, orientations,
     if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
         k <= size(surface_flux_arr, 4))
         u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
-        @inbounds orientation = orientations[k]
+        @inbounds orientation = ldg_nc(orientations, k)
 
         surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
 
@@ -1184,7 +1189,7 @@ function surface_noncons_flux_kernel!(surface_flux_arr, noncons_left_arr, noncon
     if (j1 <= size(surface_flux_arr, 2) && j2 <= size(surface_flux_arr, 3) &&
         k <= size(surface_flux_arr, 4))
         u_ll, u_rr = get_surface_node_vars(interfaces_u, equations, j1, j2, k)
-        @inbounds orientation = orientations[k]
+        @inbounds orientation = ldg_nc(orientations, k)
 
         surface_flux_node = surface_flux(u_ll, u_rr, orientation, equations)
         noncons_left_node = nonconservative_flux(u_ll, u_rr, orientation, equations)
@@ -1215,11 +1220,11 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, neighbor_
         j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
 
         @inbounds begin
-            left_id = neighbor_ids[1, k]
-            right_id = neighbor_ids[2, k]
+            left_id = ldg_nc(neighbor_ids, 1, k)
+            right_id = ldg_nc(neighbor_ids, 2, k)
 
-            left_direction = 2 * orientations[k]
-            right_direction = 2 * orientations[k] - 1
+            left_direction = 2 * ldg_nc(orientations, k)
+            right_direction = 2 * ldg_nc(orientations, k) - 1
 
             surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k]
             surface_flux_values[i, j1, j2, right_direction, right_id] = surface_flux_arr[i, j1, j2, k]
@@ -1243,11 +1248,11 @@ function interface_flux_kernel!(surface_flux_values, surface_flux_arr, noncons_l
         j2 = rem(j - 1, size(surface_flux_arr, 2)) + 1
 
         @inbounds begin
-            left_id = neighbor_ids[1, k]
-            right_id = neighbor_ids[2, k]
+            left_id = ldg_nc(neighbor_ids, 1, k)
+            right_id = ldg_nc(neighbor_ids, 2, k)
 
-            left_direction = 2 * orientations[k]
-            right_direction = 2 * orientations[k] - 1
+            left_direction = 2 * ldg_nc(orientations, k)
+            right_direction = 2 * ldg_nc(orientations, k) - 1
 
             surface_flux_values[i, j1, j2, left_direction, left_id] = surface_flux_arr[i, j1, j2, k] +
                                                                       0.5f0 *
@@ -1275,9 +1280,9 @@ function prolong_boundaries_kernel!(boundaries_u, u, neighbor_ids, neighbor_side
         j3 = rem(rem(j - 1, u2^2), u2) + 1
 
         @inbounds begin
-            element = neighbor_ids[k]
-            side = neighbor_sides[k]
-            orientation = orientations[k]
+            element = ldg_nc(neighbor_ids, k)
+            side = ldg_nc(neighbor_sides, k)
+            orientation = ldg_nc(orientations, k)
 
             boundaries_u[1, j1, j2, j3, k] = u[j1,
                                                isequal(orientation, 1) * u2 + isequal(orientation, 2) * j2 + isequal(orientation, 3) * j2,
@@ -1313,9 +1318,9 @@ function boundary_flux_kernel!(surface_flux_values, boundaries_u, node_coordinat
                         (indices_arr[3] <= boundary) + (indices_arr[4] <= boundary) +
                         (indices_arr[5] <= boundary) + (indices_arr[6] <= boundary)
 
-            neighbor = neighbor_ids[boundary]
-            side = neighbor_sides[boundary]
-            orientation = orientations[boundary]
+            neighbor = ldg_nc(neighbor_ids, boundary)
+            side = ldg_nc(neighbor_sides, boundary)
+            orientation = ldg_nc(orientations, boundary)
         end
 
         u_ll, u_rr = get_surface_node_vars(boundaries_u, equations, j1, j2, boundary)
@@ -1372,13 +1377,13 @@ function prolong_mortars_small2small_kernel!(u_upper_left, u_upper_right, u_lowe
         j2 = rem(j - 1, u2) + 1
 
         @inbounds begin
-            large_side = large_sides[k]
-            orientation = orientations[k]
+            large_side = ldg_nc(large_sides, k)
+            orientation = ldg_nc(orientations, k)
 
-            lower_left_element = neighbor_ids[1, k]
-            lower_right_element = neighbor_ids[2, k]
-            upper_left_element = neighbor_ids[3, k]
-            upper_right_element = neighbor_ids[4, k]
+            lower_left_element = ldg_nc(neighbor_ids, 1, k)
+            lower_right_element = ldg_nc(neighbor_ids, 2, k)
+            upper_left_element = ldg_nc(neighbor_ids, 3, k)
+            upper_right_element = ldg_nc(neighbor_ids, 4, k)
 
             # Short index representation on large_side = 1
             idx1 = isequal(orientation, 1) + isequal(orientation, 2) * j1 + isequal(orientation, 3) * j1
@@ -1420,9 +1425,9 @@ function prolong_mortars_large2small_kernel!(tmp_upper_left, tmp_upper_right, tm
         j2 = rem(j - 1, u2) + 1
 
         @inbounds begin
-            large_side = large_sides[k]
-            orientation = orientations[k]
-            large_element = neighbor_ids[5, k]
+            large_side = ldg_nc(large_sides, k)
+            orientation = ldg_nc(orientations, k)
+            large_element = ldg_nc(neighbor_ids, 5, k)
         end
 
         leftright = large_side
@@ -1477,7 +1482,7 @@ function prolong_mortars_large2small_kernel!(u_upper_left, u_upper_right, u_lowe
         j1 = div(j - 1, u2) + 1
         j2 = rem(j - 1, u2) + 1
 
-        @inbounds leftright = large_sides[k]
+        @inbounds leftright = ldg_nc(large_sides, k)
 
         for j2j2 in axes(forward_upper, 2)
             @inbounds begin
@@ -1516,7 +1521,7 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         u_lower_left_ll, u_lower_left_rr = get_surface_node_vars(u_lower_left, equations, i, j, k)
         u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j, k)
 
-        @inbounds orientation = orientations[k]
+        @inbounds orientation = ldg_nc(orientations, k)
 
         flux_upper_left_node = surface_flux(u_upper_left_ll, u_upper_left_rr, orientation,
                                             equations)
@@ -1566,8 +1571,8 @@ function mortar_flux_kernel!(fstar_primary_upper_left, fstar_primary_upper_right
         u_lower_right_ll, u_lower_right_rr = get_surface_node_vars(u_lower_right, equations, i, j, k)
 
         @inbounds begin
-            orientation = orientations[k]
-            large_side = large_sides[k]
+            orientation = ldg_nc(orientations, k)
+            large_side = ldg_nc(large_sides, k)
         end
 
         flux_upper_left_node = surface_flux(u_upper_left_ll, u_upper_left_rr, orientation,
@@ -1665,14 +1670,14 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_upper_left, tmp_up
         j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
 
         @inbounds begin
-            lower_left_element = neighbor_ids[1, k]
-            lower_right_element = neighbor_ids[2, k]
-            upper_left_element = neighbor_ids[3, k]
-            upper_right_element = neighbor_ids[4, k]
-            large_element = neighbor_ids[5, k]
+            lower_left_element = ldg_nc(neighbor_ids, 1, k)
+            lower_right_element = ldg_nc(neighbor_ids, 2, k)
+            upper_left_element = ldg_nc(neighbor_ids, 3, k)
+            upper_right_element = ldg_nc(neighbor_ids, 4, k)
+            large_element = ldg_nc(neighbor_ids, 5, k)
 
-            large_side = large_sides[k]
-            orientation = orientations[k]
+            large_side = ldg_nc(large_sides, k)
+            orientation = ldg_nc(orientations, k)
         end
 
         # Use simple math expression to enhance the performance (against control flow), 
@@ -1734,9 +1739,9 @@ function mortar_flux_copy_to_kernel!(surface_flux_values, tmp_surface_flux_value
         j2 = rem(j - 1, size(surface_flux_values, 2)) + 1
 
         @inbounds begin
-            large_element = neighbor_ids[5, k]
-            large_side = large_sides[k]
-            orientation = orientations[k]
+            large_element = ldg_nc(neighbor_ids, 5, k)
+            large_side = ldg_nc(large_sides, k)
+            orientation = ldg_nc(orientations, k)
         end
 
         # See step 1 for the explanation of the following expression

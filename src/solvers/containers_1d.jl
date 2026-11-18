@@ -2,10 +2,6 @@
 # we create the corresponding 1D containers for holding GPU arrays, which helps 
 # avoid multiple data transfers between the CPU and GPU.
 
-# TODO: Consider making read-only device data cached in read-only cache on device.
-# Need profiling to decide if it is necessary and which level of instruction is needed
-# for this (CUDA, or PTX, or already done by compiler).
-
 struct TreeElementContainerGPU1D{RealT <: Real, uEltype <: Real} <: AbstractContainer
     # read-only device data
     inverse_jacobian::CuArray{RealT, 1}

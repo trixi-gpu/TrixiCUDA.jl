@@ -61,7 +61,7 @@ struct TreeInterfaceContainerGPU1D{uEltype <: Real} <: AbstractContainer
     u::CuArray{uEltype, 3}
     # read-only device data
     neighbor_ids::CuArray{Int, 2}
-    orientations::CuArray{Int, 1}
+    orientations::CuArray{Int, 1} # not used in any kernel
 
     function TreeInterfaceContainerGPU1D{uEltype}(dims_u::NTuple{3, Int},
                                                   dims_neighbor_ids::NTuple{2, Int},

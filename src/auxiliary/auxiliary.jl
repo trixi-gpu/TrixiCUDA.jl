@@ -40,7 +40,7 @@ end
 # avoid using `solver::DG` as it is not stable on GPU.
 # Note that it also serves a way to allocate array per thread in GPU kernels.
 @inline function get_node_coords(x, equations, indices...)
-    return SVector(ntuple(@inline(idx->x[idx, indices...]), Val(ndims(equations))))
+    return SVector(ntuple(@inline(idx -> ldg_nc(x, idx, indices...)), Val(ndims(equations))))
 end
 
 # Similar to `get_surface_node_vars(u, equations, solver::DG, indices...)` in Trixi.jl,

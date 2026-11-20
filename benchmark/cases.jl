@@ -1,9 +1,11 @@
 using Trixi, TrixiShallowWater
 using StaticArrays: SVector
 
+# Cases are stored as `cases/cases_<d>d/<case>.jl` and named `<case>_<d>d`, e.g. `advection_basic_2d`.
 # Include only configuration factories at load time; allocate each problem when measured.
-const RHS_CASES = [(; name = splitext(basename(file))[1], build = include(file))
-                   for file in filter(endswith(".jl"), readdir(joinpath(@__DIR__, "cases"); join = true))]
+const RHS_CASES = [(; name = string(splitext(basename(file))[1], "_", d, "d"), build = include(file))
+                   for d in 1:3
+                   for file in filter(endswith(".jl"), readdir(joinpath(@__DIR__, "cases", "cases_$(d)d"); join = true))]
 
 make_problem(case; kwargs...) = rhs_problem(; case.build(; kwargs...)...)
 

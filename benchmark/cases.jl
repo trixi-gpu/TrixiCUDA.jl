@@ -1,7 +1,6 @@
 using Trixi, TrixiShallowWater
 using StaticArrays: SVector
 
-# Cases are stored as `cases/cases_<d>d/<case>.jl` and named `<case>_<d>d`, e.g. `advection_basic_2d`.
 # Include only configuration factories at load time; allocate each problem when measured.
 const RHS_CASES = [(; name = string(splitext(basename(file))[1], "_", d, "d"), build = include(file))
                    for d in 1:3
@@ -19,25 +18,4 @@ function rhs_problem(; equations, initial_condition, coordinates_min, coordinate
     return SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver; boundary_conditions, source_terms)
 end
 
-function initial_input(semi, t)
-    (; equations, initial_condition, solver, cache) = semi
-    elementwise = applicable(initial_condition, zero(SVector{ndims(equations), Float64}),
-                             t, 1, equations)
-
-    # Use Trixi's standard initialization for initial conditions that don't require
-    # an element ID. This preserves one-sided sampling in 1D.
-    elementwise || return Array(TrixiCUDA.compute_coefficients_gpu(t, semi))
-
-    # Pass the element ID to initial conditions that need it, such as the 
-    # discontinuous bottom topography in the 2D shallow-water EC case.
-    node_coordinates = Array(cache.elements.node_coordinates)
-    nodes = CartesianIndices(ntuple(_ -> Trixi.nnodes(solver), ndims(equations)))
-    u = Array{eltype(cache.elements)}(undef, Trixi.nvariables(equations), size(nodes)...,
-                                      Trixi.nelements(solver, cache))
-    for element in Trixi.eachelement(solver, cache), node in nodes
-        x = Trixi.get_node_coords(node_coordinates, equations, solver, Tuple(node)..., element)
-        state = initial_condition(x, t, element, equations)
-        Trixi.set_node_vars!(u, state, equations, solver, Tuple(node)..., element)
-    end
-    return u
-end
+initial_input(semi, t) = Array(TrixiCUDA.compute_coefficients_gpu(t, semi))

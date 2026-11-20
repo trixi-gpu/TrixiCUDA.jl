@@ -66,9 +66,7 @@ function flux_weak_form_kernel!(du, u, derivative_hat,
 
     # Get thread and block indices only we need to save registers
     tx, ty = threadIdx().x, threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_2d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
 
@@ -177,9 +175,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_2d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
 
@@ -312,9 +308,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_2d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
 
@@ -519,9 +513,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_2d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
 
@@ -782,9 +774,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_2d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width) + 1
     ty2 = rem(ty - 1, tile_width) + 1
 

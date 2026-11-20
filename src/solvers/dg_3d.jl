@@ -26,6 +26,8 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms, 
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
         # Go with the optimized version (frequent use) 
         threads = (size(du, 1), size(du, 2)^3, 1)
+        # FIXME(#261): one block per element on grid z, but gridDim.z <= 65535, so this launch fails
+        # for more than 65535 elements. Move elements to grid x (and update `flux_weak_form_kernel!` in dg_3d_kernel.jl).
         blocks = (1, 1, size(du, 5))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block flux_weak_form_kernel!(du, u,
                                                                                          derivative_hat,
@@ -65,6 +67,8 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
         # Go with the optimized version (frequent use)
         threads = (1, size(du, 2)^3, 1)
+        # FIXME(#261): one block per element on grid z, but gridDim.z <= 65535, so this launch fails
+        # for more than 65535 elements. Move elements to grid x (and update `volume_flux_integral_kernel!` in dg_3d_kernel.jl).
         blocks = (1, 1, size(du, 5))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_kernel!(du, u,
                                                                                                derivative_split,
@@ -113,6 +117,8 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
         # Go with the optimized version (frequent use)
         threads = (1, size(du, 2)^3, 1)
+        # FIXME(#261): one block per element on grid z, but gridDim.z <= 65535, so this launch fails
+        # for more than 65535 elements. Move elements to grid x (and update `volume_flux_integral_kernel!` in dg_3d_kernel.jl).
         blocks = (1, 1, size(du, 5))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_kernel!(du, u,
                                                                                                derivative_split,
@@ -188,6 +194,8 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
         # Go with the optimized version (frequent use)
         threads = (1, size(u, 2)^3, 1)
+        # FIXME(#261): one block per element on grid z, but gridDim.z <= 65535, so this launch fails
+        # for more than 65535 elements. Move elements to grid x (and update `volume_flux_integral_dgfv_kernel!` in dg_3d_kernel.jl).
         blocks = (1, 1, size(u, 5))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,
                                                                                                     derivative_split,
@@ -269,6 +277,8 @@ function calc_volume_integral!(du, u, mesh::TreeMesh{3}, nonconservative_terms::
     if thread_per_block <= MAX_THREADS_PER_BLOCK && shmem_per_block <= MAX_SHARED_MEMORY_PER_BLOCK
         # Go with the optimized version (frequent use)
         threads = (1, size(u, 2)^3, 1)
+        # FIXME(#261): one block per element on grid z, but gridDim.z <= 65535, so this launch fails
+        # for more than 65535 elements. Move elements to grid x (and update `volume_flux_integral_dgfv_kernel!` in dg_3d_kernel.jl).
         blocks = (1, 1, size(u, 5))
         @cuda threads=threads blocks=blocks shmem=shmem_per_block volume_flux_integral_dgfv_kernel!(du, u, alpha, atol,
                                                                                                     derivative_split,

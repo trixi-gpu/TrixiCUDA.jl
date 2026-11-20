@@ -58,11 +58,11 @@ The tables below list the individual cases behind the coverage summary, grouped 
 | `mhd_alfven_wave` | Ideal GLM-MHD | FD | 4 / 2 |
 | `shallowwater_ec` | Shallow water | FD-nc | 4 / 4 |
 | `shallowwater_source_terms` | Shallow water | FD-nc, Src | 3 / 3 |
-| `euler_quasi_1d_source_terms_dirichlet` | Quasi-1D compressible Euler | FD-nc, BC-nc, Src | 4 / 4 |
+| `euler_quasi_source_terms_dirichlet` | Quasi compressible Euler | FD-nc, BC-nc, Src | 4 / 4 |
 | `euler_shock` | Compressible Euler | SC | 3 / 5 |
 | `euler_blast_wave` | Compressible Euler | SC | 3 / 6 |
 | `mhd_briowu_shock_tube` | Ideal GLM-MHD | SC, BC | 4 / 4 |
-| `euler_quasi_1d_discontinuous` | Quasi-1D compressible Euler | SC-nc | 3 / 6 |
+| `euler_quasi_discontinuous` | Quasi compressible Euler | SC-nc | 3 / 6 |
 | `shallowwater_shock_capturing` | Shallow water | SC-nc, BC-nc | 4 / 3 |
 
 ### 2D (13 cases)

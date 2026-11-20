@@ -6,17 +6,6 @@ using Test
 # https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_2d_dgsem/elixir_euler_blob_mortar.jl
 include("../test_macros.jl")
 
-# TEMP-DEBUG(#262) BEGIN: thread-adoption probe for the flaky Julia 1.13 failure; remove before merge
-function _debug_thread_probe(label, cache = nothing)
-    pools = [Threads.threadpool(i) for i in 1:Threads.maxthreadid()]
-    nbuf = cache === nothing ? "n/a" : length(cache.fstar_primary_upper_threaded)
-    println("TEMP-DEBUG(#262) [", @__MODULE__, "] ", label, ": maxthreadid = ", Threads.maxthreadid(),
-            ", threadpools = ", pools, ", mortar fstar buffers = ", nbuf)
-    flush(stdout)
-    return nothing
-end
-# TEMP-DEBUG(#262) END
-
 @testset "Euler Blob Mortar 2D" begin
     gamma = 5 / 3
     equations = CompressibleEulerEquations2D(gamma)
@@ -143,7 +132,6 @@ end
                   cache.elements.surface_flux_values)
 
     TrixiCUDA.prolong2mortars!(cache_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu.mortar, solver_gpu)
-    _debug_thread_probe("before Trixi.prolong2mortars!", cache)  # TEMP-DEBUG(#262)
     Trixi.prolong2mortars!(cache, u, mesh, equations, solver.mortar, solver)
     @test_approx (cache_gpu.mortars.u_upper, cache.mortars.u_upper)
     @test_approx (cache_gpu.mortars.u_lower, cache.mortars.u_lower)

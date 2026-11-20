@@ -6,17 +6,6 @@ using Test
 # https://github.com/trixi-framework/Trixi.jl/blob/v0.17.19/examples/tree_2d_dgsem/elixir_advection_mortar.jl
 include("../test_macros.jl")
 
-# TEMP-DEBUG(#262) BEGIN: thread-adoption probe for the flaky Julia 1.13 failure; remove before merge
-function _debug_thread_probe(label, cache = nothing)
-    pools = [Threads.threadpool(i) for i in 1:Threads.maxthreadid()]
-    nbuf = cache === nothing ? "n/a" : length(cache.fstar_primary_upper_threaded)
-    println("TEMP-DEBUG(#262) [", @__MODULE__, "] ", label, ": maxthreadid = ", Threads.maxthreadid(),
-            ", threadpools = ", pools, ", mortar fstar buffers = ", nbuf)
-    flush(stdout)
-    return nothing
-end
-# TEMP-DEBUG(#262) END
-
 @testset "Advection Mortar 2D" begin
     advection_velocity = (0.2, -0.7)
     equations = LinearScalarAdvectionEquation2D(advection_velocity)
@@ -34,12 +23,10 @@ end
                     refinement_patches = refinement_patches,
                     periodicity = true)
 
-    _debug_thread_probe("before CPU semi")  # TEMP-DEBUG(#262)
     semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition, solver,
                                         boundary_conditions = boundary_condition_periodic)
     semi_gpu = SemidiscretizationHyperbolicGPU(mesh, equations, initial_condition, solver_gpu,
                                                boundary_conditions = boundary_condition_periodic)
-    _debug_thread_probe("after CPU and GPU semi", semi.cache)  # TEMP-DEBUG(#262)
 
     tspan = tspan_gpu = (0.0, 1.0)
     t = t_gpu = 0.0
@@ -65,7 +52,6 @@ end
     du_gpu_ = similar(u_gpu_)
     u_gpu = TrixiCUDA.wrap_array(u_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
     du_gpu = TrixiCUDA.wrap_array(du_gpu_, mesh_gpu, equations_gpu, solver_gpu, cache_gpu)
-    _debug_thread_probe("after ODE setup", cache)  # TEMP-DEBUG(#262)
 
     # Tests for semidiscretization process
     @test_approx (u_gpu, u) # du is initlaizaed as undefined, cannot test now
@@ -101,7 +87,6 @@ end
                   cache.elements.surface_flux_values)
 
     TrixiCUDA.prolong2mortars!(cache_gpu, u_gpu, mesh_gpu, equations_gpu, solver_gpu.mortar, solver_gpu)
-    _debug_thread_probe("before Trixi.prolong2mortars!", cache)  # TEMP-DEBUG(#262)
     Trixi.prolong2mortars!(cache, u, mesh, equations, solver.mortar, solver)
     @test_approx (cache_gpu.mortars.u_upper, cache.mortars.u_upper)
     @test_approx (cache_gpu.mortars.u_lower, cache.mortars.u_lower)

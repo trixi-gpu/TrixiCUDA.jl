@@ -1,9 +1,5 @@
 # GPU kernels related to a DG semidiscretization in 2D.
 
-# Functions that end with `_kernel` are CUDA kernels that are going to be launched by 
-# the @cuda macro with parameters from the kernel configurator. They are purely run on 
-# the device (i.e., GPU).
-
 # TODO: We choose to enable the read-only L1/TEX cache path for some data below but some 
 # of them are fetched and read by each thread only once, the performance gain is not 
 # significant, consider enabling data persistence in L2 cache might be a better option for 

@@ -1,9 +1,5 @@
 # GPU kernels related to a DG semidiscretization in 1D.
 
-# Functions that end with `_kernel` are CUDA kernels that are going to be launched by 
-# the @cuda macro with parameters from the kernel configurator. They are purely run on 
-# the device (i.e., GPU).
-
 # TODO: We choose to enable the read-only L1/TEX cache path for some data below but some 
 # of them are fetched and read by each thread only once, the performance gain is not 
 # significant, consider enabling data persistence in L2 cache might be a better option for 
@@ -57,9 +53,7 @@ function flux_weak_form_kernel!(du, u, derivative_hat,
 
     # Get thread and block indices only we need to save registers
     tx, ty = threadIdx().x, threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_1d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
 
     # Tile the computation (restrict to one tile here)
     value = zero(eltype(du))
@@ -149,9 +143,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Get thread and block indices only we need to save registers
     ty = threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_1d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
 
     # Tile the computation (set to one tile here)
     # Initialize the values
@@ -259,9 +251,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Get thread and block indices only we need to save registers
     ty = threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_1d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
 
     # Tile the computation (set to one tile here)
     # Initialize the values
@@ -410,9 +400,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
     # Get thread and block indices only we need to save registers
     ty = threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_1d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
 
     # Load global `derivative_split` into shared memory
     for ty2 in axes(du, 2)
@@ -594,9 +582,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
     # Get thread and block indices only we need to save registers
     ty = threadIdx().y
-    # FIXME(#261): element index from grid z (limited to 65535 blocks). Read it from grid x once the
-    # launch in dg_1d.jl uses `blocks = (n_elements, 1, 1)`.
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
 
     # Load global `derivative_split` into shared memory
     for ty2 in axes(du, 2)

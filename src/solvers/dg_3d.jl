@@ -2,16 +2,16 @@
 
 include("dg_3d_kernel.jl")
 
-# Functions that begin with `cuda_` are the functions that pack CUDA kernels together to do 
-# partial work in semidiscretization. They are used to invoke kernels from the host (i.e., CPU) 
-# and run them on the device (i.e., GPU).
-
 # Note that `volume_integral::VolumeIntegralPureLGLFiniteVolume` is currently experimental
 # in Trixi.jl and it is not implemented here.
 
 # The maximum number of threads per block is the dominant factor when choosing the optimization 
 # method. But note that there are other factors such as max register number per block and we will
 # enhance the checking mechanism in the future.
+
+# TODO: All the limits on the kernel launch configuration should be checked and resolved by
+# strided loops in the future. The current implementation is a temporary solution to avoid 
+# kernel launch failure.
 
 # Compute the DG volume term on the GPU for 3D problems using the classical 
 # weak form volume operator.

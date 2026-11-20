@@ -1,9 +1,5 @@
 # GPU kernels related to a DG semidiscretization in 3D.
 
-# Functions that end with `_kernel` are CUDA kernels that are going to be launched by 
-# the @cuda macro with parameters from the kernel configurator. They are purely run on 
-# the device (i.e., GPU).
-
 # TODO: We choose to enable the read-only L1/TEX cache path for some data below but some 
 # of them are fetched and read by each thread only once, the performance gain is not 
 # significant, consider enabling data persistence in L2 cache might be a better option for 
@@ -81,7 +77,7 @@ function flux_weak_form_kernel!(du, u, derivative_hat,
 
     # Get thread and block indices only we need save registers
     tx, ty = threadIdx().x, threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width^2) + 1
     ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
@@ -204,7 +200,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width^2) + 1
     ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
@@ -357,7 +353,7 @@ function volume_flux_integral_kernel!(du, u, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width^2) + 1
     ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
@@ -616,7 +612,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width^2) + 1
     ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1
@@ -953,7 +949,7 @@ function volume_flux_integral_dgfv_kernel!(du, u, alpha, atol, derivative_split,
 
     # Get thread and block indices only we need save registers
     ty = threadIdx().y
-    k = (blockIdx().z - 1) * blockDim().z + threadIdx().z
+    k = blockIdx().x
     ty1 = div(ty - 1, tile_width^2) + 1
     ty2 = div(rem(ty - 1, tile_width^2), tile_width) + 1
     ty3 = rem(rem(ty - 1, tile_width^2), tile_width) + 1

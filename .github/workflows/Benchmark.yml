@@ -1,17 +1,12 @@
 name: GPU Benchmarks
 
 on:
-  # Pushes to main and to branches of open PRs from this repository are benchmarked.
+  # Pushes to main and to branches of open PRs from this repository are benchmarked
+  # when the commit title contains "[benchmark mini]". There is no manual trigger.
   # Fork PRs never trigger this workflow, so untrusted code cannot reach the GPU runner.
   push:
     branches:
       - "**"
-  workflow_dispatch:
-    inputs:
-      pull_request:
-        description: PR number of the selected branch (leave empty on main)
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -29,28 +24,14 @@ jobs:
       - name: Select the commit to benchmark
         id: select
         uses: actions/github-script@v9
-        env:
-          INPUT_PR: ${{ inputs.pull_request }}
         with:
           script: |
             const repo = context.repo;
             const {full_name: fullName, default_branch: defaultBranch} = context.payload.repository;
             const branch = context.ref.replace('refs/heads/', '');
-            const input = process.env.INPUT_PR;
 
             let pr;
-            if (context.eventName === 'workflow_dispatch') {
-              // Manual runs benchmark main without a PR number, or a PR from its head branch.
-              if (branch === defaultBranch) {
-                if (input) throw new Error('Leave the PR number empty when running on the default branch');
-              } else {
-                if (!/^[1-9][0-9]*$/.test(input)) throw new Error('Enter the PR number of the selected branch');
-                ({data: pr} = await github.rest.pulls.get({...repo, pull_number: Number(input)}));
-                if (pr.head.ref !== branch || pr.head.sha !== context.sha) {
-                  throw new Error(`The selected branch must be the current head of PR #${input}`);
-                }
-              }
-            } else if (branch !== defaultBranch) {
+            if (branch !== defaultBranch) {
               // Pushes to other branches benchmark their open same-repository PR.
               const prs = await github.paginate(github.rest.pulls.list, {
                 ...repo,
@@ -63,15 +44,16 @@ jobs:
             }
             if (pr && (pr.state !== 'open' || pr.draft || pr.head.repo?.full_name !== fullName)) return;
 
-            // Respect a skip marker in the commit's title (not its description).
+            // Run only when the commit's title (not its description) asks for it. On main,
+            // this is the squash commit title, which defaults to the PR title.
             const {data: commit} = await github.rest.repos.getCommit({...repo, ref: context.sha});
-            if (commit.commit.message.split('\n', 1)[0].includes('[skip benchmarks]')) return;
+            if (!commit.commit.message.split('\n', 1)[0].includes('[benchmark mini]')) return;
             core.setOutput('head', context.sha);
             core.setOutput('pr', pr?.number ?? '');
             core.setOutput('base', pr?.base.ref ?? defaultBranch);
 
-  benchmark:
-    name: Run benchmarks
+  mini:
+    name: Run mini benchmark
     needs: prepare
     if: needs.prepare.outputs.head != ''
     runs-on: [self-hosted, linux, x64, gpu]
@@ -84,7 +66,6 @@ jobs:
       complete: ${{ steps.environment.outcome == 'success' }}
       baseline: ${{ steps.measure.outputs.baseline }}
     env:
-      BENCHMARK_PR: ${{ needs.prepare.outputs.pr }}
       BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
       BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -138,8 +119,8 @@ jobs:
 
   comment:
     name: Publish comment
-    needs: [prepare, benchmark]
-    if: needs.prepare.outputs.pr != '' && needs.benchmark.outputs.complete == 'true'
+    needs: [prepare, mini]
+    if: needs.prepare.outputs.pr != '' && needs.mini.outputs.complete == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -150,17 +131,11 @@ jobs:
         with:
           sparse-checkout: .github/scripts
           persist-credentials: false
-      - name: Download benchmark results
-        uses: actions/download-artifact@v8
-        with:
-          name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
-          path: results
       - name: Publish or update bot comment
         uses: actions/github-script@v9
         env:
           PR_NUMBER: ${{ needs.prepare.outputs.pr }}
           HEAD_SHA: ${{ needs.prepare.outputs.head }}
-          BASELINE_SHA: ${{ needs.benchmark.outputs.baseline }}
           BASE_BRANCH: ${{ needs.prepare.outputs.base }}
         with:
           script: |

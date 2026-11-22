@@ -121,14 +121,14 @@ Please also try the examples in the tests directory, as they are always the most
 # Benchmarks
 We benchmark `rhs_hyperbolic!` to guide semidiscretization optimization and track performance changes. This function evaluates the time derivative of the spatially discretized solution.
 
-GitHub Actions runs GPU benchmarks on pushes to branches of open, non-draft pull requests in this repository. Benchmark runs are queued to ensure exclusive access to the self-hosted GPU (the GPU model may change over time as optimization priorities evolve). Both commits in each comparison are benchmarked on the same GPU with the same benchmark harness, each using its own source code and resolved dependencies.
+GitHub Actions runs GPU benchmarks on request: only when the commit title contains `[benchmark mini]`, on pushes to branches of open, non-draft pull requests in this repository and on pushes to the default branch. Pushes without the marker run no benchmark. Benchmark runs are queued to ensure exclusive access to the self-hosted GPU (the GPU model may change over time as optimization priorities evolve). Both commits in each comparison are benchmarked on the same GPU with the same benchmark harness, each using its own source code and resolved dependencies.
 
 Each benchmark run compares two commits:
 - **Target:** the commit at the head of the push.
-- **Baseline:** the merge base of the target commit and the PR’s base branch.
+- **Baseline:** the merge base of the target commit and the PR’s base branch; on the default branch, the target’s first parent.
 
 Results are available in three places:
-- **PR comment:** the geometric mean speedup, the three largest timing changes, and a link to the full report. Subsequent runs update the same comment.
+- **PR comment:** a link to the full report. Subsequent runs update the same comment.
 - **Actions job summary:** per-case timings, sample counts, and speedups, along with the measurement settings and environment details.
 - **Actions artifacts:** the full report, all raw timing samples, and the resolved Julia environments for both commits.
 

@@ -133,9 +133,7 @@ function write_report(io, baseline, target)
             "synchronized RHS call. Sampling stops after ", parameters["samples"],
             " samples or a ", parameters["seconds"], " s sampling budget, whichever comes ",
             "first, to limit benchmark runtime. Sample counts are shown as baseline / target.\n\n",
-            "**Target:** Push runs measure that push's head commit. Manual runs measure the ",
-            "latest commit of the selected branch: the default branch without a PR number, ",
-            "or the head branch of the specified PR.\n\n",
+            "**Target:** The head commit of a push whose title contains `[benchmark mini]`.\n\n",
             "**Baseline:** PR runs use the exact merge base of the target commit and ",
             "the fetched PR target branch (or the default branch for local branch runs). ",
             "Default-branch runs use the target commit's first parent.\n\n</details>\n")
@@ -145,7 +143,7 @@ function comparison_commits()
     head = readchomp(git("rev-parse", "HEAD"))
     default = get(ENV, "BENCHMARK_DEFAULT_BRANCH", "main")
     branch = get(() -> readchomp(git("branch", "--show-current")), ENV, "GITHUB_REF_NAME")
-    if branch == default && isempty(get(ENV, "BENCHMARK_PR", ""))
+    if branch == default
         return head, readchomp(git("rev-parse", "$(head)^1"))
     end
     run(git("fetch", "--no-tags", "origin", get(ENV, "BENCHMARK_BASE_BRANCH", default)))

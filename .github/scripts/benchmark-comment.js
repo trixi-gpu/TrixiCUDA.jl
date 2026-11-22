@@ -3,11 +3,9 @@ module.exports = async ({github, context}) => {
   const sha = process.env.HEAD_SHA;
   const runURL = `${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${context.runId}`;
 
-  // The full report is in the run's job summary; the comment only links to it.
   const marker = '<!-- trixicuda-gpu-rhs-benchmarks -->';
   const body = `${marker}\nGPU RHS mini benchmark for \`${sha.slice(0, 7)}\`: [full report](${runURL})`;
 
-  // Find this bot's marked comment so repeated runs update the same discussion.
   const comments = await github.paginate(github.rest.issues.listComments, {
     ...repo, issue_number: number, per_page: 100
   });

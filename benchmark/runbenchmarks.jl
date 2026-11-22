@@ -49,7 +49,7 @@ function measure()
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
     # Initial time for every case; the results and report record this same value.
     t = 0.0
-    # Sampling stops after `samples` samples or `seconds` of sampling, whichever comes first.
+    # Sampling stops after some samples or some seconds of sampling, whichever comes first.
     seconds, samples = 1.0, 100
     packages = Dict(string(id) => Dict("name" => info.name, "version" => string(info.version),
                                        "tree" => string(info.tree_hash))

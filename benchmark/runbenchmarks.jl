@@ -49,30 +49,26 @@ function measure()
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
     # Initial time for every case; the results and report record this same value.
     t = 0.0
-    seconds = parse(Float64, get(ENV, "BENCHMARK_SECONDS", "1"))
-    samples = parse(Int, get(ENV, "BENCHMARK_SAMPLES", "100"))
-    case_filter = get(ENV, "BENCHMARK_FILTER", "")
-    cases = [case for case in RHS_CASES if occursin(case_filter, case.name)]
-    isempty(cases) && error("No benchmark cases match '$case_filter'")
+    # Sampling stops after `samples` samples or `seconds` of sampling, whichever comes first.
+    seconds, samples = 1.0, 100
     packages = Dict(string(id) => Dict("name" => info.name, "version" => string(info.version),
                                        "tree" => string(info.tree_hash))
                     for (id, info) in Pkg.dependencies() if info.version !== nothing)
     environment = Dict("commit" => commit, "julia" => string(VERSION),
                        "gpu" => CUDA.name(CUDA.device()), "gpu_uuid" => string(CUDA.uuid(CUDA.device())),
-                       "host" => get(ENV, "RUNNER_NAME", "unknown-runner"),
+                       "host" => ENV["RUNNER_NAME"],
                        "runtime" => string(CUDA.runtime_version()),
                        "driver" => CUDA.has_nvml() ? string(CUDA.NVML.driver_version()) : string(CUDA.driver_version()),
                        "threads" => Threads.nthreads(), "packages" => packages,
                        "cuda_versioninfo" => sprint(CUDA.versioninfo),
                        "measured_at" => string(now(UTC)),
-                       "build_url" => get(ENV, "BENCHMARK_RUN_URL", "local"))
+                       "build_url" => ENV["BENCHMARK_RUN_URL"])
     output = Dict("environment" => environment,
                   "parameters" => Dict("seconds" => seconds, "samples" => samples,
                        "precision" => "Float64", "evals" => 1,
-                       "initialization" => "classical initial condition", "initial_time" => t,
-                       "filter" => case_filter))
+                       "initialization" => "classical initial condition", "initial_time" => t))
     results = Dict{String, Any}()
-    for case in cases
+    for case in RHS_CASES
         @info "Benchmarking $(case.name)"
         results[case.name] = benchmark_rhs(case; t, seconds, samples)
         # Avoid retaining all case allocations on small benchmark GPUs.
@@ -135,18 +131,15 @@ function write_report(io, baseline, target)
             "first, to limit benchmark runtime. Sample counts are shown as baseline / target.\n\n",
             "**Target:** The head commit of a push whose title contains `[benchmark mini]`.\n\n",
             "**Baseline:** PR runs use the exact merge base of the target commit and ",
-            "the fetched PR target branch (or the default branch for local branch runs). ",
-            "Default-branch runs use the target commit's first parent.\n\n</details>\n")
+            "the fetched PR base branch. Default-branch runs use the target commit's first parent.\n\n</details>\n")
 end
 
 function comparison_commits()
     head = readchomp(git("rev-parse", "HEAD"))
-    default = get(ENV, "BENCHMARK_DEFAULT_BRANCH", "main")
-    branch = get(() -> readchomp(git("branch", "--show-current")), ENV, "GITHUB_REF_NAME")
-    if branch == default
+    if ENV["GITHUB_REF_NAME"] == ENV["BENCHMARK_DEFAULT_BRANCH"]
         return head, readchomp(git("rev-parse", "$(head)^1"))
     end
-    run(git("fetch", "--no-tags", "origin", get(ENV, "BENCHMARK_BASE_BRANCH", default)))
+    run(git("fetch", "--no-tags", "origin", ENV["BENCHMARK_BASE_BRANCH"]))
     return head, readchomp(git("merge-base", head, "FETCH_HEAD"))
 end
 
@@ -154,9 +147,7 @@ end
 # of source code and resolves its dependencies independently from scratch.
 function compare()
     head, baseline = comparison_commits()
-    if haskey(ENV, "GITHUB_OUTPUT")
-        open(io -> println(io, "baseline=", baseline), ENV["GITHUB_OUTPUT"], "a")
-    end
+    open(io -> println(io, "baseline=", baseline), ENV["GITHUB_OUTPUT"], "a")
     output = joinpath(@__DIR__, "results")
     rm(output; force = true, recursive = true)
     mktempdir() do work
@@ -189,10 +180,7 @@ function compare()
             end
             report = joinpath(output, "report.md")
             write(report, text)
-            @info "Benchmark report saved" report
-            if haskey(ENV, "GITHUB_STEP_SUMMARY")
-                open(io -> write(io, text), ENV["GITHUB_STEP_SUMMARY"], "a")
-            end
+            open(io -> write(io, text), ENV["GITHUB_STEP_SUMMARY"], "a")
         finally
             Pkg.activate(@__DIR__)
             run(ignorestatus(git("worktree", "remove", "--force", source)))

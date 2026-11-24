@@ -36,9 +36,10 @@ function benchmark_rhs(case; t, samples)
     # Time the synchronized RHS call. Reset du to zero before each sample so 
     # every timed call starts with the same output buffer contents. Wait for 
     # the reset to finish before starting the timer.
+    # BenchmarkTools needs a finite time budget; this one never stops sampling early.
     trial = @benchmark begin
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $semi, $t)
-    end setup=(CUDA.@sync fill!($du, 0)) evals=1 seconds=Inf samples=samples
+    end setup=(CUDA.@sync fill!($du, 0)) evals=1 seconds=1e6 samples=samples
     return Dict("minimum_ns" => minimum(trial).time,
                 "samples_ns" => trial.times,
                 "samples" => length(trial),

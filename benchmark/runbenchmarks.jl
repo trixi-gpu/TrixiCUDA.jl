@@ -32,6 +32,11 @@ function benchmark_rhs(case; t, samples)
     # different execution paths and make timings harder to interpret.
     CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, semi, t)
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
+    # Calibration experiment: keep the GPU busy for 2 s so clocks reach a steady state.
+    warmup_start = time()
+    while time() - warmup_start < 2
+        CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, semi, t)
+    end
 
     # Time the synchronized RHS call. Reset du to zero before each sample so 
     # every timed call starts with the same output buffer contents. Wait for 

@@ -230,6 +230,11 @@ function compare()
             end
             report = joinpath(output, "report.md")
             write(report, text)
+            # Calibration only: print the report and raw samples, since artifacts are not reachable.
+            println(text)
+            samples(path) = Dict(name => case["samples_ns"] for (name, case) in read_result(path)["benchmarks"])
+            println("AA_RAW ", JSON.json(Dict(label => samples(joinpath(output, "$label.json"))
+                                              for label in ("baseline", "target"))))
             open(io -> write(io, text), ENV["GITHUB_STEP_SUMMARY"], "a")
         finally
             Pkg.activate(@__DIR__)

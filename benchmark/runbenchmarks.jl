@@ -1,6 +1,9 @@
 using TrixiCUDA, CUDA, BenchmarkTools
-using Dates, JSON, Pkg, Printf, SHA
+using Dates, JSON, Pkg, Printf, Random, SHA
 include("cases.jl")
+
+const NOISE_BAND = 0.03  # provisional until calibrated from runs that compare identical code
+const RESAMPLES = 9_999
 
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
@@ -16,7 +19,7 @@ end
 
 read_result(path) = JSON.parsefile(path; dicttype = Dict{String, Any})
 
-function benchmark_rhs(case; t, seconds, samples)
+function benchmark_rhs(case; t, samples)
     semi = make_problem(case)
     (; equations) = semi
     u_host = initial_input(semi, t)
@@ -35,7 +38,7 @@ function benchmark_rhs(case; t, seconds, samples)
     # the reset to finish before starting the timer.
     trial = @benchmark begin
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $semi, $t)
-    end setup=(CUDA.@sync fill!($du, 0)) evals=1 seconds=seconds samples=samples
+    end setup=(CUDA.@sync fill!($du, 0)) evals=1 seconds=Inf samples=samples
     return Dict("minimum_ns" => minimum(trial).time,
                 "samples_ns" => trial.times,
                 "samples" => length(trial),
@@ -49,8 +52,7 @@ function measure()
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
     # Initial time for every case; the results and report record this same value.
     t = 0.0
-    # Sampling stops after some samples or some seconds of sampling, whichever comes first.
-    seconds, samples = 1.0, 100
+    samples = 100
     packages = Dict(string(id) => Dict("name" => info.name, "version" => string(info.version),
                                        "tree" => string(info.tree_hash))
                     for (id, info) in Pkg.dependencies() if info.version !== nothing)
@@ -64,13 +66,13 @@ function measure()
                        "measured_at" => string(now(UTC)),
                        "build_url" => ENV["BENCHMARK_RUN_URL"])
     output = Dict("environment" => environment,
-                  "parameters" => Dict("seconds" => seconds, "samples" => samples,
+                  "parameters" => Dict("samples" => samples,
                        "precision" => "Float64", "evals" => 1,
                        "initialization" => "classical initial condition", "initial_time" => t))
     results = Dict{String, Any}()
     for case in RHS_CASES
         @info "Benchmarking $(case.name)"
-        results[case.name] = benchmark_rhs(case; t, seconds, samples)
+        results[case.name] = benchmark_rhs(case; t, samples)
         # Avoid retaining all case allocations on small benchmark GPUs.
         GC.gc(true)
         CUDA.reclaim()
@@ -81,31 +83,76 @@ function measure()
     return nothing
 end
 
+# Median of all pairwise baseline/target time ratios; `ratios` is a reusable buffer.
+function median_ratio!(ratios, base, target)
+    k = 0
+    for b in base, t in target
+        ratios[k += 1] = b / t
+    end
+    n = length(ratios)
+    return isodd(n) ? partialsort!(ratios, (n + 1) ÷ 2) : sum(partialsort!(ratios, (n ÷ 2):(n ÷ 2 + 1))) / 2
+end
+
+# 95% percentile bootstrap interval of the median ratio. With 9,999 resamples the
+# interval ends are exactly the 250th smallest and the 250th largest estimates.
+function speedup_interval(base, target, rng)
+    ratios = Vector{Float64}(undef, length(base) * length(target))
+    estimates = sort!([median_ratio!(ratios, rand(rng, base, length(base)), rand(rng, target, length(target)))
+                       for _ in 1:RESAMPLES])
+    k = round(Int, 0.025 * (RESAMPLES + 1))
+    return estimates[k], estimates[end + 1 - k]
+end
+
+# The seed depends on the case and both commits, so a report is reproducible from its raw samples.
+bootstrap_rng(name, baseline, target) = Xoshiro(first(reinterpret(UInt64, sha256(name * baseline * target)[1:8])))
+
+function verdict((low, high))
+    low > 1 + NOISE_BAND && return "faster"
+    high < 1 / (1 + NOISE_BAND) && return "slower"
+    1 / (1 + NOISE_BAND) <= low && high <= 1 + NOISE_BAND && return "no change"
+    return "inconclusive"
+end
+
+function compare_case(name, base, target, baseline_commit, target_commit)
+    b, t = Float64.(base["samples_ns"]), Float64.(target["samples_ns"])
+    interval = speedup_interval(b, t, bootstrap_rng(name, baseline_commit, target_commit))
+    return (; name, dofs = target["dofs_per_field"], base_min = base["minimum_ns"],
+            target_min = target["minimum_ns"],
+            speedup = median_ratio!(Vector{Float64}(undef, length(b) * length(t)), b, t),
+            interval, verdict = verdict(interval))
+end
+
 function write_report(io, baseline, target)
     validate_comparison(baseline, target)
     b_env, t_env = baseline["environment"], target["environment"]
     b, t = baseline["benchmarks"], target["benchmarks"]
     parameters = target["parameters"]
-    speedup = exp(sum(log(b[name]["minimum_ns"] / t[name]["minimum_ns"]) for name in keys(t)) / length(t))
+    rows = [compare_case(name, b[name], t[name], b_env["commit"], t_env["commit"])
+            for name in sort!(collect(keys(t)))]
+    speedup = exp(sum(row -> log(row.speedup), rows) / length(rows))
+    counts = join(("$(count(row -> row.verdict == v, rows)) $v"
+                   for v in ("faster", "slower", "no change", "inconclusive")), ", ")
+    band = @sprintf("%.3f–%.3f", 1 / (1 + NOISE_BAND), 1 + NOISE_BAND)
+
     println(io, "## GPU RHS Benchmarks\n")
     println(io, "Baseline: `", b_env["commit"], "`  \nTarget: `", t_env["commit"], "`\n")
     gpu = replace(t_env["gpu"], r"(?i)\s+laptop gpu$" => "")
     println(io, "**Environment:** ", gpu, " with Julia ", t_env["julia"],
             ", CUDA runtime ", t_env["runtime"], ", and NVIDIA driver ", t_env["driver"], ".\n")
-    @printf(io, "**Results:** %d cases; geometric mean speedup **%.3fx**\n\n", length(t), speedup)
-    println(io, "| RHS case | DOFs/field | Samples (base/target) | ",
-            "Baseline min (ms) | Target min (ms) | Speedup |")
-    println(io, "|:--|--:|--:|--:|--:|--:|")
-    for name in sort!(collect(keys(t)))
-        base, head = b[name], t[name]
-        bt, tt = base["minimum_ns"], head["minimum_ns"]
-        @printf(io, "| %s | %d | %d / %d | %.4f | %.4f | %.3fx |\n",
-                name, head["dofs_per_field"], base["samples"], head["samples"],
-                bt / 1e6, tt / 1e6, bt / tt)
+    @printf(io, "**Results:** %d cases; geometric mean speedup **%.3fx** (%s)\n\n",
+            length(rows), speedup, counts)
+    println(io, "| RHS case | DOFs/field | Baseline min (ms) | Target min (ms) | ",
+            "Speedup | 95% interval | Verdict |")
+    println(io, "|:--|--:|--:|--:|--:|:-:|:--|")
+    for row in rows
+        @printf(io, "| %s | %d | %.4f | %.4f | %.3fx | %.3f–%.3f | %s |\n",
+                row.name, row.dofs, row.base_min / 1e6, row.target_min / 1e6, row.speedup,
+                row.interval[1], row.interval[2], row.verdict)
     end
-    println(io, "\nSpeedup > 1 indicates improvement. ",
-            "Informational only: no regression threshold is applied. ",
-            "Small differences may be measurement noise.\n")
+    println(io, "\nSpeedup > 1 means the target is faster. A case is faster or slower only when ",
+            "its whole 95% interval lies outside the ±", round(Int, 100 * NOISE_BAND),
+            "% noise band (", band, "), no change when the interval lies inside it, ",
+            "and inconclusive otherwise.\n")
     for (label, result) in (("Baseline", baseline), ("Target", target))
         env = result["environment"]
         measured_at = Dates.format(DateTime(env["measured_at"]), dateformat"yyyy-mm-dd HH:MM")
@@ -115,20 +162,22 @@ function write_report(io, baseline, target)
     println(io, "\n<details>\n<summary><b>Benchmark settings</b></summary>\n\n",
             "<br>\n\n",
             "**Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
-            "and one Julia thread. Each RHS call is GPU-synchronized, and the minimum wall time ",
-            "is reported. The cases use classical initial conditions, polynomial degrees, ",
+            "and one Julia thread. The cases use classical initial conditions, polynomial degrees, ",
             "meshes, and fluxes adapted from Trixi/TrixiShallowWater examples. ",
-            "Inputs are initialized at t = ",
-            @sprintf("%g", parameters["initial_time"]), ".\n\n",
+            "Inputs are initialized at t = ", @sprintf("%g", parameters["initial_time"]), ".\n\n",
             "**Comparison setup:** Both revisions are measured on the same GPU using the ",
-            "target commit's benchmark harness, with identical cases and timing settings. ",
-            "Each run loads the source from its respective commit and resolves its ",
-            "Julia dependencies independently. The comparison captures the combined performance ",
-            "impact of source code and dependency changes.\n\n",
-            "**Sampling:** After one warm-up RHS call per case, each sample measures one ",
-            "synchronized RHS call. Sampling stops after ", parameters["samples"],
-            " samples or a ", parameters["seconds"], " s sampling budget, whichever comes ",
-            "first, to limit benchmark runtime. Sample counts are shown as baseline / target.\n\n",
+            "target commit's benchmark harness, with identical cases and timing settings, ",
+            "the baseline first and the target second. Each run loads the source from its ",
+            "respective commit and resolves its Julia dependencies independently. The comparison ",
+            "captures the combined performance impact of source code and dependency changes.\n\n",
+            "**Sampling:** After one warm-up RHS call per case, each revision records ",
+            parameters["samples"], " samples per case, each timing one GPU-synchronized RHS call.\n\n",
+            "**Statistics:** The speedup is the median of all baseline/target ratios of the ",
+            "samples. Its 95% interval is a percentile bootstrap with ", RESAMPLES, " resamples; ",
+            "the random seed is derived from the case name and both commits, so the same samples ",
+            "always give the same interval. Min columns show the fastest sample of each revision. ",
+            "The noise band is provisional and will be calibrated from runs that compare ",
+            "identical code.\n\n",
             "**Target:** The head commit of a push whose title contains `[benchmark mini]`.\n\n",
             "**Baseline:** PR runs use the exact merge base of the target commit and ",
             "the fetched PR base branch. Default-branch runs use the target commit's first parent.\n\n</details>\n")
@@ -170,10 +219,10 @@ function compare()
             end
             # One Julia thread keeps the CPU-side parts (e.g. shock capturing) reproducible.
             script = joinpath(@__DIR__, "runbenchmarks.jl")
-            @info "Target measurement" commit = head
-            run(`$(Base.julia_cmd()) --threads=1 --project=$(@__DIR__) $script $(joinpath(output, "target.json")) $head`)
             @info "Baseline measurement" commit = baseline
             run(`$(Base.julia_cmd()) --threads=1 --project=$env $script $(joinpath(output, "baseline.json")) $baseline`)
+            @info "Target measurement" commit = head
+            run(`$(Base.julia_cmd()) --threads=1 --project=$(@__DIR__) $script $(joinpath(output, "target.json")) $head`)
             text = sprint() do io
                 write_report(io, read_result(joinpath(output, "baseline.json")),
                              read_result(joinpath(output, "target.json")))

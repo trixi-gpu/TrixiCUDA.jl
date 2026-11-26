@@ -126,7 +126,7 @@ jobs:
             printf '%s\n\n' '(the exact resolved Julia environments).'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  comment:
+  mini-comment:
     name: Publish mini comment
     needs: [prepare, mini]
     if: needs.prepare.outputs.pr != '' && needs.mini.outputs.complete == 'true'
@@ -218,8 +218,6 @@ jobs:
             printf '%s\n\n' '(the exact resolved Julia environments).'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Builds the docs with the sweep's heatmaps, whatever the commit says about [skip docs], and
-  # deploys them to previews/PR<n> for a PR or to dev for main.
   sweep-docs:
     name: Build sweep heatmaps
     needs: [prepare, sweep]

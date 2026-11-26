@@ -6,4 +6,4 @@ docs/build
 .outdated/
 
 *.png
-docs/src/assets/benchmarks/sweep-data.js
+docs/src/assets/sweep-data.js

@@ -8,7 +8,7 @@ DocMeta.setdocmeta!(TrixiCUDA, :DocTestSetup, :(using TrixiCUDA); recursive = tr
 
 # The sweep heatmaps read the comparison of a sweep run, if one is given.
 comparison = get(ENV, "BENCHMARK_SWEEP_COMPARISON", "")
-write(joinpath(@__DIR__, "src", "assets", "benchmarks", "sweep-data.js"),
+write(joinpath(@__DIR__, "src", "assets", "sweep-data.js"),
       "window.SWEEP_COMPARISON = ", isempty(comparison) ? "null" : read(comparison, String), ";\n")
 
 makedocs(modules = [TrixiCUDA],

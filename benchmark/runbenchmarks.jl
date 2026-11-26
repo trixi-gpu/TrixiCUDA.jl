@@ -2,8 +2,9 @@ using TrixiCUDA, CUDA, BenchmarkTools
 using Dates, JSON, Pkg, Printf, Random, SHA
 include("cases.jl")
 
-const NOISE_BAND = 0.03  # provisional until calibrated from runs that compare identical code
+const NOISE_BAND = 0.03  # calibrated from runs that compare identical code (#270)
 const RESAMPLES = 9_999
+const PROCESSES = 3  # per revision, run alternately: baseline, target, baseline, ...
 
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
@@ -84,21 +85,18 @@ function measure()
     return nothing
 end
 
-# Median of all pairwise baseline/target time ratios; `ratios` is a reusable buffer.
-function median_ratio!(ratios, base, target)
-    k = 0
-    for b in base, t in target
-        ratios[k += 1] = b / t
-    end
-    n = length(ratios)
-    return isodd(n) ? partialsort!(ratios, (n + 1) ÷ 2) : sum(partialsort!(ratios, (n ÷ 2):(n ÷ 2 + 1))) / 2
-end
+median!(x) = (n = length(x); isodd(n) ? partialsort!(x, (n + 1) ÷ 2) : sum(partialsort!(x, (n ÷ 2):(n ÷ 2 + 1))) / 2)
 
-# 95% percentile bootstrap interval of the median ratio. With 9,999 resamples the
-# interval ends are exactly the 250th smallest and the 250th largest estimates.
+# Median of all pairwise ratios between baseline and target process medians.
+median_ratio(base, target) = median!(vec([b / t for b in base, t in target]))
+
+# Two-level resampling: draw processes with replacement, then samples within each process.
+resampled_medians(rng, processes) = [median!(rand(rng, p, length(p))) for p in rand(rng, processes, length(processes))]
+
+# 95% percentile bootstrap interval. With 9,999 resamples the interval ends are
+# exactly the 250th smallest and the 250th largest estimates.
 function speedup_interval(base, target, rng)
-    ratios = Vector{Float64}(undef, length(base) * length(target))
-    estimates = sort!([median_ratio!(ratios, rand(rng, base, length(base)), rand(rng, target, length(target)))
+    estimates = sort!([median_ratio(resampled_medians(rng, base), resampled_medians(rng, target))
                        for _ in 1:RESAMPLES])
     k = round(Int, 0.025 * (RESAMPLES + 1))
     return estimates[k], estimates[end + 1 - k]
@@ -114,22 +112,24 @@ function verdict((low, high))
     return "inconclusive"
 end
 
-function compare_case(name, base, target, baseline_commit, target_commit)
-    b, t = Float64.(base["samples_ns"]), Float64.(target["samples_ns"])
+samples_by_process(results, name) = [Float64.(r["benchmarks"][name]["samples_ns"]) for r in results]
+
+function compare_case(name, baselines, targets, baseline_commit, target_commit)
+    b, t = samples_by_process(baselines, name), samples_by_process(targets, name)
     interval = speedup_interval(b, t, bootstrap_rng(name, baseline_commit, target_commit))
-    return (; name, dofs = target["dofs_per_field"], base_min = base["minimum_ns"],
-            target_min = target["minimum_ns"],
-            speedup = median_ratio!(Vector{Float64}(undef, length(b) * length(t)), b, t),
-            interval, verdict = verdict(interval))
+    return (; name, dofs = targets[1]["benchmarks"][name]["dofs_per_field"],
+            base_min = minimum(minimum, b), target_min = minimum(minimum, t),
+            speedup = median_ratio(median!.(copy.(b)), median!.(copy.(t))), interval,
+            verdict = verdict(interval))
 end
 
-function write_report(io, baseline, target)
-    validate_comparison(baseline, target)
+function write_report(io, baselines, targets)
+    foreach(r -> validate_comparison(r, targets[1]), [baselines; targets[2:end]])
+    baseline, target = baselines[1], targets[1]
     b_env, t_env = baseline["environment"], target["environment"]
-    b, t = baseline["benchmarks"], target["benchmarks"]
     parameters = target["parameters"]
-    rows = [compare_case(name, b[name], t[name], b_env["commit"], t_env["commit"])
-            for name in sort!(collect(keys(t)))]
+    rows = [compare_case(name, baselines, targets, b_env["commit"], t_env["commit"])
+            for name in sort!(collect(keys(target["benchmarks"])))]
     speedup = exp(sum(row -> log(row.speedup), rows) / length(rows))
     counts = join(("$(count(row -> row.verdict == v, rows)) $v"
                    for v in ("faster", "slower", "no change", "inconclusive")), ", ")
@@ -167,18 +167,19 @@ function write_report(io, baseline, target)
             "meshes, and fluxes adapted from Trixi/TrixiShallowWater examples. ",
             "Inputs are initialized at t = ", @sprintf("%g", parameters["initial_time"]), ".\n\n",
             "**Comparison setup:** Both revisions are measured on the same GPU using the ",
-            "target commit's benchmark harness, with identical cases and timing settings, ",
-            "the baseline first and the target second. Each run loads the source from its ",
-            "respective commit and resolves its Julia dependencies independently. The comparison ",
+            "target commit's benchmark harness, with identical cases and timing settings, in ",
+            PROCESSES, " separate Julia processes per revision that alternate between baseline and ",
+            "target. Each revision loads the source from its respective commit and resolves ",
+            "its Julia dependencies independently. The comparison ",
             "captures the combined performance impact of source code and dependency changes.\n\n",
-            "**Sampling:** After one warm-up RHS call per case, each revision records ",
+            "**Sampling:** After one warm-up RHS call per case, each process records ",
             parameters["samples"], " samples per case, each timing one GPU-synchronized RHS call.\n\n",
-            "**Statistics:** The speedup is the median of all baseline/target ratios of the ",
-            "samples. Its 95% interval is a percentile bootstrap with ", RESAMPLES, " resamples; ",
+            "**Statistics:** The speedup is the median of all ratios between baseline and target ",
+            "process medians. Its 95% interval is a two-level percentile bootstrap with ", RESAMPLES,
+            " resamples that draws processes, then samples within each process; ",
             "the random seed is derived from the case name and both commits, so the same samples ",
             "always give the same interval. Min columns show the fastest sample of each revision. ",
-            "The noise band is provisional and will be calibrated from runs that compare ",
-            "identical code.\n\n",
+            "The noise band was calibrated with runs that compare identical code.\n\n",
             "**Target:** The head commit of a push whose title contains `[benchmark mini]`.\n\n",
             "**Baseline:** PR runs use the exact merge base of the target commit and ",
             "the fetched PR base branch. Default-branch runs use the target commit's first parent.\n\n</details>\n")
@@ -220,14 +221,14 @@ function compare()
             end
             # One Julia thread keeps the CPU-side parts (e.g. shock capturing) reproducible.
             script = joinpath(@__DIR__, "runbenchmarks.jl")
-            @info "Baseline measurement" commit = baseline
-            run(`$(Base.julia_cmd()) --threads=1 --project=$env $script $(joinpath(output, "baseline.json")) $baseline`)
-            @info "Target measurement" commit = head
-            run(`$(Base.julia_cmd()) --threads=1 --project=$(@__DIR__) $script $(joinpath(output, "target.json")) $head`)
-            text = sprint() do io
-                write_report(io, read_result(joinpath(output, "baseline.json")),
-                             read_result(joinpath(output, "target.json")))
+            result(label, i) = joinpath(output, "$label-$i.json")
+            for i in 1:PROCESSES, (label, project, commit) in (("baseline", env, baseline), ("target", @__DIR__, head))
+                @info "Measurement $i of $PROCESSES" label commit
+                run(`$(Base.julia_cmd()) --threads=1 --project=$project $script $(result(label, i)) $commit`)
             end
+            results = Dict(label => [read_result(result(label, i)) for i in 1:PROCESSES]
+                           for label in ("baseline", "target"))
+            text = sprint(io -> write_report(io, results["baseline"], results["target"]))
             report = joinpath(output, "report.md")
             write(report, text)
             open(io -> write(io, text), ENV["GITHUB_STEP_SUMMARY"], "a")

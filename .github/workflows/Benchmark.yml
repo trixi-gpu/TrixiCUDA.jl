@@ -87,8 +87,8 @@ jobs:
         with:
           name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
           path: |
-            benchmark/results/baseline.json
-            benchmark/results/target.json
+            benchmark/results/baseline-*.json
+            benchmark/results/target-*.json
             benchmark/results/report.md
           if-no-files-found: error
           retention-days: 90
@@ -109,8 +109,8 @@ jobs:
         run: |
           {
             printf '\n[Download report and measurements](%s): ' "$RESULTS_URL"
-            printf '%s' '`report.md` (full report), `baseline.json` and `target.json` '
-            printf '%s\n' '(raw timing samples, parameters, and environment details).  '
+            printf '%s' '`report.md` (full report), `baseline-<i>.json` and `target-<i>.json` '
+            printf '%s\n' '(raw timing samples, parameters, and environment details of each process).  '
             printf '[Download target and baseline environments](%s): ' "$ENVIRONMENT_URL"
             printf '%s' '`target/Project.toml`, `target/Manifest.toml`, '
             printf '%s' '`baseline/Project.toml`, and `baseline/Manifest.toml` '

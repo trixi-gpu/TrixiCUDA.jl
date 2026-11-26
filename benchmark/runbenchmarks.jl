@@ -214,7 +214,7 @@ function compare()
                     cp(joinpath(project, file), joinpath(output, "environments", label, file))
                 end
             end
-            # One Julia thread keeps the CPU-side parts (e.g. shock capturing) reproducible.
+            # One Julia thread keeps the CPU-side parts reproducible.
             script = joinpath(@__DIR__, "runbenchmarks.jl")
             result(label, i) = joinpath(output, "$label-$i.json")
             for i in 1:PROCESSES, (label, project, commit) in (("baseline", env, baseline), ("target", @__DIR__, head))

@@ -35,7 +35,6 @@ jobs:
 
             let pr;
             if (branch !== defaultBranch) {
-              // Pushes to other branches benchmark their open same-repository PR.
               const prs = await github.paginate(github.rest.pulls.list, {
                 ...repo,
                 state: 'open',
@@ -47,8 +46,6 @@ jobs:
             }
             if (pr && (pr.state !== 'open' || pr.draft || pr.head.repo?.full_name !== fullName)) return;
 
-            // Run only when the commit's title (not its description) asks for it. On main,
-            // this is the squash commit title, which defaults to the PR title.
             const {data: commit} = await github.rest.repos.getCommit({...repo, ref: context.sha});
             const title = commit.commit.message.split('\n', 1)[0];
             const mini = title.includes('[benchmark mini]'), sweep = title.includes('[benchmark sweep]');
@@ -72,7 +69,6 @@ jobs:
     outputs:
       complete: ${{ steps.environment.outcome == 'success' }}
       baseline: ${{ steps.measure.outputs.baseline }}
-      # Passed on so that the next job depends only on this one.
       head: ${{ needs.prepare.outputs.head }}
       pr: ${{ needs.prepare.outputs.pr }}
       base: ${{ needs.prepare.outputs.base }}
@@ -162,12 +158,11 @@ jobs:
     concurrency:
       group: gpu-rhs-${{ github.repository }}
       queue: max
-    # Both revisions in 3 processes each take an estimated 2.5 to 4 h with 50 samples per point.
+    # This timeout value depends on the total time for the sweep benchmark.
     timeout-minutes: 300
     continue-on-error: true
     outputs:
       complete: ${{ steps.environment.outcome == 'success' }}
-      # Passed on so that the next job depends only on this one.
       head: ${{ needs.prepare.outputs.head }}
       pr: ${{ needs.prepare.outputs.pr }}
       base: ${{ needs.prepare.outputs.base }}

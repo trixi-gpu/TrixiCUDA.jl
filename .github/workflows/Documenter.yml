@@ -61,7 +61,6 @@ jobs:
             const pr = context.payload.pull_request;
             if (pr && pr.head.repo?.full_name !== context.payload.repository.full_name) return;
             const branch = pr?.head.ref ?? context.ref.replace('refs/heads/', '');
-            // Benchmark runs of the branch, newest first; sweep results are kept for 90 days.
             const runs = github.paginate.iterator(github.rest.actions.listWorkflowRuns, {
               ...context.repo, workflow_id: 'Benchmark.yml', branch, event: 'push', per_page: 100,
               created: `>=${new Date(Date.now() - 90 * 86400e3).toISOString().slice(0, 10)}`

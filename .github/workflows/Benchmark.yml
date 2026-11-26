@@ -67,62 +67,23 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     outputs:
-      complete: ${{ steps.environment.outcome == 'success' }}
+      complete: ${{ steps.benchmark.outcome == 'success' }}
       head: ${{ needs.prepare.outputs.head }}
       pr: ${{ needs.prepare.outputs.pr }}
       base: ${{ needs.prepare.outputs.base }}
-    env:
-      BENCHMARK_SCOPE: mini
-      BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
-      BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-      BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Check out the measured commit
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Measure the baseline and target performance
-        run: |
-          nvidia-smi
-          julia +1.10 --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
-          julia +1.10 --project=benchmark benchmark/runbenchmarks.jl
-      - name: Upload report and raw measurements
-        id: results
-        uses: actions/upload-artifact@v7
+      - name: Run the mini benchmark
+        id: benchmark
+        uses: ./.github/actions/gpu-benchmark
         with:
-          name: gpu-rhs-results-${{ needs.prepare.outputs.head }}
-          path: |
-            benchmark/results/baseline-*.json
-            benchmark/results/target-*.json
-            benchmark/results/report.md
-          if-no-files-found: error
-          retention-days: 90
-          overwrite: true
-      - name: Upload resolved Julia environments
-        id: environment
-        uses: actions/upload-artifact@v7
-        with:
-          name: gpu-rhs-environment-${{ needs.prepare.outputs.head }}
-          path: benchmark/results/environments/
-          if-no-files-found: error
-          retention-days: 90
-          overwrite: true
-      - name: Link artifacts from the report
-        env:
-          RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
-          ENVIRONMENT_URL: ${{ steps.environment.outputs.artifact-url }}
-        run: |
-          {
-            printf '\n[Download report and measurements](%s): ' "$RESULTS_URL"
-            printf '%s' '`report.md` (full report) and one baseline and one target JSON file per process, '
-            printf '%s' '`baseline-*.json` and `target-*.json` '
-            printf '%s\n' '(raw timing samples, parameters, and environment details).  '
-            printf '[Download target and baseline environments](%s): ' "$ENVIRONMENT_URL"
-            printf '%s' '`target/Project.toml`, `target/Manifest.toml`, '
-            printf '%s' '`baseline/Project.toml`, and `baseline/Manifest.toml` '
-            printf '%s\n\n' '(the exact resolved Julia environments).'
-          } >> "$GITHUB_STEP_SUMMARY"
+          scope: mini
+          head: ${{ needs.prepare.outputs.head }}
+          base: ${{ needs.prepare.outputs.base }}
 
   mini-comment:
     name: Publish mini comment
@@ -160,63 +121,23 @@ jobs:
     timeout-minutes: 300
     continue-on-error: true
     outputs:
-      complete: ${{ steps.environment.outcome == 'success' }}
+      complete: ${{ steps.benchmark.outcome == 'success' }}
       head: ${{ needs.prepare.outputs.head }}
       pr: ${{ needs.prepare.outputs.pr }}
       base: ${{ needs.prepare.outputs.base }}
-    env:
-      BENCHMARK_SCOPE: sweep
-      BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
-      BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-      BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Check out the measured commit
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Measure the baseline and target performance
-        run: |
-          nvidia-smi
-          julia +1.10 --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
-          julia +1.10 --project=benchmark benchmark/runbenchmarks.jl
-      - name: Upload report and raw measurements
-        id: results
-        uses: actions/upload-artifact@v7
+      - name: Run the sweep benchmark
+        id: benchmark
+        uses: ./.github/actions/gpu-benchmark
         with:
-          name: gpu-rhs-sweep-results-${{ needs.prepare.outputs.head }}
-          path: |
-            benchmark/results/baseline-*.json
-            benchmark/results/target-*.json
-            benchmark/results/comparison.json
-            benchmark/results/report.md
-          if-no-files-found: error
-          retention-days: 90
-          overwrite: true
-      - name: Upload resolved Julia environments
-        id: environment
-        uses: actions/upload-artifact@v7
-        with:
-          name: gpu-rhs-sweep-environment-${{ needs.prepare.outputs.head }}
-          path: benchmark/results/environments/
-          if-no-files-found: error
-          retention-days: 90
-          overwrite: true
-      - name: Link artifacts from the report
-        env:
-          RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
-          ENVIRONMENT_URL: ${{ steps.environment.outputs.artifact-url }}
-        run: |
-          {
-            printf '\n[Download report and measurements](%s): ' "$RESULTS_URL"
-            printf '%s' '`report.md` (full report), `comparison.json` (per-point results for the heatmaps), '
-            printf '%s' 'and one baseline and one target JSON file per process, `baseline-*.json` and '
-            printf '%s\n' '`target-*.json` (raw timing samples, parameters, and environment details).  '
-            printf '[Download target and baseline environments](%s): ' "$ENVIRONMENT_URL"
-            printf '%s' '`target/Project.toml`, `target/Manifest.toml`, '
-            printf '%s' '`baseline/Project.toml`, and `baseline/Manifest.toml` '
-            printf '%s\n\n' '(the exact resolved Julia environments).'
-          } >> "$GITHUB_STEP_SUMMARY"
+          scope: sweep
+          head: ${{ needs.prepare.outputs.head }}
+          base: ${{ needs.prepare.outputs.base }}
 
   sweep-docs:
     name: Build sweep heatmaps

@@ -51,11 +51,10 @@ end
 point_name(name, point) = "$name p$(point.polydeg) L$(point.level)"
 
 function benchmark_points(scope)
-    scope == "mini" && return [(case.name, case, (;), Dict{String, Any}()) for case in RHS_CASES]
+    scope == "mini" && return [(case.name, case, (;), (;)) for case in RHS_CASES]
     return [(point_name(case.name, point), case,
              (; point.polydeg, initial_refinement_level = point.level),
-             Dict{String, Any}("case" => case.name, "polydeg" => point.polydeg, "level" => point.level,
-                               "sweeps" => point.sweeps))
+             (; case = case.name, point.polydeg, point.level, point.sweeps))
             for case in RHS_CASES for point in sweep_points(case.name)]
 end
 
@@ -85,8 +84,9 @@ function measure()
                        "precision" => "Float64", "evals" => 1,
                        "initialization" => "classical initial condition", "initial_time" => t))
     results = Dict{String, Any}()
-    for (name, case, kwargs, info) in benchmark_points(scope)
+    for (name, case, kwargs, point) in benchmark_points(scope)
         @info "Benchmarking $name"
+        info = Dict{String, Any}(string(key) => value for (key, value) in pairs(point))
         # A failing sweep point is recorded and the sweep goes on; mini stops at any failure.
         results[name] = try
             merge(info, benchmark_rhs(case; t, samples, kwargs...))
@@ -210,11 +210,15 @@ function write_settings(io, parameters)
             "\n\n</details>\n")
 end
 
-function write_report(io, baselines, targets)
+function comparison_rows(scope, baselines, targets)
+    b_commit, t_commit = (r["environment"]["commit"] for r in (baselines[1], targets[1]))
+    return [merge(compare_point(name, baselines, targets, b_commit, t_commit), point)
+            for (name, _, _, point) in benchmark_points(scope)]
+end
+
+function write_report(io, baselines, targets, rows)
     baseline, target = baselines[1], targets[1]
     b_env, t_env = baseline["environment"], target["environment"]
-    rows = [compare_case(name, baselines, targets, b_env["commit"], t_env["commit"])
-            for name in sort!(collect(keys(target["benchmarks"])))]
     counts = join(("$(count(row -> row.verdict == v, rows)) $v" for v in VERDICTS), ", ")
 
     write_header(io, "GPU RHS Benchmarks", b_env, t_env)
@@ -229,16 +233,6 @@ function write_report(io, baselines, targets)
                 row.interval[1], row.interval[2], row.verdict)
     end
     write_footer(io, "case", baseline, target)
-end
-
-function sweep_rows(baselines, targets)
-    b_commit, t_commit = baselines[1]["environment"]["commit"], targets[1]["environment"]["commit"]
-    return map([point_name(case.name, point) for case in RHS_CASES for point in sweep_points(case.name)]) do name
-        info = targets[1]["benchmarks"][name]
-        return merge(compare_point(name, baselines, targets, b_commit, t_commit),
-                     (; case = info["case"], polydeg = info["polydeg"], level = info["level"],
-                      sweeps = info["sweeps"]))
-    end
 end
 
 function write_sweep_report(io, baselines, targets, rows)
@@ -345,10 +339,10 @@ function compare()
                            for label in ("baseline", "target"))
             baselines, targets = results["baseline"], results["target"]
             foreach(r -> validate_comparison(r, targets[1]), [baselines; targets[2:end]])
+            rows = comparison_rows(scope, baselines, targets)
             if scope == "mini"
-                text = sprint(io -> write_report(io, baselines, targets))
+                text = sprint(io -> write_report(io, baselines, targets, rows))
             else
-                rows = sweep_rows(baselines, targets)
                 text = sprint(io -> write_sweep_report(io, baselines, targets, rows))
                 write(joinpath(output, "comparison.json"), JSON.json(comparison_data(baselines, targets, rows)))
             end

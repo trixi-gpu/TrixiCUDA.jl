@@ -3,7 +3,7 @@ module.exports = async ({github, context}) => {
   const sha = process.env.HEAD_SHA;
   const runURL = `${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${context.runId}`;
 
-  const previewURL = `https://${repo.owner}.github.io/${repo.repo}/previews/PR${number}/benchmark/`;
+  const previewURL = `https://${repo.owner}.github.io/${repo.repo}/previews/PR${number}/sweeps/`;
   const {marker, text} = process.env.COMMENT_KIND === 'sweep' ? {
     marker: '<!-- trixicuda-gpu-rhs-sweep -->',
     text: `GPU RHS benchmark sweep for \`${sha.slice(0, 7)}\`: [heatmaps](${previewURL})`

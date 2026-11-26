@@ -2,7 +2,8 @@ name: GPU Benchmarks
 
 on:
   # Pushes to main and to branches of open PRs from this repository are benchmarked
-  # when the commit title contains "[benchmark mini]". There is no manual trigger.
+  # when the commit title contains "[benchmark mini]" or "[benchmark sweep]". There is
+  # no manual trigger.
   # Fork PRs never trigger this workflow, so untrusted code cannot reach the GPU runner.
   push:
     branches:
@@ -20,6 +21,8 @@ jobs:
       head: ${{ steps.select.outputs.head }}
       pr: ${{ steps.select.outputs.pr }}
       base: ${{ steps.select.outputs.base }}
+      mini: ${{ steps.select.outputs.mini }}
+      sweep: ${{ steps.select.outputs.sweep }}
     steps:
       - name: Select the commit to benchmark
         id: select
@@ -47,7 +50,11 @@ jobs:
             // Run only when the commit's title (not its description) asks for it. On main,
             // this is the squash commit title, which defaults to the PR title.
             const {data: commit} = await github.rest.repos.getCommit({...repo, ref: context.sha});
-            if (!commit.commit.message.split('\n', 1)[0].includes('[benchmark mini]')) return;
+            const title = commit.commit.message.split('\n', 1)[0];
+            const mini = title.includes('[benchmark mini]'), sweep = title.includes('[benchmark sweep]');
+            if (!mini && !sweep) return;
+            core.setOutput('mini', mini);
+            core.setOutput('sweep', sweep);
             core.setOutput('head', context.sha);
             core.setOutput('pr', pr?.number ?? '');
             core.setOutput('base', pr?.base.ref ?? defaultBranch);
@@ -55,7 +62,7 @@ jobs:
   mini:
     name: Run mini benchmark
     needs: prepare
-    if: needs.prepare.outputs.head != ''
+    if: needs.prepare.outputs.mini == 'true'
     runs-on: [self-hosted, linux, x64, gpu]
     concurrency:
       group: gpu-rhs-${{ github.repository }}
@@ -66,6 +73,7 @@ jobs:
       complete: ${{ steps.environment.outcome == 'success' }}
       baseline: ${{ steps.measure.outputs.baseline }}
     env:
+      BENCHMARK_SCOPE: mini
       BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
       BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -135,6 +143,132 @@ jobs:
       - name: Publish or update bot comment
         uses: actions/github-script@v9
         env:
+          COMMENT_KIND: mini
+          PR_NUMBER: ${{ needs.prepare.outputs.pr }}
+          HEAD_SHA: ${{ needs.prepare.outputs.head }}
+          BASE_BRANCH: ${{ needs.prepare.outputs.base }}
+        with:
+          script: |
+            await require('./.github/scripts/benchmark-comment.js')({github, context});
+
+  sweep:
+    name: Run benchmark sweep
+    needs: prepare
+    if: needs.prepare.outputs.sweep == 'true'
+    runs-on: [self-hosted, linux, x64, gpu]
+    concurrency:
+      group: gpu-rhs-${{ github.repository }}
+      queue: max
+    # Both revisions in 3 processes each take about 1.5 h; the limit leaves room for slow runs.
+    timeout-minutes: 300
+    continue-on-error: true
+    outputs:
+      complete: ${{ steps.environment.outcome == 'success' }}
+    env:
+      BENCHMARK_SCOPE: sweep
+      BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
+      BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Check out the measured commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Measure the baseline and target performance
+        run: |
+          nvidia-smi
+          julia +1.10 --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+          julia +1.10 --project=benchmark benchmark/runbenchmarks.jl
+      - name: Upload report and raw measurements
+        id: results
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-rhs-sweep-results-${{ needs.prepare.outputs.head }}
+          path: |
+            benchmark/results/baseline-*.json
+            benchmark/results/target-*.json
+            benchmark/results/comparison.json
+            benchmark/results/report.md
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: true
+      - name: Upload resolved Julia environments
+        id: environment
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu-rhs-sweep-environment-${{ needs.prepare.outputs.head }}
+          path: benchmark/results/environments/
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: true
+      - name: Link artifacts from the report
+        env:
+          RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
+          ENVIRONMENT_URL: ${{ steps.environment.outputs.artifact-url }}
+        run: |
+          {
+            printf '\n[Download report and measurements](%s): ' "$RESULTS_URL"
+            printf '%s' '`report.md` (full report), `comparison.json` (per-point results for the heatmaps), '
+            printf '%s' 'and one baseline and one target JSON file per process, `baseline-*.json` and '
+            printf '%s\n' '`target-*.json` (raw timing samples, parameters, and environment details).  '
+            printf '[Download target and baseline environments](%s): ' "$ENVIRONMENT_URL"
+            printf '%s' '`target/Project.toml`, `target/Manifest.toml`, '
+            printf '%s' '`baseline/Project.toml`, and `baseline/Manifest.toml` '
+            printf '%s\n\n' '(the exact resolved Julia environments).'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Builds the docs with the sweep's heatmaps, whatever the commit says about [skip docs], and
+  # deploys them to previews/PR<n> for a PR or to dev for main.
+  sweep-docs:
+    name: Build sweep heatmaps
+    needs: [prepare, sweep]
+    if: needs.sweep.outputs.complete == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Download the sweep results
+        uses: actions/download-artifact@v7
+        with:
+          name: gpu-rhs-sweep-results-${{ needs.prepare.outputs.head }}
+          path: sweep-results
+      - name: Set up Julia 1.10
+        uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.10"
+      - name: Restore Julia cache
+        uses: julia-actions/cache@v3
+      - name: Instantiate docs environment
+        run: julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      - name: Build and deploy documentation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BENCHMARK_SWEEP_COMPARISON: ${{ github.workspace }}/sweep-results/comparison.json
+          BENCHMARK_SWEEP_PR: ${{ needs.prepare.outputs.pr }}
+        run: julia --project=docs --color=yes docs/make.jl
+
+  sweep-comment:
+    name: Publish sweep comment
+    needs: [prepare, sweep-docs]
+    if: needs.prepare.outputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out the comment publisher
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Publish or update bot comment
+        uses: actions/github-script@v9
+        env:
+          COMMENT_KIND: sweep
           PR_NUMBER: ${{ needs.prepare.outputs.pr }}
           HEAD_SHA: ${{ needs.prepare.outputs.head }}
           BASE_BRANCH: ${{ needs.prepare.outputs.base }}

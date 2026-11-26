@@ -19,8 +19,8 @@ makedocs(modules = [TrixiCUDA],
          ],
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   assets = ["assets/favicon.ico",
-                                      "assets/benchmarks/heatmaps.css",
-                                      "assets/benchmarks/heatmaps.js"]))
+                                      "assets/heatmaps.css",
+                                      "assets/heatmaps.js"]))
 
 deploydocs(repo = "github.com/trixi-gpu/TrixiCUDA.jl",
            devbranch = "main",

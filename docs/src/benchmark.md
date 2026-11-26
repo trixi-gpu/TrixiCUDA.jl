@@ -1,6 +1,9 @@
 # Benchmark Results
 
-We study how the cost of evaluating the semidiscrete right-hand side varies with the polynomial degree p and the refinement level L. 
+We study how the cost of evaluating the semidiscrete right-hand side varies with the polynomial degree p and the refinement level L.
+
+!!! note "Latest results"
+    The heatmaps on this page show the most recent benchmark sweep: the latest measured revision compared with its baseline. They are updated with every new sweep and track the effect of our ongoing work on speeding up the GPU right-hand side function.
 
 ## Sweep Heatmaps
 
@@ -9,6 +12,8 @@ Each case is examined along two lines through this plane: a level sweep that ref
 At each point, the target is compared with its baseline. Both are measured in three alternating processes; the speedup is the median ratio of their process medians, with a 95% two-level bootstrap interval.
 
 A cell is green when its whole interval lies above the ±3% noise band, red when it lies below, and white when it lies within; hatched cells are inconclusive. The band was calibrated with runs that compare identical code. Hover over a cell for details.
+
+### Latest Sweep
 
 ```@raw html
 <div id="sweep-heatmaps"></div>

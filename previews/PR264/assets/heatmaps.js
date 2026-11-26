@@ -1,5 +1,3 @@
-// Draws the sweep heatmaps into #sweep-heatmaps. The data comes from sweep-data.js, which
-// docs/make.jl writes next to this file at build time (null when no sweep has run yet).
 (function () {
   "use strict";
   const dataUrl = new URL("sweep-data.js", document.currentScript.src).href;
@@ -20,11 +18,10 @@
   const shortName = (name) => name.replace(/_\dd$/, "");
   const sha = (commit) => el("code", {}, commit.slice(0, 7));
 
-  // Blue for faster, red for slower; the colour deepens up to a 2x change.
   function fill(point) {
     if (point.verdict !== "faster" && point.verdict !== "slower") return "";
     const strength = Math.min(1, Math.abs(Math.log2(point.speedup)));
-    const rgb = point.verdict === "faster" ? "37, 99, 235" : "220, 38, 38";
+    const rgb = point.verdict === "faster" ? "22, 163, 74" : "220, 38, 38";
     return `background-color: rgba(${rgb}, ${(0.2 + 0.7 * strength).toFixed(2)})`;
   }
 

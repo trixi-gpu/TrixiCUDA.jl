@@ -45,7 +45,7 @@ The tables below list the individual cases behind the coverage summary, grouped 
 | M | Mortars |
 | Src | Source terms |
 
-**Degrees / Levels** gives the default polynomial degree and initial refinement level used in CI mini benchmark runs. (Sweep benchmark is also implemented in CI by varying both across a grid of degrees and levels; see [Sweep Benchmarks](sweeps.md).) These match the values in the original Trixi.jl or TrixiShallowWater.jl examples.
+**Degrees / Levels** gives the default polynomial degree and initial refinement level used in CI benchmark mini runs. (Sweep benchmark is also implemented in CI by varying both across a grid of degrees and levels; see [Sweep Benchmarks](sweeps.md).) These match the values in the original Trixi.jl or TrixiShallowWater.jl examples.
 
 ### 1D (13 cases)
 

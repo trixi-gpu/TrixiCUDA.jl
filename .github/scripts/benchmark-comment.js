@@ -8,8 +8,8 @@ module.exports = async ({github, context}) => {
     marker: '<!-- trixicuda-gpu-rhs-sweep -->',
     text: `GPU RHS benchmark sweep for \`${sha.slice(0, 7)}\`: [heatmaps](${previewURL})`
   } : {
-    marker: '<!-- trixicuda-gpu-rhs-benchmarks -->',
-    text: `GPU RHS mini benchmark for \`${sha.slice(0, 7)}\`: [full report](${runURL})`
+    marker: '<!-- trixicuda-gpu-rhs-mini -->',
+    text: `GPU RHS benchmark mini for \`${sha.slice(0, 7)}\`: [full report](${runURL})`
   };
   const body = `${marker}\n${text}`;
 

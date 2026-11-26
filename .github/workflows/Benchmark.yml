@@ -60,7 +60,7 @@ jobs:
             core.setOutput('base', pr?.base.ref ?? defaultBranch);
 
   mini:
-    name: Run mini benchmark
+    name: Run benchmark mini
     needs: prepare
     if: needs.prepare.outputs.mini == 'true'
     runs-on: [self-hosted, linux, x64, gpu]
@@ -127,7 +127,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   comment:
-    name: Publish comment
+    name: Publish mini comment
     needs: [prepare, mini]
     if: needs.prepare.outputs.pr != '' && needs.mini.outputs.complete == 'true'
     runs-on: ubuntu-latest

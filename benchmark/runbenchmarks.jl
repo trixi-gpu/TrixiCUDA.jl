@@ -52,7 +52,6 @@ end
 
 point_name(name, point) = "$name p$(point.polydeg) L$(point.level)"
 
-# Mini measures every case at its default p and L; the sweep measures every point of the grid.
 function benchmark_points(scope)
     scope == "mini" && return [(case.name, case, (;), Dict{String, Any}()) for case in RHS_CASES]
     return [(point_name(case.name, point), case,
@@ -235,7 +234,6 @@ function write_report(io, baselines, targets)
     write_footer(io, "case", baseline, target)
 end
 
-# One row per sweep point, in the order of the cases and their points.
 function sweep_rows(baselines, targets)
     foreach(r -> validate_comparison(r, targets[1]), [baselines; targets[2:end]])
     b_commit, t_commit = baselines[1]["environment"]["commit"], targets[1]["environment"]["commit"]
@@ -288,7 +286,6 @@ function write_sweep_report(io, baselines, targets, rows)
     write_footer(io, "point", baseline, target)
 end
 
-# Per-point results for the heatmaps in the docs (`BENCHMARK_SWEEP_COMPARISON`).
 function comparison_data(baselines, targets, rows)
     b_env, t_env = baselines[1]["environment"], targets[1]["environment"]
     function point(row)

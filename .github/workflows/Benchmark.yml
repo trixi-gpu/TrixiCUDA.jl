@@ -164,6 +164,8 @@ jobs:
           version: "1.10"
       - name: Restore Julia cache
         uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: false
       - name: Instantiate docs environment
         run: julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
       - name: Build and deploy documentation

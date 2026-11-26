@@ -11,9 +11,10 @@ struct SweepPreview <: Documenter.DeployConfig
     pr::String
 end
 
-function Documenter.deploy_folder(cfg::SweepPreview; repo_previews, branch_previews, kwargs...)
-    return Documenter.DeployDecision(; all_ok = true, branch = branch_previews, repo = repo_previews,
-                                     is_preview = true, subfolder = "previews/PR$(cfg.pr)")
+function Documenter.deploy_folder(cfg::SweepPreview; repo, repo_previews, branch_previews, kwargs...)
+    return Documenter.DeployDecision(; all_ok = true, branch = branch_previews,
+                                     repo = something(repo_previews, repo), is_preview = true,
+                                     subfolder = "previews/PR$(cfg.pr)")
 end
 
 Documenter.authentication_method(::SweepPreview) = Documenter.HTTPS

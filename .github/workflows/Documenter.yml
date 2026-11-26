@@ -55,8 +55,10 @@ jobs:
       - name: Find the latest sweep results
         if: steps.docs.outputs.skip != 'true'
         id: sweep
+        continue-on-error: true
         uses: actions/github-script@v9
         with:
+          retries: 3
           script: |
             const pr = context.payload.pull_request;
             if (pr && pr.head.repo?.full_name !== context.payload.repository.full_name) return;

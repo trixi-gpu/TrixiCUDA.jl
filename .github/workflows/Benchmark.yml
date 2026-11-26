@@ -72,6 +72,10 @@ jobs:
     outputs:
       complete: ${{ steps.environment.outcome == 'success' }}
       baseline: ${{ steps.measure.outputs.baseline }}
+      # Passed on so that the next job depends only on this one.
+      head: ${{ needs.prepare.outputs.head }}
+      pr: ${{ needs.prepare.outputs.pr }}
+      base: ${{ needs.prepare.outputs.base }}
     env:
       BENCHMARK_SCOPE: mini
       BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
@@ -128,8 +132,8 @@ jobs:
 
   mini-comment:
     name: Publish mini comment
-    needs: [prepare, mini]
-    if: needs.prepare.outputs.pr != '' && needs.mini.outputs.complete == 'true'
+    needs: mini
+    if: needs.mini.outputs.pr != '' && needs.mini.outputs.complete == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -144,9 +148,9 @@ jobs:
         uses: actions/github-script@v9
         env:
           COMMENT_KIND: mini
-          PR_NUMBER: ${{ needs.prepare.outputs.pr }}
-          HEAD_SHA: ${{ needs.prepare.outputs.head }}
-          BASE_BRANCH: ${{ needs.prepare.outputs.base }}
+          PR_NUMBER: ${{ needs.mini.outputs.pr }}
+          HEAD_SHA: ${{ needs.mini.outputs.head }}
+          BASE_BRANCH: ${{ needs.mini.outputs.base }}
         with:
           script: |
             await require('./.github/scripts/benchmark-comment.js')({github, context});
@@ -164,6 +168,10 @@ jobs:
     continue-on-error: true
     outputs:
       complete: ${{ steps.environment.outcome == 'success' }}
+      # Passed on so that the next job depends only on this one.
+      head: ${{ needs.prepare.outputs.head }}
+      pr: ${{ needs.prepare.outputs.pr }}
+      base: ${{ needs.prepare.outputs.base }}
     env:
       BENCHMARK_SCOPE: sweep
       BENCHMARK_BASE_BRANCH: ${{ needs.prepare.outputs.base }}
@@ -220,19 +228,24 @@ jobs:
 
   sweep-docs:
     name: Build sweep heatmaps
-    needs: [prepare, sweep]
+    needs: sweep
     if: needs.sweep.outputs.complete == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       statuses: write
+    outputs:
+      # Passed on so that the next job depends only on this one.
+      head: ${{ needs.sweep.outputs.head }}
+      pr: ${{ needs.sweep.outputs.pr }}
+      base: ${{ needs.sweep.outputs.base }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
       - name: Download the sweep results
         uses: actions/download-artifact@v7
         with:
-          name: gpu-rhs-sweep-results-${{ needs.prepare.outputs.head }}
+          name: gpu-rhs-sweep-results-${{ needs.sweep.outputs.head }}
           path: sweep-results
       - name: Set up Julia 1.10
         uses: julia-actions/setup-julia@v3
@@ -246,13 +259,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BENCHMARK_SWEEP_COMPARISON: ${{ github.workspace }}/sweep-results/comparison.json
-          BENCHMARK_SWEEP_PR: ${{ needs.prepare.outputs.pr }}
+          BENCHMARK_SWEEP_PR: ${{ needs.sweep.outputs.pr }}
         run: julia --project=docs --color=yes docs/make.jl
 
   sweep-comment:
     name: Publish sweep comment
-    needs: [prepare, sweep-docs]
-    if: needs.prepare.outputs.pr != ''
+    needs: sweep-docs
+    if: needs['sweep-docs'].outputs.pr != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -267,9 +280,9 @@ jobs:
         uses: actions/github-script@v9
         env:
           COMMENT_KIND: sweep
-          PR_NUMBER: ${{ needs.prepare.outputs.pr }}
-          HEAD_SHA: ${{ needs.prepare.outputs.head }}
-          BASE_BRANCH: ${{ needs.prepare.outputs.base }}
+          PR_NUMBER: ${{ needs['sweep-docs'].outputs.pr }}
+          HEAD_SHA: ${{ needs['sweep-docs'].outputs.head }}
+          BASE_BRANCH: ${{ needs['sweep-docs'].outputs.base }}
         with:
           script: |
             await require('./.github/scripts/benchmark-comment.js')({github, context});

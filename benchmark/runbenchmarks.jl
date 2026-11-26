@@ -7,8 +7,6 @@ const NOISE_BAND = 0.03
 const RESAMPLES = 9_999
 const PROCESSES = 3
 const VERDICTS = ("faster", "slower", "no change", "inconclusive")
-# A sweep point takes as many samples as fit in about this time, within these bounds.
-const SWEEP_SAMPLING = (seconds = 0.5, min = 5, max = 50)
 
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
@@ -37,13 +35,6 @@ function benchmark_rhs(case; t, samples, kwargs...)
     # different execution paths and make timings harder to interpret.
     CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, semi, t)
     all(isfinite, Array(du)) || error("Non-finite RHS in $(case.name)")
-
-    # Without a fixed count, time one more call and take as many samples as fit in the
-    # sweep's time per point.
-    if samples === nothing
-        elapsed = @elapsed CUDA.@sync TrixiCUDA.rhs_hyperbolic!(du, u, semi, t)
-        samples = clamp(ceil(Int, SWEEP_SAMPLING.seconds / elapsed), SWEEP_SAMPLING.min, SWEEP_SAMPLING.max)
-    end
 
     # Time the synchronized RHS call. Reset du to zero before each sample so 
     # every timed call starts with the same output buffer contents. Wait for 
@@ -76,7 +67,9 @@ function measure()
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
     # Initial time for every case; the results and report record this same value.
     t = 0.0
-    samples = scope == "mini" ? 100 : nothing
+    # The sweep takes fewer samples per point than mini, so that its 558 points in 6 processes
+    # finish in a few hours. Revisit 50 once the RHS gets faster and 100 becomes affordable.
+    samples = scope == "mini" ? 100 : 50
     packages = Dict(string(id) => Dict("name" => info.name, "version" => string(info.version),
                                        "tree" => string(info.tree_hash))
                     for (id, info) in Pkg.dependencies() if info.version !== nothing)
@@ -91,7 +84,7 @@ function measure()
                        "build_url" => ENV["BENCHMARK_RUN_URL"])
     output = Dict("environment" => environment,
                   "parameters" => Dict("scope" => scope,
-                       "samples" => something(samples, "$(SWEEP_SAMPLING.min)–$(SWEEP_SAMPLING.max)"),
+                       "samples" => samples,
                        "precision" => "Float64", "evals" => 1,
                        "initialization" => "classical initial condition", "initial_time" => t))
     results = Dict{String, Any}()
@@ -189,12 +182,6 @@ function write_settings(io, parameters)
                 "at L = $(DEGREE_SWEEP.level[1]) (1D), $(DEGREE_SWEEP.level[2]) (2D), and " *
                 "$(DEGREE_SWEEP.level[3]) (3D); a few points are left out until their issues are " *
                 "fixed. The state is ")
-    sampling = mini ?
-               ("each process records $(parameters["samples"]) samples per case, each timing a " *
-                "single GPU-synchronized RHS call.") :
-               ("each process times one more call and then records as many samples as fit in " *
-                "about $(SWEEP_SAMPLING.seconds) s, between $(SWEEP_SAMPLING.min) and " *
-                "$(SWEEP_SAMPLING.max), each timing a single GPU-synchronized RHS call.")
     println(io, "\n<details>\n<summary><b>Benchmark settings</b></summary>\n\n",
             "<br>\n\n",
             "**Workload:** Each ", unit, " times `TrixiCUDA.rhs_hyperbolic!` with Float64 arrays on one ",
@@ -207,7 +194,9 @@ function write_settings(io, parameters)
             " separate Julia processes, run in alternating order (baseline, target, baseline, …), ",
             "so that variation between processes, such as a different GPU clock state, is ",
             "reflected in the interval rather than mistaken for a performance change.\n\n",
-            "**Sampling:** After one warm-up call per ", unit, ", ", sampling, "\n\n",
+            "**Sampling:** After one warm-up call per ", unit, ", each process records ",
+            parameters["samples"], " samples per ", unit, ", each timing a single GPU-synchronized ",
+            "RHS call.\n\n",
             "**Statistics:** The speedup is the median of all ratios between baseline and target ",
             "process medians. Its 95% interval is a two-level percentile bootstrap with ", RESAMPLES,
             " resamples, which draws processes and then samples within each drawn process. The ",

@@ -162,7 +162,7 @@ jobs:
     concurrency:
       group: gpu-rhs-${{ github.repository }}
       queue: max
-    # Both revisions in 3 processes each take about 1.5 h; the limit leaves room for slow runs.
+    # Both revisions in 3 processes each take an estimated 2.5 to 4 h with 50 samples per point.
     timeout-minutes: 300
     continue-on-error: true
     outputs:

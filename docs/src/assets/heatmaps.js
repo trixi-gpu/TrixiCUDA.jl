@@ -56,11 +56,16 @@
     const counts = VERDICTS.map((v) => `${points.filter((p) => p.verdict === v).length} ${v}`);
     const failed = points.filter((p) => p.error).length;
     if (failed) counts.push(`${failed} failed`);
-    const run = /^https:\/\//.test(target.build_url) ? el("a", { href: target.build_url }, "measurement run") : "";
     return el("p", {},
       el("strong", {}, "Baseline "), sha(baseline.commit), el("strong", {}, " → Target "), sha(target.commit),
-      `, measured on ${target.gpu} on ${target.measured_at.slice(0, 10)} (`, run, `). ` +
+      `, measured on ${target.gpu} on ${target.measured_at.slice(0, 10)}. ` +
       `${points.length} points: ${counts.join(", ")}.`);
+  }
+
+  function report(target) {
+    if (!/^https:\/\//.test(target.build_url)) return "";
+    return el("p", {}, "The complete report of this sweep, with its summary by sweep and dimension and its raw ",
+      "data, is in the job summary of the ", el("a", { href: target.build_url }, "measurement run"), ".");
   }
 
   function legend(band) {
@@ -86,6 +91,7 @@
         if (points.length) root.append(panel(sweep, d, points));
       }
     }
+    root.append(report(data.target));
   }
 
   document.addEventListener("DOMContentLoaded", () => {

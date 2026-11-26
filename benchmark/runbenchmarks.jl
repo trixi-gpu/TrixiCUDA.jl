@@ -216,12 +216,12 @@ function comparison_rows(scope, baselines, targets)
             for (name, _, _, point) in benchmark_points(scope)]
 end
 
-function write_report(io, baselines, targets, rows)
+function write_mini_report(io, baselines, targets, rows)
     baseline, target = baselines[1], targets[1]
     b_env, t_env = baseline["environment"], target["environment"]
     counts = join(("$(count(row -> row.verdict == v, rows)) $v" for v in VERDICTS), ", ")
 
-    write_header(io, "GPU RHS Benchmarks", b_env, t_env)
+    write_header(io, "GPU RHS Benchmark Mini", b_env, t_env)
     @printf(io, "**Results:** %d cases; geometric mean speedup **%.3fx** (%s)\n\n",
             length(rows), geomean([row.speedup for row in rows]), counts)
     println(io, "| RHS case | DOFs/field | Baseline min (ms) | Target min (ms) | ",
@@ -341,7 +341,7 @@ function compare()
             foreach(r -> validate_comparison(r, targets[1]), [baselines; targets[2:end]])
             rows = comparison_rows(scope, baselines, targets)
             if scope == "mini"
-                text = sprint(io -> write_report(io, baselines, targets, rows))
+                text = sprint(io -> write_mini_report(io, baselines, targets, rows))
             else
                 text = sprint(io -> write_sweep_report(io, baselines, targets, rows))
                 write(joinpath(output, "comparison.json"), JSON.json(comparison_data(baselines, targets, rows)))

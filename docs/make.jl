@@ -27,14 +27,14 @@ makedocs(modules = [TrixiCUDA],
          sitename = "TrixiCUDA.jl",
          pages = [
              "Home" => "index.md",
-             "Benchmark Results" => "benchmark.md"
+             "Sweep Benchmarks" => "sweeps.md"
          ],
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   assets = ["assets/favicon.ico",
                                       "assets/heatmaps.css",
                                       "assets/heatmaps.js"]))
 
-# The heatmaps on the benchmark page load assets/sweep-data.js: the sweep comparison given in
+# The heatmaps on the sweep page load assets/sweep-data.js: the sweep comparison given in
 # BENCHMARK_SWEEP_COMPARISON, or null when no sweep results are available.
 comparison = get(ENV, "BENCHMARK_SWEEP_COMPARISON", "")
 write(joinpath(@__DIR__, "build", "assets", "sweep-data.js"),

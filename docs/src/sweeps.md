@@ -1,4 +1,4 @@
-# Benchmark Results
+# Sweep Benchmarks
 
 We study how the cost of evaluating the semidiscrete right-hand side varies with the polynomial degree p and the refinement level L.
 

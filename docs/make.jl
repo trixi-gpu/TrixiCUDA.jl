@@ -10,7 +10,7 @@ makedocs(modules = [TrixiCUDA],
          sitename = "TrixiCUDA.jl",
          pages = [
              "Home" => "index.md",
-             "API Reference" => "reference.md"
+             "Benchmark Results" => "benchmark.md"
          ],
          format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true",
                                   assets = ["assets/favicon.ico"]))

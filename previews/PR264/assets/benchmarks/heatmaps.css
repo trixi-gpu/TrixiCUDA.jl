@@ -1,0 +1,92 @@
+/* Sweep heatmaps on the benchmark page, drawn by heatmaps.js. */
+.sweep-panel {
+  overflow-x: auto;
+  margin-bottom: 1.5em;
+}
+
+.content table.sweep-heatmap {
+  width: auto;
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 0.75em;
+  font-variant-numeric: tabular-nums;
+}
+
+.content table.sweep-heatmap caption {
+  caption-side: top;
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 0.3em;
+}
+
+.content table.sweep-heatmap th,
+.content table.sweep-heatmap td {
+  border: none;
+  padding: 0.2em 0.4em;
+  white-space: nowrap;
+}
+
+.content table.sweep-heatmap thead th {
+  text-align: center;
+}
+
+.content table.sweep-heatmap thead th:first-child {
+  text-align: right;
+}
+
+.content table.sweep-heatmap tbody th {
+  text-align: left;
+  font-family: var(--family-code, monospace);
+  font-weight: normal;
+}
+
+.content table.sweep-heatmap td {
+  min-width: 3.2em;
+  text-align: center;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.25);
+}
+
+.content table.sweep-heatmap td.strong {
+  color: #fff;
+}
+
+.sweep-heatmap td.inconclusive,
+.sweep-swatch.inconclusive {
+  background-image: repeating-linear-gradient(135deg, rgba(128, 128, 128, 0.28) 0 3px, transparent 3px 6px);
+}
+
+.sweep-heatmap td.failed,
+.sweep-swatch.failed {
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.content table.sweep-heatmap td.outside,
+.sweep-swatch.outside {
+  background-color: rgba(128, 128, 128, 0.35);
+  box-shadow: none;
+}
+
+.sweep-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em 1.2em;
+  font-size: 0.85em;
+}
+
+.sweep-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.sweep-swatch {
+  display: inline-block;
+  width: 1.6em;
+  height: 1.1em;
+  line-height: 1.1em;
+  text-align: center;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.35);
+}

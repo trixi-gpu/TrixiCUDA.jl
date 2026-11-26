@@ -32,9 +32,10 @@
     const [low, high] = point.interval;
     const title = `${where}\n${point.dofs_per_field.toLocaleString("en-US")} DOFs per field\n` +
       `Speedup ${point.speedup.toFixed(3)}x, 95% interval ${low.toFixed(3)}–${high.toFixed(3)}: ${point.verdict}`;
-    const strong = point.style !== "" && Math.abs(Math.log2(point.speedup)) > 0.6;
+    const style = fill(point);
+    const strong = style !== "" && Math.abs(Math.log2(point.speedup)) > 0.6;
     const classes = [point.verdict.replace(" ", "-"), strong ? "strong" : ""].join(" ").trim();
-    return el("td", { class: classes, style: point.style, title }, point.speedup.toFixed(2));
+    return el("td", { class: classes, style, title }, point.speedup.toFixed(2));
   }
 
   function panel(sweep, d, points) {
@@ -77,7 +78,6 @@
 
   function render(root, data) {
     if (!data) return;
-    data.points.forEach((p) => { p.style = p.error ? "" : fill(p); });
     root.append(summary(data), legend(data.noise_band));
     for (const sweep of SWEEPS) {
       root.append(el("h3", {}, sweep.title));

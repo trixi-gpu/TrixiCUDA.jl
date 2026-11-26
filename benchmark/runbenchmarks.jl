@@ -42,9 +42,7 @@ function benchmark_rhs(case; t, samples, kwargs...)
     trial = @benchmark begin
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $semi, $t)
     end setup=(CUDA.@sync fill!($du, 0)) evals=1 seconds=1e6 samples=samples
-    return Dict("minimum_ns" => minimum(trial).time,
-                "samples_ns" => trial.times,
-                "samples" => length(trial),
+    return Dict("samples_ns" => trial.times,
                 "dofs_per_field" => div(length(u), Trixi.nvariables(equations)),
                 "shape" => collect(size(u)), "initial_time" => t,
                 "input_hash" => bytes2hex(sha256(reinterpret(UInt8, vec(u_host)))))
@@ -213,7 +211,6 @@ function write_settings(io, parameters)
 end
 
 function write_report(io, baselines, targets)
-    foreach(r -> validate_comparison(r, targets[1]), [baselines; targets[2:end]])
     baseline, target = baselines[1], targets[1]
     b_env, t_env = baseline["environment"], target["environment"]
     rows = [compare_case(name, baselines, targets, b_env["commit"], t_env["commit"])
@@ -235,7 +232,6 @@ function write_report(io, baselines, targets)
 end
 
 function sweep_rows(baselines, targets)
-    foreach(r -> validate_comparison(r, targets[1]), [baselines; targets[2:end]])
     b_commit, t_commit = baselines[1]["environment"]["commit"], targets[1]["environment"]["commit"]
     return map([point_name(case.name, point) for case in RHS_CASES for point in sweep_points(case.name)]) do name
         info = targets[1]["benchmarks"][name]
@@ -318,7 +314,6 @@ function compare()
     scope = ENV["BENCHMARK_SCOPE"]
     scope in ("mini", "sweep") || error("Unknown benchmark scope: $scope")
     head, baseline = comparison_commits()
-    open(io -> println(io, "baseline=", baseline), ENV["GITHUB_OUTPUT"], "a")
     output = joinpath(@__DIR__, "results")
     rm(output; force = true, recursive = true)
     mktempdir() do work
@@ -349,6 +344,7 @@ function compare()
             results = Dict(label => [read_result(result(label, i)) for i in 1:PROCESSES]
                            for label in ("baseline", "target"))
             baselines, targets = results["baseline"], results["target"]
+            foreach(r -> validate_comparison(r, targets[1]), [baselines; targets[2:end]])
             if scope == "mini"
                 text = sprint(io -> write_report(io, baselines, targets))
             else

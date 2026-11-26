@@ -68,7 +68,6 @@ jobs:
     continue-on-error: true
     outputs:
       complete: ${{ steps.environment.outcome == 'success' }}
-      baseline: ${{ steps.measure.outputs.baseline }}
       head: ${{ needs.prepare.outputs.head }}
       pr: ${{ needs.prepare.outputs.pr }}
       base: ${{ needs.prepare.outputs.base }}
@@ -84,7 +83,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Measure the baseline and target performance
-        id: measure
         run: |
           nvidia-smi
           julia +1.10 --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'

@@ -76,11 +76,7 @@
   }
 
   function render(root, data) {
-    if (!data) {
-      root.append(el("p", {}, "No sweep results yet. Push a commit whose title contains ",
-        el("code", {}, "[benchmark sweep]"), " to measure one."));
-      return;
-    }
+    if (!data) return;
     data.points.forEach((p) => { p.style = p.error ? "" : fill(p); });
     root.append(summary(data), legend(data.noise_band));
     for (const sweep of SWEEPS) {

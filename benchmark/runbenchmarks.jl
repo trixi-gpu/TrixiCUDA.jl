@@ -306,13 +306,14 @@ function comparison_data(baselines, targets, rows)
         data = Dict{String, Any}("case" => row.case, "polydeg" => row.polydeg, "level" => row.level,
                                  "sweeps" => row.sweeps)
         haskey(row, :error) && return merge(data, Dict("error" => row.error))
-        return merge(data, Dict("dofs_per_field" => row.dofs, "speedup" => row.speedup,
-                                "interval" => collect(row.interval), "verdict" => row.verdict))
+        return merge(data,
+                     Dict("dofs_per_field" => row.dofs, "speedup" => row.speedup,
+                          "interval" => collect(row.interval), "verdict" => row.verdict))
     end
     return Dict("schema" => 1, "noise_band" => NOISE_BAND,
                 "baseline" => Dict(key => b_env[key] for key in ("commit", "measured_at", "build_url")),
                 "target" => Dict("commit" => t_env["commit"], "gpu" => gpu_name(t_env),
-                                 "measured_at" => t_env["measured_at"], "build_url" => t_env["build_url"]),
+                     "measured_at" => t_env["measured_at"], "build_url" => t_env["build_url"]),
                 "points" => map(point, rows))
 end
 

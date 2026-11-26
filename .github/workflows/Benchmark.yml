@@ -234,8 +234,11 @@ jobs:
       contents: write
       statuses: write
     steps:
-      - name: Check out repository
+      # Build the branch as it is now, so that pushes during the sweep keep their docs.
+      - name: Check out the branch
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
       - name: Download the sweep results
         uses: actions/download-artifact@v7
         with:

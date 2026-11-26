@@ -2,16 +2,15 @@ using TrixiCUDA, CUDA, BenchmarkTools
 using Dates, JSON, Pkg, Printf, Random, SHA
 include("cases.jl")
 
-const NOISE_BAND = 0.03  # calibrated from runs that compare identical code (#270)
+const NOISE_BAND = 0.03
 const RESAMPLES = 9_999
-const PROCESSES = 3  # per revision, run alternately: baseline, target, baseline, ...
+const PROCESSES = 3
 
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
 
 function validate_comparison(baseline, target)
     b, t = baseline["benchmarks"], target["benchmarks"]
     keys(b) == keys(t) || error("Benchmark case sets differ")
-    # The case definitions fix the initial time, and the shape fixes the DOFs per field.
     for name in keys(t), field in ("shape", "input_hash")
         b[name][field] == t[name][field] || error("Input mismatch in $name: $field")
     end
@@ -37,7 +36,6 @@ function benchmark_rhs(case; t, samples)
     # Time the synchronized RHS call. Reset du to zero before each sample so 
     # every timed call starts with the same output buffer contents. Wait for 
     # the reset to finish before starting the timer.
-    # BenchmarkTools needs a finite time budget; this one never stops sampling early.
     trial = @benchmark begin
         CUDA.@sync TrixiCUDA.rhs_hyperbolic!($du, $u, $semi, $t)
     end setup=(CUDA.@sync fill!($du, 0)) evals=1 seconds=1e6 samples=samples
@@ -86,15 +84,9 @@ function measure()
 end
 
 median!(x) = (n = length(x); isodd(n) ? partialsort!(x, (n + 1) ÷ 2) : sum(partialsort!(x, (n ÷ 2):(n ÷ 2 + 1))) / 2)
-
-# Median of all pairwise ratios between baseline and target process medians.
 median_ratio(base, target) = median!(vec([b / t for b in base, t in target]))
-
-# Two-level resampling: draw processes with replacement, then samples within each process.
 resampled_medians(rng, processes) = [median!(rand(rng, p, length(p))) for p in rand(rng, processes, length(processes))]
 
-# 95% percentile bootstrap interval. With 9,999 resamples the interval ends are
-# exactly the 250th smallest and the 250th largest estimates.
 function speedup_interval(base, target, rng)
     estimates = sort!([median_ratio(resampled_medians(rng, base), resampled_medians(rng, target))
                        for _ in 1:RESAMPLES])
@@ -102,7 +94,6 @@ function speedup_interval(base, target, rng)
     return estimates[k], estimates[end + 1 - k]
 end
 
-# The seed depends on the case and both commits, so a report is reproducible from its raw samples.
 bootstrap_rng(name, baseline, target) = Xoshiro(first(reinterpret(UInt64, sha256(name * baseline * target)[1:8])))
 
 function verdict((low, high))
@@ -159,30 +150,34 @@ function write_report(io, baselines, targets)
         measured_at = Dates.format(DateTime(env["measured_at"]), dateformat"yyyy-mm-dd HH:MM")
         println(io, label, " measurement: ", measured_at, " UTC; ", env["build_url"], ".  ")
     end
-    # Keep the numbers first; the settings stay one click away.
     println(io, "\n<details>\n<summary><b>Benchmark settings</b></summary>\n\n",
-            "<br>\n\n",
-            "**Workload:** The benchmark measures `TrixiCUDA.rhs_hyperbolic!` using Float64 arrays ",
-            "and one Julia thread. The cases use classical initial conditions, polynomial degrees, ",
-            "meshes, and fluxes adapted from Trixi/TrixiShallowWater examples. ",
-            "Inputs are initialized at t = ", @sprintf("%g", parameters["initial_time"]), ".\n\n",
-            "**Comparison setup:** Both revisions are measured on the same GPU using the ",
-            "target commit's benchmark harness, with identical cases and timing settings, in ",
-            PROCESSES, " separate Julia processes per revision that alternate between baseline and ",
-            "target. Each revision loads the source from its respective commit and resolves ",
-            "its Julia dependencies independently. The comparison ",
-            "captures the combined performance impact of source code and dependency changes.\n\n",
-            "**Sampling:** After one warm-up RHS call per case, each process records ",
-            parameters["samples"], " samples per case, each timing one GPU-synchronized RHS call.\n\n",
-            "**Statistics:** The speedup is the median of all ratios between baseline and target ",
-            "process medians. Its 95% interval is a two-level percentile bootstrap with ", RESAMPLES,
-            " resamples that draws processes, then samples within each process; ",
-            "the random seed is derived from the case name and both commits, so the same samples ",
-            "always give the same interval. Min columns show the fastest sample of each revision. ",
-            "The noise band was calibrated with runs that compare identical code.\n\n",
-            "**Target:** The head commit of a push whose title contains `[benchmark mini]`.\n\n",
-            "**Baseline:** PR runs use the exact merge base of the target commit and ",
-            "the fetched PR base branch. Default-branch runs use the target commit's first parent.\n\n</details>\n")
+        "<br>\n\n",
+        "**Workload:** Each case times `TrixiCUDA.rhs_hyperbolic!` with Float64 arrays on one ",
+        "Julia thread. Initial conditions, polynomial degrees, meshes, and fluxes are adapted ",
+        "from the corresponding Trixi.jl and TrixiShallowWater.jl examples, and the state is ",
+        "initialized at t = ", @sprintf("%g", parameters["initial_time"]), ".\n\n",
+        "**Comparison setup:** Both revisions run on the same GPU with the target commit's ",
+        "benchmark harness, so cases and timing settings are identical. Each revision loads its ",
+        "own source and resolves its own Julia dependencies, so the comparison reflects source ",
+        "and dependency changes together. Each revision is measured in ", PROCESSES,
+        " separate Julia processes, run in alternating order (baseline, target, baseline, …), ",
+        "so that variation between processes, such as a different GPU clock state, is ",
+        "reflected in the interval rather than mistaken for a performance change.\n\n",
+        "**Sampling:** After one warm-up call per case, each process records ",
+        parameters["samples"], " samples per case, each timing a single GPU-synchronized ",
+        "RHS call.\n\n",
+        "**Statistics:** The speedup is the median of all ratios between baseline and target ",
+        "process medians. Its 95% interval is a two-level percentile bootstrap with ", RESAMPLES,
+        " resamples, which draws processes and then samples within each drawn process. The ",
+        "random seed is derived from the case name and both commits, so identical samples ",
+        "always yield the same interval. The ±", round(Int, 100 * NOISE_BAND), "% noise band ",
+        "was calibrated with runs that compare identical code, in which no case was reported ",
+        "faster or slower. The minimum columns show the fastest sample of each revision across ",
+        "all processes.\n\n",
+        "**Target:** The head commit of a push whose commit title contains `[benchmark mini]`.\n\n",
+        "**Baseline:** For pull requests, the merge base of the target commit and the fetched ",
+        "PR base branch; on the default branch, the first parent of the target commit.",
+        "\n\n</details>\n")
 end
 
 function comparison_commits()

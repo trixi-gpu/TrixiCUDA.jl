@@ -109,8 +109,9 @@ jobs:
         run: |
           {
             printf '\n[Download report and measurements](%s): ' "$RESULTS_URL"
-            printf '%s' '`report.md` (full report), `baseline-<i>.json` and `target-<i>.json` '
-            printf '%s\n' '(raw timing samples, parameters, and environment details of each process).  '
+            printf '%s' '`report.md` (full report) and one baseline and one target JSON file per process, '
+            printf '%s' '`baseline-*.json` and `target-*.json` '
+            printf '%s\n' '(raw timing samples, parameters, and environment details).  '
             printf '[Download target and baseline environments](%s): ' "$ENVIRONMENT_URL"
             printf '%s' '`target/Project.toml`, `target/Manifest.toml`, '
             printf '%s' '`baseline/Project.toml`, and `baseline/Manifest.toml` '

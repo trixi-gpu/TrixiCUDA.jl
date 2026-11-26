@@ -3,8 +3,15 @@ module.exports = async ({github, context}) => {
   const sha = process.env.HEAD_SHA;
   const runURL = `${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${context.runId}`;
 
-  const marker = '<!-- trixicuda-gpu-rhs-benchmarks -->';
-  const body = `${marker}\nGPU RHS mini benchmark for \`${sha.slice(0, 7)}\`: [full report](${runURL})`;
+  const previewURL = `https://${repo.owner}.github.io/${repo.repo}/previews/PR${number}/benchmark/`;
+  const {marker, text} = process.env.COMMENT_KIND === 'sweep' ? {
+    marker: '<!-- trixicuda-gpu-rhs-sweep -->',
+    text: `GPU RHS benchmark sweep for \`${sha.slice(0, 7)}\`: [heatmaps](${previewURL})`
+  } : {
+    marker: '<!-- trixicuda-gpu-rhs-benchmarks -->',
+    text: `GPU RHS mini benchmark for \`${sha.slice(0, 7)}\`: [full report](${runURL})`
+  };
+  const body = `${marker}\n${text}`;
 
   const comments = await github.paginate(github.rest.issues.listComments, {
     ...repo, issue_number: number, per_page: 100

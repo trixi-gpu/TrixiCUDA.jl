@@ -102,6 +102,7 @@ jobs:
       - name: Publish or update bot comment
         uses: actions/github-script@v9
         env:
+          COMMENT_KIND: mini
           PR_NUMBER: ${{ needs.mini.outputs.pr }}
           HEAD_SHA: ${{ needs.mini.outputs.head }}
           BASE_BRANCH: ${{ needs.mini.outputs.base }}
@@ -148,6 +149,10 @@ jobs:
       actions: write
       contents: write
       statuses: write
+    outputs:
+      head: ${{ needs.sweep.outputs.head }}
+      pr: ${{ needs.sweep.outputs.pr }}
+      base: ${{ needs.sweep.outputs.base }}
     steps:
       # Build the branch as it is now, so that pushes during the sweep keep their docs.
       - name: Check out the branch
@@ -173,3 +178,28 @@ jobs:
           BENCHMARK_SWEEP_COMPARISON: ${{ github.workspace }}/sweep-results/comparison.json
           BENCHMARK_SWEEP_PR: ${{ needs.sweep.outputs.pr }}
         run: julia --project=docs --color=yes docs/make.jl
+
+  sweep-comment:
+    name: Publish sweep comment
+    needs: sweep-docs
+    if: needs['sweep-docs'].outputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out the comment publisher
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Publish or update bot comment
+        uses: actions/github-script@v9
+        env:
+          COMMENT_KIND: sweep
+          PR_NUMBER: ${{ needs['sweep-docs'].outputs.pr }}
+          HEAD_SHA: ${{ needs['sweep-docs'].outputs.head }}
+          BASE_BRANCH: ${{ needs['sweep-docs'].outputs.base }}
+        with:
+          script: |
+            await require('./.github/scripts/benchmark-comment.js')({github, context});

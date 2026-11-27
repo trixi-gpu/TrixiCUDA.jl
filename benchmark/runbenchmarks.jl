@@ -5,7 +5,8 @@ include("sweeps.jl")
 
 const NOISE_BAND = 0.03
 const RESAMPLES = 9_999
-const PROCESSES = 3
+# Temporary: the sweep tries 5 processes per revision to see whether its false verdicts go away.
+processes(scope) = scope == "mini" ? 3 : 5
 const VERDICTS = ("faster", "slower", "no change", "inconclusive")
 
 git(args...) = Cmd(String["git", "-C", dirname(@__DIR__), args...])
@@ -187,7 +188,7 @@ function write_settings(io, parameters)
             "**Comparison setup:** Both revisions run on the same GPU with the target commit's ",
             "benchmark harness, so cases and timing settings are identical. Each revision loads its ",
             "own source and resolves its own Julia dependencies, so the comparison reflects source ",
-            "and dependency changes together. Each revision is measured in ", PROCESSES,
+            "and dependency changes together. Each revision is measured in ", processes(parameters["scope"]),
             " separate Julia processes, run in alternating order (baseline, target, baseline, …), ",
             "so that variation between processes, such as a different GPU clock state, is ",
             "reflected in the interval rather than mistaken for a performance change.\n\n",
@@ -331,11 +332,11 @@ function compare()
             # One Julia thread keeps the CPU-side parts reproducible.
             script = joinpath(@__DIR__, "runbenchmarks.jl")
             result(label, i) = joinpath(output, "$label-$i.json")
-            for i in 1:PROCESSES, (label, project, commit) in (("baseline", env, baseline), ("target", @__DIR__, head))
-                @info "Measurement $i of $PROCESSES" label commit
+            for i in 1:processes(scope), (label, project, commit) in (("baseline", env, baseline), ("target", @__DIR__, head))
+                @info "Measurement $i of $(processes(scope))" label commit
                 run(`$(Base.julia_cmd()) --threads=1 --project=$project $script $(result(label, i)) $commit $scope`)
             end
-            results = Dict(label => [read_result(result(label, i)) for i in 1:PROCESSES]
+            results = Dict(label => [read_result(result(label, i)) for i in 1:processes(scope)]
                            for label in ("baseline", "target"))
             baselines, targets = results["baseline"], results["target"]
             foreach(r -> validate_comparison(r, targets[1]), [baselines; targets[2:end]])

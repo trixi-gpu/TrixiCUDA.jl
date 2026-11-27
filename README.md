@@ -136,7 +136,7 @@ Each run compares two commits on the same GPU:
 - **Target:** the pushed commit whose title requests the benchmark.
 - **Baseline:** the merge base with the PR's base branch, or on the default branch, the parent of the pushed commit.
 
-Both commits are measured with the target's benchmark harness, each with its own source code and resolved dependencies, in three alternating Julia processes (baseline, target, baseline, …). The speedup is the median ratio of the baseline and target process medians, with a 95% two-level bootstrap interval. A result is reported as faster or slower only when its whole interval lies outside a ±3% noise band, calibrated with runs that compare identical code; otherwise it is reported as no change or inconclusive.
+Both commits are measured with the target's benchmark harness, each with its own source code and resolved dependencies, in alternating Julia processes (baseline, target, baseline, …), three per commit for mini and five for the sweep. The speedup is the median ratio of the baseline and target process medians, with a 95% two-level bootstrap interval. A result is reported as faster or slower only when its whole interval lies outside a ±3% noise band, calibrated with runs that compare identical code; otherwise it is reported as no change or inconclusive.
 
 Benchmarks are informational: they never fail a check, and no regression threshold is enforced. Each run keeps its full report, raw timing samples, and resolved Julia environments as workflow artifacts for 90 days.
 

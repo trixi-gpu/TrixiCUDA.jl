@@ -119,7 +119,7 @@ jobs:
       group: gpu-rhs-${{ github.repository }}
       queue: max
     # This timeout value depends on the total time for the sweep benchmark.
-    timeout-minutes: 360
+    timeout-minutes: 300
     continue-on-error: true
     outputs:
       complete: ${{ steps.benchmark.outcome == 'success' }}

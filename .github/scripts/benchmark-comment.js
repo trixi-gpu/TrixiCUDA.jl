@@ -7,7 +7,7 @@ module.exports = async ({github, context}) => {
   const {marker, request, text} = process.env.COMMENT_KIND === 'sweep' ? {
     marker: '<!-- trixicuda-gpu-rhs-sweep -->',
     request: '[benchmark sweep]',
-    text: `GPU RHS benchmark sweep for \`${sha.slice(0, 7)}\`: [heatmaps](${previewURL})`
+    text: `GPU RHS benchmark sweep for \`${sha.slice(0, 7)}\`: [heatmaps](${previewURL}), [full report](${runURL})`
   } : {
     marker: '<!-- trixicuda-gpu-rhs-mini -->',
     request: '[benchmark mini]',

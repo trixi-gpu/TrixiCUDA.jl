@@ -127,7 +127,7 @@ Benchmarks run on a self-hosted GPU only when the title of a pushed commit asks 
 | Marker | What is measured | Where the results appear |
 |:--|:--|:--|
 | `[benchmark mini]` | Each case at its default polynomial degree and mesh | A PR comment linking the full report in the job summary |
-| `[benchmark sweep]` | Each case across refinement levels at a fixed degree and across polynomial degrees on a fixed mesh | A short report linked from a PR comment in the job summary; some extra heatmaps in docs|
+| `[benchmark sweep]` | Each case across refinement levels at a fixed degree and across polynomial degrees on a fixed mesh | A report linked from a PR comment in the job summary; some extra heatmaps in docs|
 
 The markers are independent, and a title may contain both. A squash merge whose title contains a marker runs that benchmark on the default branch, comparing the merged commit with its parent: `[benchmark mini]` writes its report to the run's job summary, and `[benchmark sweep]` updates the heatmaps on the [Sweep Benchmarks](https://trixi-gpu.github.io/TrixiCUDA.jl/dev/sweeps/) page of the development docs.
 

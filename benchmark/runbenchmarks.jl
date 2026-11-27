@@ -63,9 +63,9 @@ function measure()
     CUDA.functional() || error("A functional CUDA GPU is required for RHS benchmarks")
     # Initial time for every case; the results and report record this same value.
     t = 0.0
-    # Temporary: the sweep takes 100 samples per point like mini, to test whether this removes its
-    # false faster or slower verdicts. It may go back to 50 if the longer runtime is not worth it.
-    samples = 100
+    # The sweep takes fewer samples per point than mini, so that its 558 points in 6 processes
+    # finish in a few hours. Revisit 50 once the RHS gets faster and 100 becomes affordable.
+    samples = scope == "mini" ? 100 : 50
     packages = Dict(string(id) => Dict("name" => info.name, "version" => string(info.version),
                                        "tree" => string(info.tree_hash))
                     for (id, info) in Pkg.dependencies() if info.version !== nothing)

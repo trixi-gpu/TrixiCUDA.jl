@@ -14,6 +14,7 @@ A cell is green when its whole interval lies above the ±3% noise band, red when
 
 ```@raw html
 <div id="sweep-heatmaps"></div>
+<br>
 ```
 
 !!! note "Latest results"

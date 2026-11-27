@@ -5,7 +5,8 @@ include("sweeps.jl")
 
 const NOISE_BAND = 0.03
 const RESAMPLES = 9_999
-# The sweep needs more processes than mini to avoid false verdicts across its 558 points.
+# Three processes per revision are enough for mini, but the sweep needs five
+# processes to avoid false verdicts across its many points.
 processes(scope) = scope == "mini" ? 3 : 5
 const VERDICTS = ("faster", "slower", "no change", "inconclusive")
 

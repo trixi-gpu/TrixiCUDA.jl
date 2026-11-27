@@ -119,22 +119,22 @@ sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
 Please also try the examples in the tests directory, as they are always the most up-to-date.
 
 # Benchmarks
-We benchmark `rhs_hyperbolic!`, which evaluates the time derivative of the spatially discretized solution, to guide the optimization of the GPU semidiscretization and to track its performance over time. The 37 benchmark cases cover every right-hand-side code path in 1D, 2D, and 3D; the [documentation](https://trixi-gpu.github.io/TrixiCUDA.jl/dev/) lists each case and the code paths it exercises.
+We benchmark `rhs_hyperbolic!`, which evaluates the time derivative of the spatially discretized solution, to guide the optimization of the GPU semidiscretization and to track its performance over time. The benchmark cases cover every right-hand-side code path in 1D, 2D, and 3D; the [Performance Benchmarks](https://trixi-gpu.github.io/TrixiCUDA.jl/dev/#Performance-Benchmarks) page lists each case and the code paths it exercises.
 
 ## Running Benchmarks in CI
-Benchmarks run on a self-hosted GPU only when the title of a pushed commit asks for them, on `main` or on a branch of an open, non-draft pull request in this repository. Runs are queued, so each has exclusive access to the GPU.
+Benchmarks run on a self-hosted GPU only when the title of a pushed commit asks for them, on the default branch or on a branch of an open, non-draft pull request in this repository. Runs are queued, so each has exclusive access to the GPU.
 
 | Marker | What is measured | Where the results appear |
 |:--|:--|:--|
 | `[benchmark mini]` | Each case at its default polynomial degree and mesh | A PR comment linking the full report in the job summary |
-| `[benchmark sweep]` | Each case along a level sweep at p = 3 and a degree sweep on a fixed mesh, 558 points in total | Heatmaps on the [Sweep Benchmarks](https://trixi-gpu.github.io/TrixiCUDA.jl/dev/sweeps/) page of the docs, and a PR comment linking them |
+| `[benchmark sweep]` | Each case across refinement levels at a fixed degree and across polynomial degrees on a fixed mesh | A short report linked from a PR comment in the job summary; some extra heatmaps in docs|
 
-The markers are independent, and a title may contain both. A squash merge whose title contains `[benchmark sweep]` measures the merged commit on `main` and updates the heatmaps in the development docs.
+The markers are independent, and a title may contain both. A squash merge whose title contains a marker runs that benchmark on the default branch, comparing the merged commit with its parent: `[benchmark mini]` writes its report to the run's job summary, and `[benchmark sweep]` updates the heatmaps on the [Sweep Benchmarks](https://trixi-gpu.github.io/TrixiCUDA.jl/dev/sweeps/) page of the development docs.
 
 ## Methodology
 Each run compares two commits on the same GPU:
-- **Target:** the pushed commit.
-- **Baseline:** the merge base with the PR's base branch, or on `main`, the parent of the pushed commit.
+- **Target:** the pushed commit whose title requests the benchmark.
+- **Baseline:** the merge base with the PR's base branch, or on the default branch, the parent of the pushed commit.
 
 Both commits are measured with the target's benchmark harness, each with its own source code and resolved dependencies, in three alternating Julia processes (baseline, target, baseline, …). The speedup is the median ratio of the baseline and target process medians, with a 95% two-level bootstrap interval. A result is reported as faster or slower only when its whole interval lies outside a ±3% noise band, calibrated with runs that compare identical code; otherwise it is reported as no change or inconclusive.
 

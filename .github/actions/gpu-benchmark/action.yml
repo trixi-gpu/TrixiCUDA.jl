@@ -1,0 +1,68 @@
+name: GPU RHS benchmark
+description: Measure the baseline and target RHS performance and upload the results.
+
+inputs:
+  scope:
+    description: Benchmark scope, mini or sweep.
+    required: true
+  head:
+    description: Measured target commit.
+    required: true
+  base:
+    description: Branch the baseline is taken from.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Measure the baseline and target performance
+      shell: bash
+      env:
+        BENCHMARK_SCOPE: ${{ inputs.scope }}
+        BENCHMARK_BASE_BRANCH: ${{ inputs.base }}
+        BENCHMARK_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        BENCHMARK_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        nvidia-smi
+        julia +1.10 --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+        julia +1.10 --project=benchmark benchmark/runbenchmarks.jl
+    - name: Upload report and raw measurements
+      id: results
+      uses: actions/upload-artifact@v7
+      with:
+        name: gpu-rhs-${{ inputs.scope }}-results-${{ inputs.head }}
+        path: |
+          benchmark/results/*.json
+          benchmark/results/report.md
+        if-no-files-found: error
+        retention-days: 90
+        overwrite: true
+    - name: Upload resolved Julia environments
+      id: environment
+      uses: actions/upload-artifact@v7
+      with:
+        name: gpu-rhs-${{ inputs.scope }}-environment-${{ inputs.head }}
+        path: benchmark/results/environments/
+        if-no-files-found: error
+        retention-days: 90
+        overwrite: true
+    - name: Link artifacts from the report
+      shell: bash
+      env:
+        RESULTS_URL: ${{ steps.results.outputs.artifact-url }}
+        ENVIRONMENT_URL: ${{ steps.environment.outputs.artifact-url }}
+      run: |
+        files='`report.md` (full report)'
+        if [ -f benchmark/results/comparison.json ]; then
+          files="$files, \`comparison.json\` (per-point results for the heatmaps),"
+        fi
+        {
+          printf '\n[Download report and measurements](%s): %s ' "$RESULTS_URL" "$files"
+          printf '%s' 'and one baseline and one target JSON file per process, '
+          printf '%s' '`baseline-*.json` and `target-*.json` '
+          printf '%s\n' '(raw timing samples, parameters, and environment details).  '
+          printf '[Download target and baseline environments](%s): ' "$ENVIRONMENT_URL"
+          printf '%s' '`target/Project.toml`, `target/Manifest.toml`, '
+          printf '%s' '`baseline/Project.toml`, and `baseline/Manifest.toml` '
+          printf '%s\n\n' '(the exact resolved Julia environments).'
+        } >> "$GITHUB_STEP_SUMMARY"

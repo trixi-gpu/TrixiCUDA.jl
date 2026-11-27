@@ -51,8 +51,44 @@ jobs:
       - name: Instantiate docs environment
         if: steps.docs.outputs.skip != 'true'
         run: julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      # Keep the heatmaps of the branch's latest benchmark sweep, if one has run.
+      - name: Find the latest sweep results
+        if: steps.docs.outputs.skip != 'true'
+        id: sweep
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr && pr.head.repo?.full_name !== context.payload.repository.full_name) return;
+            const branch = pr?.head.ref ?? context.ref.replace('refs/heads/', '');
+            const runs = github.paginate.iterator(github.rest.actions.listWorkflowRuns, {
+              ...context.repo, workflow_id: 'Benchmark.yml', branch, event: 'push', per_page: 100,
+              created: `>=${new Date(Date.now() - 90 * 86400e3).toISOString().slice(0, 10)}`
+            });
+            for await (const {data} of runs) {
+              for (const run of data) {
+                const name = `gpu-rhs-sweep-results-${run.head_sha}`;
+                const {data: {artifacts}} = await github.rest.actions.listWorkflowRunArtifacts({
+                  ...context.repo, run_id: run.id, name
+                });
+                if (artifacts.some(a => !a.expired)) {
+                  core.setOutput('name', name);
+                  core.setOutput('run-id', run.id);
+                  return;
+                }
+              }
+            }
+      - name: Download the latest sweep results
+        if: steps.sweep.outputs.name
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ steps.sweep.outputs.name }}
+          run-id: ${{ steps.sweep.outputs.run-id }}
+          github-token: ${{ github.token }}
+          path: sweep-results
       - name: Build and deploy documentation
         if: steps.docs.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # For Documenter via GitHub Actions
+          BENCHMARK_SWEEP_COMPARISON: ${{ steps.sweep.outputs.name && format('{0}/sweep-results/comparison.json', github.workspace) || '' }}
         run: julia --project=docs --color=yes docs/make.jl

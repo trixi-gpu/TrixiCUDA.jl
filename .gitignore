@@ -3,6 +3,3 @@ LocalPreferences.toml
 
 out*/
 docs/build
-.outdated/
-
-*.png

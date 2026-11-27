@@ -119,26 +119,31 @@ sol = solve(ode, CarpenterKennedy2N54(williamson_condition = false);
 Please also try the examples in the tests directory, as they are always the most up-to-date.
 
 # Benchmarks
-We benchmark `rhs_hyperbolic!` to guide semidiscretization optimization and track performance changes. This function evaluates the time derivative of the spatially discretized solution.
+We benchmark `rhs_hyperbolic!`, which evaluates the time derivative of the spatially discretized solution, to guide the optimization of the GPU semidiscretization and to track its performance over time. The benchmark cases cover every right-hand-side code path in 1D, 2D, and 3D; the [Performance Benchmarks](https://trixi-gpu.github.io/TrixiCUDA.jl/dev/#Performance-Benchmarks) page lists each case and the code paths it exercises.
 
-GitHub Actions runs GPU benchmarks on pushes to branches of open, non-draft pull requests in this repository. Benchmark runs are queued to ensure exclusive access to the self-hosted GPU (the GPU model may change over time as optimization priorities evolve). Both commits in each comparison are benchmarked on the same GPU with the same benchmark harness, each using its own source code and resolved dependencies.
+## Running Benchmarks in CI
+Benchmarks run on a self-hosted GPU only when the title of a pushed commit asks for them, on the default branch or on a branch of an open, non-draft pull request in this repository. Runs are queued, so each has exclusive access to the GPU.
 
-Each benchmark run compares two commits:
-- **Target:** the commit at the head of the push.
-- **Baseline:** the merge base of the target commit and the PR’s base branch.
+| Marker | What is measured | Where the results appear |
+|:--|:--|:--|
+| `[benchmark mini]` | Each case at its default polynomial degree and mesh | A PR comment linking the full report in the job summary |
+| `[benchmark sweep]` | Each case across refinement levels at a fixed degree and across polynomial degrees on a fixed mesh | A report linked from a PR comment in the job summary; some extra heatmaps in docs|
 
-Results are available in three places:
-- **PR comment:** the geometric mean speedup, the three largest timing changes, and a link to the full report. Subsequent runs update the same comment.
-- **Actions job summary:** per-case timings, sample counts, and speedups, along with the measurement settings and environment details.
-- **Actions artifacts:** the full report, all raw timing samples, and the resolved Julia environments for both commits.
+The markers are independent, and a title may contain both. A squash merge whose title contains a marker runs that benchmark on the default branch, comparing the merged commit with its parent: `[benchmark mini]` writes its report to the run's job summary, and `[benchmark sweep]` updates the heatmaps on the [Sweep Benchmarks](https://trixi-gpu.github.io/TrixiCUDA.jl/dev/sweeps/) page of the development docs.
 
-Benchmarks are informational. Small timing differences may reflect measurement noise, and no regression threshold is enforced.
+## Methodology
+Each run compares two commits on the same GPU:
+- **Target:** the pushed commit whose title requests the benchmark.
+- **Baseline:** the merge base with the PR's base branch, or on the default branch, the parent of the pushed commit.
 
-### Reference Benchmarks (2025)
+Both commits are measured with the target's benchmark harness, each with its own source code and resolved dependencies, in alternating Julia processes (baseline, target, baseline, …), three per commit for mini and five for the sweep. The speedup is the median ratio of the baseline and target process medians, with a 95% two-level bootstrap interval. A result is reported as faster or slower only when its whole interval lies outside a ±3% noise band, calibrated with runs that compare identical code; otherwise it is reported as no change or inconclusive.
+
+Benchmarks are informational: they never fail a check, and no regression threshold is enforced. Each run keeps its full report, raw timing samples, and resolved Julia environments as workflow artifacts for 90 days.
+
+## Reference Benchmarks (2025)
 For a comprehensive CPU/GPU comparison of semidiscretization performance, see the [2025 benchmark report](https://trixi-gpu.github.io/benchmark/). These results reflect the package versions and test environment used at the time; ongoing performance changes are tracked by the CI benchmarks above.
 
-The benchmarks presented at JuliaCon 2025 can be reproduced with the
-[benchmark repository](https://github.com/trixi-gpu/juliacon-2025-semidiscretization-benchmark).
+The benchmarks presented at JuliaCon 2025 can be reproduced with the [benchmark repository](https://github.com/trixi-gpu/juliacon-2025-semidiscretization-benchmark).
 
 # Join Our Slack Group
 

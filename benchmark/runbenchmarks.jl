@@ -64,7 +64,7 @@ function measure()
     # Initial time for every case; the results and report record this same value.
     t = 0.0
     # Temporary: the sweep takes 100 samples per point like mini, to test whether this removes its
-    # false faster or slower verdicts. It may go back to 50, which takes about half the time.
+    # false faster or slower verdicts. It may go back to 50 if the longer runtime is not worth it.
     samples = 100
     packages = Dict(string(id) => Dict("name" => info.name, "version" => string(info.version),
                                        "tree" => string(info.tree_hash))

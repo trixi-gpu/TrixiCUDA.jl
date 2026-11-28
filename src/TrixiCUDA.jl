@@ -48,7 +48,7 @@ using Trixi: summary_header, summary_line, summary_footer, increment_indent
 import Trixi: get_nodes, nnodes, polydeg, eachnode, SolutionAnalyzer,
               get_node_vars, get_node_coords, get_surface_node_vars,
               nelements, ninterfaces, nmortars,
-              create_cache, mesh_equations_solver_cache, wrap_array, wrap_array_native,
+              create_cache_indicator, mesh_equations_solver_cache, wrap_array, wrap_array_native,
               integrate, integrate_via_indices, calc_error_norms, analyze_integrals, max_dt
 
 # Include other source files

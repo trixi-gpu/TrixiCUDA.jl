@@ -5,7 +5,7 @@ Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 TrixiShallowWater = "804cb1fc-5b08-4398-a671-a789bfe091b3"
 
 [compat]
-CUDA = "6.4.2"
+CUDA = "6.5.1"
 Test = "1.10"
 Trixi = "0.17.19"
 TrixiShallowWater = "0.3.3"

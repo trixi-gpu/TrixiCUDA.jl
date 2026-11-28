@@ -12,7 +12,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Trixi = "a7f1ee26-1774-49b1-8366-f1abc58fbfcb"
 
 [compat]
-CUDA = "6.4.2"
+CUDA = "6.5.1"
 GPUArraysCore = "0.2.1"
 Printf = "1.10"
 SciMLBase = "3.58"

@@ -14,7 +14,7 @@ TrixiShallowWater = "804cb1fc-5b08-4398-a671-a789bfe091b3"
 
 [compat]
 BenchmarkTools = "1.6"
-CUDA = "6.4.2"
+CUDA = "6.5.1"
 JSON = "1"
 StaticArrays = "1.9.23"
 Trixi = "0.17.19"
